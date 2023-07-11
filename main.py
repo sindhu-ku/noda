@@ -30,7 +30,7 @@ def fit_parser(yaml_file):
 def main(argv):
   start_sp_time = datetime.now()
   # Create parser
-  subparser = fit_parser("fit_options.yaml")
+  subparser = fit_parser("fit_configurations_inputs.yaml")
 
   # Parse command-line input
   args = subparser.parse_args()
