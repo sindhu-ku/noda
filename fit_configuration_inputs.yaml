@@ -1,3 +1,4 @@
+config: ''
 # Fit options configuration
 
 fit_options:
@@ -11,14 +12,14 @@ fit_options:
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
   bins: 411 # Number of bins
-  stat_method_opt: CNP #NorP, CNP, or bayesian
+  stat_method_opt: bayesian #NorP, CNP, or bayesian
   #make sure to use python3.9 if you use bayesian
 
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_seed_end: 497
   bayes_chi2: CNP
-
+  bayes_events: 400
   # Energy crop range for fit
   ene_crop:
     - 0.8
@@ -75,10 +76,8 @@ fit_options:
 
 # Juno Inputs
 juno_inputs:
-  core_baselines_1:
-    - 52760.0
-  core_powers_1:
-    - 4.6
+  core_baselines_1: 52760.0
+  core_powers_1: 4.6
   core_powers_12: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
   core_baselines_12: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 52320.0, 52200.0, 215000.0, 265000.0]
   core_powers_10: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
@@ -87,14 +86,15 @@ juno_inputs:
   core_baselines_9: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
   alpha: [0.58, 0.07, 0.30, 0.05]
   efission: [202.36, 205.99, 211.12, 214.26]
-  Pth: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
-  L: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 215000.0]
-  Np: 9.244383239999999e+26
+  Pth: [449532000.0, 449532000.0, 449532000.0, 449532000.0, 449532000.0, 449532000.0, 718451000.0, 718451000.0, 2695690000.0] # MeV per day
+  L: [5275000.0, 5284000.0, 5242000.0, 5251000.0, 5212000.0, 5221000.0, 5276000.0, 5263000.0, 2150000.0] # Already in cm
+  Np: 9.24438324e+26
+  Np: 9.24438324e+26
   detector_efficiency: 0.82
   me_rho: 2.45
   me_rho_scale: 0.15
 
-  Pth2: 1.7077776e+21
+
 
   U235_scale: 0.58
   U238_scale: 0.07

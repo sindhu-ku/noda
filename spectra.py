@@ -8,20 +8,13 @@ from scipy import constants
 
 
 def Initialize( ndays=10,
-               reac_model="",
                core_baselines=[],
                core_powers=[],
-               me_rho=0.8,
-               ebins=None, ene_crop = (),
-               ene_crop2 =(),
-               pmt_opt="",
-               data_file = "",
-               FORCE_CALC_RM=False,
-               plots_folder="",
-               data_matrix_folder="", args=""):
+               ebins=None,
+               args=""):
 
 
-  opt = {'ndays': ndays, 'pmt_opt': pmt_opt, "me_rho": me_rho,
+  opt = {'ndays': ndays, "me_rho": args.me_rho,
          'core_baselines': core_baselines, 'core_powers': core_powers,
          'ebins': ebins }  # for output
 
@@ -34,18 +27,18 @@ def Initialize( ndays=10,
   ensp = {}   # energy spectra
   events = {} #events in each spectrum
   rebin_mode = 'spline'
-  if not os.path.exists(plots_folder):
-      os.makedirs(plots_folder)
+  if not os.path.exists(args.plots_folder):
+      os.makedirs(args.plots_folder)
   binw = (ebins[1]-ebins[0])*1000
   print(" # Constructing nominal spectra")
   #   reactor x IBD
   #     From ROOT file
-  ensp['rfis0'] = GetSpectrumFromROOT(data_file, 'HuberMuellerFlux_U235', scale=args.U235_scale) + \
-                 GetSpectrumFromROOT(data_file, 'HuberMuellerFlux_U238', scale=args.U238_scale) + \
-                 GetSpectrumFromROOT(data_file, 'HuberMuellerFlux_Pu239', scale=args.Pu239_scale) + \
-                 GetSpectrumFromROOT(data_file, 'HuberMuellerFlux_Pu241', scale=args.Pu241_scale)
+  ensp['rfis0'] = GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_U235', scale=args.U235_scale) + \
+                 GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_U238', scale=args.U238_scale) + \
+                 GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_Pu239', scale=args.Pu239_scale) + \
+                 GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_Pu241', scale=args.Pu241_scale)
   # IBD xsection
-  ensp['sibd'] = GetSpectrumFromROOT(data_file, 'IBDXsec_VogelBeacom_DYB')
+  ensp['sibd'] = GetSpectrumFromROOT(args.input_data_file, 'IBDXsec_VogelBeacom_DYB')
   s_ibd = sp.interpolate.interp1d(ensp['sibd'].GetBinCenters(), ensp['sibd'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp['sibd'].bin_cont[0], ensp['sibd'].bin_cont[-1]))
   #why s_ibd rebinned separately?
   del ensp['sibd']
@@ -58,12 +51,12 @@ def Initialize( ndays=10,
 
   #  DYB Bump
   #  Previous spectrum (Oct2020) + extra bins + interpolation lin + getweightedwithfunction
-  ensp['bump_corr'] = GetSpectrumFromROOT(data_file, 'DYBFluxBump_ratio')
+  ensp['bump_corr'] = GetSpectrumFromROOT(args.input_data_file, 'DYBFluxBump_ratio')
 #  bins_new_bump = [1.799]+list(ensp['bump_corr'].bins)+[11.999,12]
 #  bin_cont_new_bump = [ensp['bump_corr'].bin_cont[0]]+list(ensp['bump_corr'].bin_cont)+[ensp['bump_corr'].bin_cont[-1]]*2
  # ensp['bump_corr'].bins = np.array(bins_new_bump)
  # ensp['bump_corr'].bin_cont = np.array(bin_cont_new_bump)
-  ensp['bump_corr'].Plot(f"{plots_folder}/bump_correction.pdf",
+  ensp['bump_corr'].Plot(f"{args.plots_folder}/bump_correction.pdf",
                    xlabel="Neutrino energy (MeV)",
                    xmin=0, xmax=10,
                    ymin=0.8, ymax=1.1, log_scale=False)
@@ -74,7 +67,7 @@ def Initialize( ndays=10,
   #xlin = np.linspace(1.5, 15., 2700)
   xlin_c = 0.5*(xlin[:-1]+xlin[1:])
   ylin = s_bump_lin(xlin_c)
-  with open(f'{data_matrix_folder}/csv/s_bump_lin.csv', 'w') as f:
+  with open(f'{args.data_matrix_folder}/csv/s_bump_lin.csv', 'w') as f:
     writer = csv.writer(f, delimiter=' ')
     writer.writerows(zip(xlin_c,ylin))
   f.close()
@@ -85,11 +78,13 @@ def Initialize( ndays=10,
   ensp['rfis'] = ensp['rfis_b'].Copy()
   del ensp['rfis_b']
   ensp['rfis'].GetScaled(ndays)
-  Pth2 = [Pth*6.24e21*60*60*24 for Pth in args.Pth] # MeV/day
-  L2 = [L*1e2 for L in args.L]
-  alpha_efission = [args.alpha[i]*args.efission[i] for i in range(len(args.alpha))]
-  Pth_L2 = [Pth2[i]/(L2[i]*L2[i]) for i in range(len(Pth2))]
-  extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_efission))*np.sum(Pth_L2)
+  #alpha_efission = [args.alpha[i]*args.efission[i] for i in range(len(args.alpha))]
+  #Pth_L = [args.Pth[i]/(args.L[i]*args.L[i]) for i in range(len(args.Pth))]
+  alpha_arr = np.array(args.alpha)
+  efission_arr = np.array(args.efission)
+  Pth_arr = np.array(args.Pth)
+  L_arr = np.array(args.L)
+  extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
   ensp['rfis'].GetScaled(extrafactors) #correct normalization including fission fractions, mean energy per fission ... eq.13.5 YB
   print(" ")
   print("NUMBER OF IBD")
@@ -98,19 +93,19 @@ def Initialize( ndays=10,
   print("2-6 MeV NUMBER OF IBD")
   print(" Expected IBDs (no osc):     {:.2f} events".format(ensp["rfis"].GetIntegral(left_edge = 2, right_edge = 6)))
   #
-  ensp['snf0'] = GetSpectrumFromROOT(data_file, 'SNF_FluxRatio')     #spent nuclear fuel
+  ensp['snf0'] = GetSpectrumFromROOT(args.input_data_file, 'SNF_FluxRatio')     #spent nuclear fuel
   ensp['snf0'].Rebin(ebins, mode='spline-not-keep-norm')
   ensp['snf'] = ensp['snf0'].GetWeightedWithSpectrum(ensp['rfis'])
   del ensp['snf0']
 
-  ensp['noneq0'] = GetSpectrumFromROOT(data_file, 'NonEq_FluxRatio')
+  ensp['noneq0'] = GetSpectrumFromROOT(args.input_data_file, 'NonEq_FluxRatio')
   ensp['noneq0'].Rebin(ebins, mode='spline-not-keep-norm')
   ensp['noneq'] = ensp['noneq0'].GetWeightedWithSpectrum(ensp['rfis']) #non-equilibrium ratio
   del ensp['noneq0']
 
   ensp['ribd'] = ensp['rfis'] + ensp['snf'] + ensp['noneq']
   events['ribd'] = ensp["ribd"].GetIntegral()
-  ensp['rfis0'].Plot(f"{plots_folder}/reac_spectrum.pdf",
+  ensp['rfis0'].Plot(f"{args.plots_folder}/reac_spectrum.pdf",
                    xlabel="Neutrino energy (MeV)",
                    ylabel=f"Events per {binw:0.1f} keV",
                    extra_spectra=[ensp['rfis'], ensp['ribd'], ensp['snf'], ensp['noneq']],
@@ -127,11 +122,11 @@ def Initialize( ndays=10,
   print(" Expected IBDs (no osc):     {:.2f} events".format(ensp["ribd"].GetIntegral(left_edge = 2, right_edge = 6)))
 
   # Oscillated spectrum
-  ensp['rosc'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=me_rho, ene_mode='true')
+  ensp['rosc'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true')
 
   events['rosc'] = ensp["rosc"].GetIntegral()
 
-  ensp['ribd'].Plot(f"{plots_folder}/osc_spectrum.pdf",
+  ensp['ribd'].Plot(f"{args.plots_folder}/osc_spectrum.pdf",
                    xlabel="Neutrino energy (MeV)",
                    ylabel=f"Events per {binw:0.1f} keV",
                    extra_spectra=[ensp['rosc']],
@@ -143,7 +138,7 @@ def Initialize( ndays=10,
   ensp['rosc_nome'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=0.0, ene_mode='true')
 
 
-  ensp['rosc'].Plot(f"{plots_folder}/osc_spectrum_mecomp.pdf",
+  ensp['rosc'].Plot(f"{args.plots_folder}/osc_spectrum_mecomp.pdf",
                    xlabel="Neutrino energy (MeV)",
                    ylabel=f"Events per {binw:0.1f} keV",
                    extra_spectra=[ensp['rosc_nome']],
@@ -153,9 +148,9 @@ def Initialize( ndays=10,
                    ymin=0, ymax=None, log_scale=False)
   del ensp['rosc_nome']
 
-  ensp['snf_osc'] = ensp['snf'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=me_rho, ene_mode='true')
+  ensp['snf_osc'] = ensp['snf'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true')
   del ensp['snf']
-  ensp['noneq_osc'] = ensp['noneq'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=me_rho, ene_mode='true')
+  ensp['noneq_osc'] = ensp['noneq'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true')
   del ensp['noneq']
   #   Non-linearity
   ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy()
@@ -168,11 +163,11 @@ def Initialize( ndays=10,
   del ensp['snf_osc']
   ensp['noneq_osc_nonl'] = ensp['noneq_osc'].GetWithPositronEnergy()
   del ensp['noneq_osc']
-  ensp['scintNL'] = GetSpectrumFromROOT(data_file, 'positronScintNL')
-  ensp['NL_pull'] = [ GetSpectrumFromROOT(data_file, 'positronScintNLpull0'),
-                      GetSpectrumFromROOT(data_file, 'positronScintNLpull1'),
-                      GetSpectrumFromROOT(data_file, 'positronScintNLpull2'),
-                      GetSpectrumFromROOT(data_file, 'positronScintNLpull3') ]
+  ensp['scintNL'] = GetSpectrumFromROOT(args.input_data_file, 'positronScintNL')
+  ensp['NL_pull'] = [ GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull0'),
+                      GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull1'),
+                      GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull2'),
+                      GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull3') ]
   print("applying non-linearity")
   ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
@@ -181,7 +176,7 @@ def Initialize( ndays=10,
   del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
-  ensp['rvis_nonl'].Plot(f"{plots_folder}/vis_spectra.pdf",
+  ensp['rvis_nonl'].Plot(f"{args.plots_folder}/vis_spectra.pdf",
                    xlabel="Visual energy (MeV)",
                    ylabel=f"Events per {binw:0.1f} keV",
                    extra_spectra=[ensp['rvis']],
@@ -190,7 +185,7 @@ def Initialize( ndays=10,
                    xmin=0, xmax=10,
                    ymin=0, ymax=None, log_scale=False)
 
-  ensp['scintNL'].Plot(f"{plots_folder}/non_linearity.pdf",
+  ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
                    xlabel="Reconstructed energy (MeV)",
                    extra_spectra=ensp['NL_pull'],
                    xmin=0, xmax=10,
@@ -201,19 +196,19 @@ def Initialize( ndays=10,
   a_err, b_err, c_err =args.a_err, args.b_err, args.c_err
   ebins = ensp['ribd'].bins
 
-  if os.path.isfile(f"{data_matrix_folder}/rm_{pmt_opt}_{ndays:.0f}days.dat") and not FORCE_CALC_RM:
-    resp_matrix = LoadRespMatrix(f"{data_matrix_folder}/rm_{pmt_opt}_{ndays:.0f}days.dat")
+  if os.path.isfile(f"{args.data_matrix_folder}/rm_{ndays:.0f}days.dat") and not args.FORCE_CALC_RM:
+    resp_matrix = LoadRespMatrix(f"{args.data_matrix_folder}/rm_{ndays:.0f}days.dat")
   else:
     resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
-    resp_matrix.Save(f"{data_matrix_folder}/rm_{pmt_opt}_{ndays:.0f}days.dat")
-  ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=ene_crop)
-  ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=ene_crop)
+    resp_matrix.Save(f"{args.data_matrix_folder}/rm_{ndays:.0f}days.dat")
+  ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+  ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   events['rdet'] = ensp['rdet'].GetIntegral()
 
-  ensp['snf_final'] = ensp['snf_osc_vis'].ApplyDetResp(resp_matrix, pecrop=ene_crop)
-  ensp['noneq_final'] = ensp['noneq_osc_vis'].ApplyDetResp(resp_matrix, pecrop=ene_crop)
+  ensp['snf_final'] = ensp['snf_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+  ensp['noneq_final'] = ensp['noneq_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
-  ensp['rdet_noenecrop'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=ene_crop2)
+  ensp['rdet_noenecrop'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop2)
   events['rdet_noenecrop'] = ensp["rdet_noenecrop"].GetIntegral()
   del ensp['snf_osc_vis'], ensp['noneq_osc_vis']
 
@@ -227,7 +222,7 @@ def Initialize( ndays=10,
   #    file_osc.write(str(ensp['rdet'].bins[i])+' '+str(ensp['rdet'].bin_cont[i])+'\n')
   #file_osc.close()
  # print("B2B TAO spectrum")
- # ensp['b2b_tao'] = GetSpectrumFromROOT(data_file, "TAOUncertainty")
+ # ensp['b2b_tao'] = GetSpectrumFromROOT(args.input_data_file, "TAOUncertainty")
  # if(ensp['b2b_tao'].bins[1] - ensp['b2b_tao'].bins[0] != ebins[1]-ebins[0]):
  #     print("different bins, rebinning B2B_TAO")
  #     new_bins = int(1 + ((ensp['b2b_tao'].bins[1] - ensp['b2b_tao'].bins[0])*(len(ensp['b2b_tao'].bins) -1)/(ebins[1]-ebins[0])))
@@ -240,9 +235,9 @@ def Initialize( ndays=10,
   bg_labels = ['AccBkgHistogramAD', 'FnBkgHistogramAD', 'Li9BkgHistogramAD', 'AlphaNBkgHistogramAD', 'GeoNuHistogramAD', 'GeoNuTh232', 'GeoNuU238', 'AtmosphericNeutrinoModelGENIE2', 'OtherReactorSpectrum_L300km']
   bg_keys = ['acc', 'fneu', 'lihe', 'aneu', 'geo', 'geoth', 'geou', 'atm', 'rea300']
   for key, label in zip(bg_keys, bg_labels):
-    ensp[key] = GetSpectrumFromROOT(data_file, label)
+    ensp[key] = GetSpectrumFromROOT(args.input_data_file, label)
     ensp[key].GetScaled(ndays*12/11)
-    ensp[key].Trim(ene_crop)
+    ensp[key].Trim(args.ene_crop)
     if(ensp[key].bins[1] - ensp[key].bins[0] != ebins[1]-ebins[0]):
         print("different bins, rebinning ", key)
         ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
@@ -250,9 +245,9 @@ def Initialize( ndays=10,
 
   bg_keys2 = ['acc_noenecrop', 'fneu_noenecrop', 'lihe_noenecrop', 'aneu_noenecrop', 'geo_noenecrop', 'geoth_noenecrop', 'geou_noenecrop']
   for key2, label in zip(bg_keys2, bg_labels):
-    ensp[key2] = GetSpectrumFromROOT(data_file, label)
+    ensp[key2] = GetSpectrumFromROOT(args.input_data_file, label)
     ensp[key2].GetScaled(ndays*12/11)
-    ensp[key2].Trim(ene_crop2)
+    ensp[key2].Trim(args.ene_crop2)
 
 
   #del cm['acc'], cm['geo'], cm['lihe'], cm['fneu'], cm['aneu']
@@ -264,7 +259,7 @@ def Initialize( ndays=10,
   events['lihe'] = ensp['lihe'].GetIntegral()
   events['aneu'] = ensp['aneu'].GetIntegral()
   events['geo'] = ensp['geo'].GetIntegral()
-  ensp['rdet'].Plot(f"{plots_folder}/det_spectra.pdf",
+  ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra.pdf",
                    xlabel="Reconstructed energy (MeV)",
                    ylabel=f"Events per {binw:0.1f} keV",
                    extra_spectra=[ensp['acc'], ensp['geo'], ensp['lihe'],
@@ -286,7 +281,7 @@ def Initialize( ndays=10,
 
 
 
-  resp_matrix.Plot(f"{plots_folder}/resp_mat.pdf")
+  resp_matrix.Plot(f"{args.plots_folder}/resp_mat.pdf")
 
   #
   print(" ")
@@ -312,8 +307,8 @@ def Initialize( ndays=10,
   del events
   #
   #
-  if FORCE_CALC_RM:
-      resp_matrix.Dump(f"{data_matrix_folder}/csv/resp_matrix.csv")
+  if args.FORCE_CALC_RM:
+      resp_matrix.Dump(f"{args.data_matrix_folder}/csv/resp_matrix.csv")
       print("Finished first loop")
       #
     #
@@ -323,7 +318,7 @@ def Initialize( ndays=10,
   print(" # Dumping data")
   for key in ensp.keys():
       if type(ensp[key]) != list:
-          ensp[key].Dump(f"{data_matrix_folder}/csv/ensp_{key}.csv")
+          ensp[key].Dump(f"{args.data_matrix_folder}/csv/ensp_{key}.csv")
 
 
 

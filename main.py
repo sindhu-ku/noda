@@ -12,28 +12,26 @@ from datetime import datetime
 import argparse
 import yaml
 
-def fit_parser(yaml_file):
-    parser = argparse.ArgumentParser()
-
-    # Load configuration from YAML file
-    with open(yaml_file, "r") as file:
-        config = yaml.safe_load(file)
-
-    # Parse arguments from the YAML content
-    for option, value in config["fit_options"].items():
-        parser.add_argument(f"--{option}", default=value)
-    for option, value in config["juno_inputs"].items():
-        parser.add_argument(f"--{option}", default=value)
-
-    return parser
-
 def main(argv):
-  start_sp_time = datetime.now()
-  # Create parser
-  subparser = fit_parser("fit_configurations_inputs.yaml")
 
+  start_sp_time = datetime.now()
+
+  # Create parser for config file
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--config', help='Path to the YAML configuration file')
+  args = parser.parse_args()
+
+  #create parser for yaml file
+  with open(args.config, "r") as file:
+    config = yaml.safe_load(file)
+
+     # Parse arguments from the YAML content
+    for option, value in config["fit_options"].items():
+      parser.add_argument(f"--{option}", default=value)
+    for option, value in config["juno_inputs"].items():
+      parser.add_argument(f"--{option}", default=value)
+  args = parser.parse_args()
   # Parse command-line input
-  args = subparser.parse_args()
   #livetime calculation in number of days
   ndays =0
   if args.stat_opt[-4:] == "days":
@@ -47,8 +45,8 @@ def main(argv):
   livetime = ndays
   baselines = args.core_baselines_9 #which reactor baselines and cores
   powers = args.core_powers_9
-
   ebins = np.linspace(args.min_ene, args.max_ene, args.bins) #energy distributions/pdf binning
+
   #create matrix directory
   if not os.path.exists(f"{args.data_matrix_folder}"):
       os.mkdir(f"{args.data_matrix_folder}")
@@ -61,18 +59,10 @@ def main(argv):
   print("   PMT system:   {}".format(args.pmt_opt) )
 
   ensp_nom, rm, opt = spec.Initialize(ndays=ndays,
-                                    reac_model=args.reactor_model,
                                     core_baselines=baselines,
                                     core_powers=powers,
-                                    me_rho=args.me_rho,
                                     ebins=ebins,
-                                    ene_crop =args.ene_crop,
-                                    ene_crop2 =args.ene_crop2,
-                                    pmt_opt=args.pmt_opt,
-                                    data_file =args.input_data_file,
-                                    FORCE_CALC_RM=args.FORCE_CALC_RM,
-                                    plots_folder=args.plots_folder,
-                                    data_matrix_folder=args.data_matrix_folder, args=args)
+                                    args=args)
 
 
   end_sp_time = datetime.now()
@@ -85,20 +75,11 @@ def main(argv):
   else:
       cm = {}
       print(" # Constructing covariance matrices")
-      cm = mat.GetCM(ensp = ensp_nom, sample_size_me=args.sample_size_me,
-            sample_size_core=args.sample_size_core,
-            sample_size_nonl=args.sample_size_nonl,
-            sample_size_resp=args.sample_size_resp,
-            data_matrix_folder=args.data_matrix_folder,
-            pmt_opt=args.pmt_opt,
-            data_file=args.input_data_file,
-            me_rho=args.me_rho,
+      cm = mat.GetCM(ensp = ensp_nom,
             core_baselines=baselines,
             core_powers=powers,
             resp_matrix=rm,
-            ene_crop = args.ene_crop,
             ndays=ndays,
-            plots_folder = args.plots_folder,
             args=args)
 
   if args.PLOT_CM:
@@ -112,6 +93,7 @@ def main(argv):
   start_scan_time = datetime.now()
 
   unc_list_new = []
+  #TODO: This is mainly for CNP when stat matrix is included by default, can be done better
   for unc in args.unc_list:
     if((args.stat_method_opt == 'CNP' or args.bayes_chi2 == 'CNP') and unc != 'stat'):
         unc = unc.replace('stat+', "")
@@ -140,15 +122,12 @@ def main(argv):
   'dm2_31': np.linspace(args.grid_params['dm2_31'][0],args.grid_params['dm2_31'][1],args.grid_points)}
 
 
-  if args.stat_method_opt == 'bayesian':
+  if args.stat_method_opt == 'bayesian': #have to paraleelize this still
       for i in range (args.bayes_seed_beg, args.bayes_seed_end):
-          bayesian.run_emcee(PDG_opt = args.PDG_opt, NMO_opt=args.NMO_opt, pmt_opt=args.pmt_opt,stat_opt=args.stat_opt,
-                       osc_formula_opt=args.osc_formula_opt, bins = args.bins, ensp_nom =ensp_nom,me_rho = args.me_rho,
-                       baselines = baselines, powers=powers, rm=rm, cm=cm, ene_crop=args.ene_crop, SEED=i, unc=args.unc_list[len(args.unc_list)-1], stat_meth=args.bayes_chi2)
+          bayesian.run_emcee(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args)
   else:
-      scan.scan_chi2(sin2_th13_opt = args.sin2_th13_opt, PDG_opt = args.PDG_opt, NMO_opt=args.NMO_opt, pmt_opt=args.pmt_opt,stat_opt=args.stat_opt,
-                 osc_formula_opt=args.osc_formula_opt, bins = args.bins, grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
-                 me_rho = args.me_rho, baselines = baselines, powers=powers, rm=rm, cm=cm, ene_crop=args.ene_crop, stat_meth=args.stat_method_opt)
+      scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
+                     baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
 
   end_scan_time = datetime.now()
   print("Scanning time", end_scan_time-start_scan_time)

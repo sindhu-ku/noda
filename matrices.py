@@ -5,29 +5,14 @@ from datetime import datetime
 from multiprocessing import Pool
 from functools import partial
 
-def GetCM(ensp = {}, sample_size_me=100,
-      sample_size_core=100,
-      sample_size_nonl=100,
-      sample_size_resp=100,
-      data_matrix_folder="",
-      pmt_opt = "",
-      data_file="",
-      me_rho=0.0,
+def GetCM(ensp = {},
       core_baselines=[],
       core_powers=[],
       resp_matrix=[],
-      ene_crop = (),
       ndays=10,
-      plots_folder='',
       args=''):
 
   cm = {}
-  cm_suffix = ""
-  if pmt_opt=='spmt' or pmt_opt=='lpmt':
-    cm_suffix = '_'+pmt_opt
-  else:
-    print( " ### Error: wrong value for 'pmt_opt' parameter!" )
-    sys.exit()
 
   cm['stat'] = ensp['rdet'].GetStatCovMatrix()
   cm['r2'] = ensp['rdet'].GetRateCovMatrix(args.r2_unc)
@@ -50,11 +35,11 @@ def GetCM(ensp = {}, sample_size_me=100,
 
   print ("Matter effect fluctuated spectra")
   time_start_me = datetime.now()
-  me_rho_flu = np.random.normal(loc=me_rho, scale=args.me_rho_scale, size=sample_size_me)
+  me_rho_flu = np.random.normal(loc=args.me_rho, scale=args.me_rho_scale, size=args.sample_size_me)
   ensp['rvis_me_flu'] = Parallel(n_jobs=-1)(delayed(mat_flu)(val) for val in me_rho_flu)
-  ensp['rdet_me_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=ene_crop) for s in ensp['rvis_me_flu']]
+  ensp['rdet_me_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_me_flu']]
   del ensp['rvis_me_flu']
-  ensp['rdet'].Plot(f"{plots_folder}/rdet_me_flu.pdf", extra_spectra=ensp['rdet_me_flu'], ylabel="Events per bin")
+  ensp['rdet'].Plot(f"{args.plots_folder}/rdet_me_flu.pdf", extra_spectra=ensp['rdet_me_flu'], ylabel="Events per bin")
   cm['me'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
   del ensp['rdet_me_flu']
   time_end_me = datetime.now()
@@ -66,9 +51,9 @@ def GetCM(ensp = {}, sample_size_me=100,
   for i in range(4):
       print("   NL pull curve {}".format(i))
       print("     getting rvis spectra")
-      ensp['rvis_nl_flu'+f'_{i}'] = GetFluNL(ensp['rvis_nonl'], ensp['scintNL'], ensp['NL_pull'][i], sample_size=sample_size_nonl)
+      ensp['rvis_nl_flu'+f'_{i}'] = GetFluNL(ensp['rvis_nonl'], ensp['scintNL'], ensp['NL_pull'][i], sample_size=args.sample_size_nonl)
       print("     getting rdet spectra")
-      ensp['rdet_nl_flu'+f'_{i}'] = [s.ApplyDetResp(resp_matrix, pecrop=ene_crop) for s in ensp['rvis_nl_flu'+f'_{i}']]
+      ensp['rdet_nl_flu'+f'_{i}'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_nl_flu'+f'_{i}']]
       del ensp['rvis_nl_flu'+f'_{i}']
       print("     constructing cov. matrix")
       cm['nl'+f'_{i}'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_nl_flu'+f'_{i}'])
@@ -77,7 +62,7 @@ def GetCM(ensp = {}, sample_size_me=100,
   end_time_nl = datetime.now()
   print ("NL flu time", end_time_nl - start_time_nl)
   del ensp['rvis_nonl'], ensp['NL_pull']
-  ensp['rdet'].Plot(f"{plots_folder}/det_nl_flu.png",
+  ensp['rdet'].Plot(f"{args.plots_folder}/det_nl_flu.png",
                xlabel="Reconstructed energy (MeV)",
                ylabel=f"Events",
                extra_spectra=ensp['rdet_nl_flu_0']+ensp['rdet_nl_flu_1']+ensp['rdet_nl_flu_2']+ensp['rdet_nl_flu_3'],
@@ -93,8 +78,8 @@ def GetCM(ensp = {}, sample_size_me=100,
 
   print ("Response matrix fluctuated spectra")
   start_time_resp = datetime.now()
-  resp_mat_flu = CalcRespMatrix_abc_flu(a, b, c, unc=(a_err,b_err,c_err), escale=1, ebins=ebins, pebins=ebins, sample_size=sample_size_resp)
-  ensp['rdet_abc_flu'] = [*map(lambda x :  ensp['rvis'].ApplyDetResp(x, pecrop=ene_crop), resp_mat_flu)]
+  resp_mat_flu = CalcRespMatrix_abc_flu(a, b, c, unc=(a_err,b_err,c_err), escale=1, ebins=ebins, pebins=ebins, sample_size=args.sample_size_resp)
+  ensp['rdet_abc_flu'] = [*map(lambda x :  ensp['rvis'].ApplyDetResp(x, pecrop=args.ene_crop), resp_mat_flu)]
   del resp_mat_flu
   cm['abc'] = (ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_abc_flu']))
   del ensp['rdet_abc_flu']
@@ -109,25 +94,23 @@ def GetCM(ensp = {}, sample_size_me=100,
       deviations = np.random.normal(loc=1., scale=args.core_flux_unc, size=len(core_powers))
       flu_powers = [dev*p for dev, p in zip(deviations, core_powers)]
       flu_powers2 = np.array([dev*p for dev, p in zip(deviations, core_powers)])
-      flu_powers22 = flu_powers2*6.24e21*60*60*24 # MeV/day
-      Pth2 = [Pth*6.24e21*60*60*24 for Pth in args.Pth] # MeV/day
-      L2 = [L*1e2 for L in args.L]
-      alpha_efission = [args.alpha[i]*args.efission[i] for i in range(len(args.alpha))]
-      Pth_L2 = [Pth2[i]/(L2[i]*L2[i]) for i in range(len(Pth2))]
-      flu_powers22_L2 = [flu_powers22[i]/(L2[i]*L2[i]) for i in range(len(flu_powers22))]
-      extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_efission)*np.sum(Pth_L2)
-      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_efission)*np.sum(flu_powers22_L2)
+      alpha_arr = np.array(args.alpha)
+      efission_arr = np.array(args.efission)
+      Pth_arr = np.array(args.Pth)
+      L_arr = np.array(args.L)
+      extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
+      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_efission)*np.sum(flu_powers2/(L_arr*L_arr))
       ensp['ribd_crel'] = ensp['ribd'].Copy()
       ensp['ribd_crel'].GetScaled(1./extrafactors)
       ensp['ribd_crel'].GetScaled(extrafactors2)
-      ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=core_baselines, core_powers=flu_powers, me_rho=me_rho, ene_mode='true')
+      ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true')
       del ensp['ribd_crel']
       ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy()
       ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rvis_crel_flu_nonl']
       return ensp['rvis_crel_flu']
-  ensp['rvis_crel_flu'] = Parallel(n_jobs=-1)(delayed(get_core_flu)(i) for i in range(sample_size_core))
-  ensp["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=ene_crop) for s in ensp['rvis_crel_flu']]
+  ensp['rvis_crel_flu'] = Parallel(n_jobs=-1)(delayed(get_core_flu)(i) for i in range(args.sample_size_core))
+  ensp["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_crel_flu']]
   del ensp['rvis_crel_flu']
   cm["crel"] = ensp["rdet"].GetCovMatrixFromRandSample(ensp["rdet_crel_flu"])
   del ensp["rdet_crel_flu"]
@@ -148,8 +131,8 @@ def GetCM(ensp = {}, sample_size_me=100,
   del ensp['rtot'], ensp['acc'], ensp['fneu'], ensp['lihe'], ensp['aneu'], ensp['geo'], ensp['geoth'], ensp['geou']
   del ensp['rtot_noenecrop'], ensp['rdet_noenecrop'], ensp['acc_noenecrop'], ensp['fneu_noenecrop'], ensp['lihe_noenecrop'], ensp['aneu_noenecrop'], ensp['geo_noenecrop'], ensp['geou_noenecrop'], ensp['geoth_noenecrop']
 
-  SaveObject(cm, f"{data_matrix_folder}/cm_{pmt_opt}_{ndays:.0f}days.dat")
+  SaveObject(cm, f"{args.data_matrix_folder}/cm_{ndays:.0f}days.dat")
   #print (cm['me'].data)
   for key in cm.keys():
-      cm[key].Dump(f"{data_matrix_folder}/csv/cov_mat_{key}.csv")
+      cm[key].Dump(f"{args.data_matrix_folder}/csv/cov_mat_{key}.csv")
   return cm

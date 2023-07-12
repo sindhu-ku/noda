@@ -6,23 +6,23 @@ from nuosc import *
 from  noda import *
 import noda
 
-def run_emcee( PDG_opt = ' ', NMO_opt ='', pmt_opt = '', stat_opt='',
-             osc_formula_opt = '', ensp_nom = {}, me_rho =0.0, baselines = [], bins=411, powers=[], rm= [], cm ={}, ene_crop=(), SEED = 0, unc =' ', stat_meth= ' '):
-  print("unc", unc)
-  if(stat_meth == 'CNP' and unc != 'stat'): unc = unc.replace('stat+', '')
-  nuosc.SetOscillationParameters(opt=PDG_opt, NMO=NMO_opt) #Vals for osc parameters and NMO
-  noda.SetOscFormula(osc_formula_opt) #Gets the antinu survival probability
+def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 0, args=''):
+
+  unc=args.unc_list[len(args.unc_list)-1]
+  if(args.bayes_chi2 == 'CNP' and unc != 'stat'): unc = unc.replace('stat+', '')
+
+  nuosc.SetOscillationParameters(opt=args.PDG_opt, NMO=args.NMO_opt) #Vals for osc parameters and NMO
+  noda.SetOscFormula(args.osc_formula_opt) #Gets the antinu survival probability
   print(" # Oscillation parameters:")
   for k, val in nuosc.op_nom.items(): #print input values
       print(f"   {k:<12} {val}")
   np.random.seed(SEED)
-  EVENTS = 200
+  EVENTS = args.bayes_events
   # here set your estimates of central values
   mid_dm2sol = nuosc.op_nom["dm2_21"]
   mid_dm2atm = nuosc.op_nom["dm2_31"]
   mid_s2t12  = nuosc.op_nom["sin2_th12"]
   mid_s2t13  = nuosc.op_nom["sin2_th13"]
-  #mid_rho    = juno_inputs.me_rho
   mid_vals = np.array([mid_dm2sol, mid_dm2atm, mid_s2t12, mid_s2t13])#, mid_rho])
   print(" JB : ")
   print("Present dm2sol: ", mid_dm2sol)
@@ -45,8 +45,6 @@ def run_emcee( PDG_opt = ' ', NMO_opt ='', pmt_opt = '', stat_opt='',
       if x[2] > mid_s2t12*10. : p = -1.*float("inf")
       if x[3] < mid_s2t13/10. : p = -1.*float("inf")
       if x[3] > mid_s2t13*10. : p = -1.*float("inf")
-      # if x[4] < 0. : p = -1.*float("inf")
-      # if x[4] > 10. : p = -1.*float("inf")
       return p
   def log_prob(x):
       p = prior(x)
@@ -54,12 +52,12 @@ def run_emcee( PDG_opt = ' ', NMO_opt ='', pmt_opt = '', stat_opt='',
 
       s = ensp_nom['ribd'].GetOscillated(L=baselines, core_powers=powers,
       sin2_th12=x[2], sin2_th13=x[3], dm2_21=x[0], dm2_31=x[1],
-      me_rho=me_rho,
+      me_rho=args.me_rho,
       ene_mode='true')
       s = s.GetWithPositronEnergy()
       s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
-      s = s.ApplyDetResp(rm, pecrop=ene_crop)
-      chi2 = cm[unc].Chi2(ensp_nom["rdet"],s, stat_meth)
+      s = s.ApplyDetResp(rm, pecrop=args.ene_crop)
+      chi2 = cm[unc].Chi2(ensp_nom["rdet"],s, args.bayes_chi2)
     #  print(chi2)
 
      # print("x", x)
@@ -97,5 +95,5 @@ def run_emcee( PDG_opt = ' ', NMO_opt ='', pmt_opt = '', stat_opt='',
   print(chain)
   if not os.path.exists("../Data/npz_files"):
     os.makedirs("../Data/npz_files")
-  np.savez(f"../Data/npz_files/MCMC_Bayesian_1_{EVENTS}_{SEED}_{stat_opt}_{stat_meth}.npz",chain=chain,blobs=blobs)
+  np.savez(f"../Data/npz_files/MCMC_Bayesian_1_{EVENTS}_{SEED}_{args.stat_opt}_{args.bayes_chi2}.npz",chain=chain,blobs=blobs)
   print("Ending JBF")
