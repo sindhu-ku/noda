@@ -3,4 +3,4 @@ Early version of cleaned-up and improved NODA code, used for the precision measu
 NODA- Neutrino Oscillation Data Analysis
 Python version = 3.9
 
-usage: python main.py --config=<config
+usage: python main.py --config=<config_yaml_file>
