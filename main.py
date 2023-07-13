@@ -4,7 +4,8 @@ import spectra as spec
 import matrices as mat
 import scan as scan
 from noda import *
-import bayesian as bayesian
+import bayesian as bayes
+import bayesian_results as bayes_res
 import numpy as np
 import os
 import gc
@@ -124,8 +125,8 @@ def main(argv):
 
   if args.stat_method_opt == 'bayesian': #have to paraleelize this still
       for i in range (args.bayes_seed_beg, args.bayes_seed_beg+args.bayes_nprocesses):
-          bayesian.run_emcee(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args)
-      bayesian.get_results(args=args)
+          bayes.run_emcee(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args)
+      bayes_res.get_results(args=args)
   else:
       scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
                      baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
