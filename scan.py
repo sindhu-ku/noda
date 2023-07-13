@@ -13,6 +13,8 @@ import pandas as pd
 def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
              baselines = [], powers=[], rm= [], cm ={}, args=''):
 
+  #To-do: fixing textfile to dictionary convertion for the npz file
+
   nuosc.SetOscillationParameters(opt=args.PDG_opt, NMO=args.NMO_opt) #Vals for osc parameters and NMO
   noda.SetOscFormula(args.osc_formula_opt) #Gets the antinu survival probability
   print(" # Oscillation parameters:")

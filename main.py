@@ -123,8 +123,9 @@ def main(argv):
 
 
   if args.stat_method_opt == 'bayesian': #have to paraleelize this still
-      for i in range (args.bayes_seed_beg, args.bayes_seed_end):
+      for i in range (args.bayes_seed_beg, args.bayes_seed_beg+args.bayes_nprocesses):
           bayesian.run_emcee(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args)
+      bayesian.get_results(args=args)
   else:
       scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
                      baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)

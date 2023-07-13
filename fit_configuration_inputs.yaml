@@ -17,9 +17,10 @@ fit_options:
 
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
-  bayes_seed_end: 497
   bayes_chi2: CNP
-  bayes_events: 400
+  bayes_events: 1 #400
+  bayes_nwalkers: 9 #30
+  bayes_nprocesses: 1 #16
   # Energy crop range for fit
   ene_crop:
     - 0.8
@@ -41,6 +42,8 @@ fit_options:
   cov_matrix_plots_folder: ../Data/CMplots #folder to store CM plots
   plots_folder: ../Data/Plots #folder to save plots of spectra
   data_matrix_folder: ../../noda_bayesian/CNP_data_20years #folder to save or to use csv files of spectra and matrices
+  bayes_data_folder: ../Data/Bayesian/npz_files
+  bayes_plots_folder: ../Data/Bayesian/Plots
 
   #start and end points for each parameter in grid space
   grid_params:
@@ -88,7 +91,6 @@ juno_inputs:
   efission: [202.36, 205.99, 211.12, 214.26]
   Pth: [449532000.0, 449532000.0, 449532000.0, 449532000.0, 449532000.0, 449532000.0, 718451000.0, 718451000.0, 2695690000.0] # MeV per day
   L: [5275000.0, 5284000.0, 5242000.0, 5251000.0, 5212000.0, 5221000.0, 5276000.0, 5263000.0, 2150000.0] # Already in cm
-  Np: 9.24438324e+26
   Np: 9.24438324e+26
   detector_efficiency: 0.82
   me_rho: 2.45
