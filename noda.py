@@ -13,6 +13,8 @@ import gc
 from joblib import Parallel, delayed
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
+
+#TODO: Do this better in main
 osc_formula_options = {'default': nuosc.AntiNueSurvProb,
                        'YB':      nuosc.AntiNueSurvProbYB}
 osc_formula = osc_formula_options['default']
@@ -22,7 +24,6 @@ def SetOscFormula(opt='default'):
   global osc_formula
   osc_formula = osc_formula_options[opt]
   print(" # Oscillation formula set to '{}'".format(opt))
-
 
 class Spectrum:
 
@@ -520,7 +521,7 @@ class CovMatrix:
       self.data_inv = np.linalg.inv(self.data)
     else:
       self.data_inv = None
-    if bins == []: bins = np.linspace(0, data.shape[0]+1, data.shape[0])
+    if len(bins)==0: bins = np.linspace(0, data.shape[0]+1, data.shape[0])
     self.bins = bins
     self.axis_label = axis_label
 
@@ -749,19 +750,19 @@ def GetFluNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size = 10000):
   output_spectra = Parallel(n_jobs=-1)(delayed(new_NL_curve)(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, w) for w in weights)
   return output_spectra
 
-def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
-  nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,
-                                         kind='slinear', bounds_error=False,
-                                         fill_value=(ensp_nl_nom.bin_cont[0],
-                                                     ensp_nl_nom.bin_cont[-1]))
-  pc = sp.interpolate.interp1d(ensp_nl_pull_curve.GetBinCenters(), ensp_nl_pull_curve.bin_cont,
-                                       kind='slinear', bounds_error=False,
-                                       fill_value=(ensp_nl_pull_curve.bin_cont[0],
-                                                   ensp_nl_pull_curve.bin_cont[-1]) )
-  weights = np.random.normal(loc=0., scale=1., size=sample_size)
-  fNL_flu = [lambda e: nc(e) + w*(pc(e)-nc(e)) for w in weights]
-#  return [ensp_nonl.GetWithModifiedEnergy(mode='spline', spline=f) for f in fNL_flu]
-  return ensp_nonl.GetWithModifiedEnergyBulk(mode='spline', splines=fNL_flu)
+# def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
+#   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,
+#                                          kind='slinear', bounds_error=False,
+#                                          fill_value=(ensp_nl_nom.bin_cont[0],
+#                                                      ensp_nl_nom.bin_cont[-1]))
+#   pc = sp.interpolate.interp1d(ensp_nl_pull_curve.GetBinCenters(), ensp_nl_pull_curve.bin_cont,
+#                                        kind='slinear', bounds_error=False,
+#                                        fill_value=(ensp_nl_pull_curve.bin_cont[0],
+#                                                    ensp_nl_pull_curve.bin_cont[-1]) )
+#   weights = np.random.normal(loc=0., scale=1., size=sample_size)
+#   fNL_flu = [lambda e: nc(e) + w*(pc(e)-nc(e)) for w in weights]
+# #  return [ensp_nonl.GetWithModifiedEnergy(mode='spline', spline=f) for f in fNL_flu]
+#   return ensp_nonl.GetWithModifiedEnergyBulk(mode='spline', splines=fNL_flu)
 
 #def get_new_nonl(ensp_nl_nom, ensp_nl_pull_curve, sample_size, w):
 #  new_nonl =  Spectrum(bins = ensp_nl_nom.bins, bin_cont=np.zeros(len(ensp_nl_nom.bin_cont)))

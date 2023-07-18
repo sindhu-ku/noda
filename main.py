@@ -1,19 +1,26 @@
 import sys
-#from fitter_options import *
-import spectra as spec
-import matrices as mat
-import scan as scan
-from noda import *
-import bayesian as bayes
-import bayesian_results as bayes_res
 import numpy as np
 import os
 import gc
 from datetime import datetime
 import argparse
 import yaml
+import spectra as spec
+import matrices as mat
+import scan as scan
+from noda import *
+import bayesian as bayes
+import bayesian_results as bayes_res
+import frequentist_results as freq_res
+
+
 
 def main(argv):
+  if (len(sys.argv) <  2):
+      print("ERROR: Please give the config file using the option --config_file=<filename>")
+  #This is where all the data comes and goes
+  if not os.path.exists("../Data"):
+    os.mkdir("../Data")
 
   start_sp_time = datetime.now()
 
@@ -32,7 +39,7 @@ def main(argv):
     for option, value in config["juno_inputs"].items():
       parser.add_argument(f"--{option}", default=value)
   args = parser.parse_args()
-  # Parse command-line input
+
   #livetime calculation in number of days
   ndays =0
   if args.stat_opt[-4:] == "days":
@@ -59,6 +66,7 @@ def main(argv):
   print("   Statistics:   {} days".format(ndays) )
   print("   PMT system:   {}".format(args.pmt_opt) )
 
+  #Create reactor spectra and get backgrounds spectra, function inside spectra.py
   ensp_nom, rm, opt = spec.Initialize(ndays=ndays,
                                     core_baselines=baselines,
                                     core_powers=powers,
@@ -69,6 +77,7 @@ def main(argv):
   end_sp_time = datetime.now()
   print("Spectra production time: ", end_sp_time - start_sp_time)
 
+  #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
   if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.pmt_opt}_{ndays:.0f}days.dat") and not args.FORCE_CALC_CM:
       print(" # Loading covariance matrices")
@@ -117,19 +126,23 @@ def main(argv):
     #   del cm[key]
     #   continue
 
+  #Form grid for the gridscan
   grid ={'sin2_12': np.linspace(args.grid_params['sin2_12'][0],args.grid_params['sin2_12'][1],args.grid_points),
   'sin2_13': np.linspace(args.grid_params['sin2_13'][0],args.grid_params['sin2_13'][1],args.grid_points),
   'dm2_21': np.linspace(args.grid_params['dm2_21'][0],args.grid_params['dm2_21'][1],args.grid_points),
   'dm2_31': np.linspace(args.grid_params['dm2_31'][0],args.grid_params['dm2_31'][1],args.grid_points)}
 
-
-  if args.stat_method_opt == 'bayesian': #have to paraleelize this still
+  #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
+  if args.stat_method_opt == 'bayesian': #TODO: have to paraleelize this still
       for i in range (args.bayes_seed_beg, args.bayes_seed_beg+args.bayes_nprocesses):
           bayes.run_emcee(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args)
       bayes_res.get_results(args=args)
+
+ #For frequentist, function inside scan.py
   else:
       scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
                      baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
+      freq_res.get_results(args=args)
 
   end_scan_time = datetime.now()
   print("Scanning time", end_scan_time-start_scan_time)

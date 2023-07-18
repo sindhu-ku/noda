@@ -62,7 +62,7 @@ def SetOscillationParameters(opt, NMO):
       op_nom['dm2_31'] = op_nom["dm2_32"] - op_nom["dm2_21"]
     op_nom["dm2_ee"] = (1-op_nom["sin2_th12"])*op_nom["dm2_31"] + op_nom["sin2_th12"]*op_nom["dm2_32"]
 
-SetOscillationParameters(opt='PDG2019', NMO=True)
+SetOscillationParameters(opt="PDG2019", NMO=True) #WARNING TODO: change this
 
 
 def AntiNueSurvProb(E, L,
