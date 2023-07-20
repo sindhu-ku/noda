@@ -99,7 +99,7 @@ def GetCM(ensp = {},
       Pth_arr = np.array(args.Pth)
       L_arr = np.array(args.L)
       extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
-      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alph_arr*efission_arr)*np.sum(flu_powers2/(L_arr*L_arr))
+      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers2/(L_arr*L_arr))
       ensp['ribd_crel'] = ensp['ribd'].Copy()
       ensp['ribd_crel'].GetScaled(1./extrafactors)
       ensp['ribd_crel'].GetScaled(extrafactors2)

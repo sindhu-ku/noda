@@ -64,7 +64,6 @@ def main(argv):
 
   print(" # Run configuration:")
   print("   Statistics:   {} days".format(ndays) )
-  print("   PMT system:   {}".format(args.pmt_opt) )
 
   #Create reactor spectra and get backgrounds spectra, function inside spectra.py
   ensp_nom, rm, opt = spec.Initialize(ndays=ndays,
@@ -79,9 +78,9 @@ def main(argv):
 
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
-  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.pmt_opt}_{ndays:.0f}days.dat") and not args.FORCE_CALC_CM:
+  if os.path.isfile(f"{args.data_matrix_folder}/cm_{ndays:.0f}days.dat") and not args.FORCE_CALC_CM:
       print(" # Loading covariance matrices")
-      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.pmt_opt}_{ndays:.0f}days.dat")
+      cm = LoadObject(f"{args.data_matrix_folder}/cm_{ndays:.0f}days.dat")
   else:
       cm = {}
       print(" # Constructing covariance matrices")
