@@ -16,9 +16,9 @@ fit_options:
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
-  bayes_events: 1 #400
-  bayes_nwalkers: 9 #30
-  bayes_nprocesses: 1 #16
+  bayes_events: 400
+  bayes_nwalkers: 30
+  bayes_nprocesses: 16
   # Energy crop range for fit
   ene_crop:
     - 0.8
@@ -87,9 +87,9 @@ juno_inputs:
   core_baselines_9: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
   alpha: [0.58, 0.07, 0.30, 0.05]
   efission: [202.36, 205.99, 211.12, 214.26]
-  Pth: [449532000.0, 449532000.0, 449532000.0, 449532000.0, 449532000.0, 449532000.0, 718451000.0, 718451000.0, 2695690000.0] # MeV per day
-  L: [5275000.0, 5284000.0, 5242000.0, 5251000.0, 5212000.0, 5221000.0, 5276000.0, 5263000.0, 2150000.0] # Already in cm
-  Np: 9.24438324e+26
+  Pth: [1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 2.4800256e+27, 2.4800256e+27, 9.3809664e+27] # MeV per day
+  L: [5275000.0, 5284000.0, 5242000.0, 5251000.0, 5212000.0, 5221000.0, 5276000.0, 5263000.0, 21500000.0] # Already in cm
+  Np: 1.4351802862903064e+33
   detector_efficiency: 0.82
   me_rho: 2.45
   me_rho_scale: 0.15

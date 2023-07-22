@@ -22,6 +22,8 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
       print(f"   {k:<12} {val}")
 
   temp_file = f'../Data/chi2maps_temp_{args.stat_method_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.txt'
+  if os.path.isfile(temp_file):
+      os.remove(temp_file)
   chi2maps = {}
   for key in unc_list:
     if args.sin2_th13_opt == 'fixed':
@@ -46,13 +48,13 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
        s = s.ApplyDetResp(rm, pecrop=args.ene_crop)
        for key in unc_list:
-           chi2 = cm[key].Chi2(ensp_nom["rdet"],s, args.stat_method_opt)
+           chi2 = cm[key].Chi2(ensp_nom["rdet"],s, key, args.stat_method_opt)
            fileoo.write(str(key)+' '+str(i)+' '+str(j)+' '+str(k)+' '+str(chi2)+'\n')
            fileoo.close()
        del s
 
   def sin2_th13_free(i, j, k, l, sin2_12, sin2_13, dm2_21, dm2_31):
-       print(i, j, k, l, sin2_12, sin2_13, dm2_21, dm2_31)
+       #print(i, j, k, l, sin2_12, sin2_13, dm2_21, dm2_31)
        s = ensp_nom['ribd'].GetOscillated(L=baselines, core_powers=powers,
                                         sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31,
                                           me_rho=args.me_rho,
@@ -61,8 +63,8 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
        s = s.ApplyDetResp(rm, pecrop=args.ene_crop)
        for key in unc_list:
-           chi2 = cm[key].Chi2(ensp_nom["rdet"],s, args.stat_method_opt)
-           print(key, chi2)
+           chi2 = cm[key].Chi2(ensp_nom["rdet"],s, key, args.stat_method_opt)
+           #print(key, chi2)
            with open(temp_file, 'a') as fileoo:
                data = [str(key), str(i), str(j), str(k), str(l), str(chi2)]
                line = ' '.join(data) + '\n'

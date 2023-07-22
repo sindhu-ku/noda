@@ -90,7 +90,6 @@ def main(argv):
             resp_matrix=rm,
             ndays=ndays,
             args=args)
-
   if args.PLOT_CM:
     if not os.path.exists(f"{args.cov_matrix_plots_folder}"):
       os.makedirs(f"{args.cov_matrix_plots_folder}")
@@ -103,13 +102,14 @@ def main(argv):
 
   unc_list_new = []
   #TODO: This is mainly for CNP when stat matrix is included by default, can be done better
+  print("Uncertainty list for ", args.stat_method_opt)
   for unc in args.unc_list:
-    if((args.stat_method_opt == 'CNP' or args.bayes_chi2 == 'CNP') and unc != 'stat'):
+    if((args.stat_method_opt == 'CNP' and unc != 'stat') or (args.stat_method_opt == 'bayesian' and args.bayes_chi2 == 'CNP' and unc != 'stat')):
         unc = unc.replace('stat+', "")
+    print(unc)
     unc_list_new.append(unc)
 
   for full_unc in unc_list_new:
-    print(full_unc)
     single_unc_list = full_unc.split("+")
     cm[full_unc] = cm[single_unc_list[0]]
     for u in single_unc_list[1:]:

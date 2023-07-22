@@ -78,13 +78,12 @@ def Initialize( ndays=10,
   ensp['rfis'] = ensp['rfis_b'].Copy()
   del ensp['rfis_b']
   ensp['rfis'].GetScaled(ndays)
-  #alpha_efission = [args.alpha[i]*args.efission[i] for i in range(len(args.alpha))]
-  #Pth_L = [args.Pth[i]/(args.L[i]*args.L[i]) for i in range(len(args.Pth))]
   alpha_arr = np.array(args.alpha)
   efission_arr = np.array(args.efission)
   Pth_arr = np.array(args.Pth)
   L_arr = np.array(args.L)
   extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
+  print("extrafactors", extrafactors)
   ensp['rfis'].GetScaled(extrafactors) #correct normalization including fission fractions, mean energy per fission ... eq.13.5 YB
   print(" ")
   print("NUMBER OF IBD")
@@ -102,7 +101,6 @@ def Initialize( ndays=10,
   ensp['noneq0'].Rebin(ebins, mode='spline-not-keep-norm')
   ensp['noneq'] = ensp['noneq0'].GetWeightedWithSpectrum(ensp['rfis']) #non-equilibrium ratio
   del ensp['noneq0']
-
   ensp['ribd'] = ensp['rfis'] + ensp['snf'] + ensp['noneq']
   events['ribd'] = ensp["ribd"].GetIntegral()
   ensp['rfis0'].Plot(f"{args.plots_folder}/reac_spectrum.pdf",
@@ -204,7 +202,6 @@ def Initialize( ndays=10,
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   events['rdet'] = ensp['rdet'].GetIntegral()
-
   ensp['snf_final'] = ensp['snf_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   ensp['noneq_final'] = ensp['noneq_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 

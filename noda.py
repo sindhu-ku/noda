@@ -544,14 +544,14 @@ class CovMatrix:
     return rank == size
 
   def Chi2(self, s1, s2, unc=' ', stat_meth=' '):
-    # if not self.IsInvertible():
-    #   return None
+    #if not self.IsInvertible():
+    #  return None
     diff = s1.bin_cont - s2.bin_cont
-    cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
     chi2 = 0.
     if stat_meth == "NorP":
       chi2 = diff.dot(self.data_inv).dot(diff)
     else:
+      cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
       if unc == "stat":
         chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
       else:
