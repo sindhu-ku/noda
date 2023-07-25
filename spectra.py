@@ -194,11 +194,11 @@ def Initialize( ndays=10,
   a_err, b_err, c_err =args.a_err, args.b_err, args.c_err
   ebins = ensp['ribd'].bins
 
-  if os.path.isfile(f"{args.data_matrix_folder}/rm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat") and not args.FORCE_CALC_RM:
-    resp_matrix = LoadRespMatrix(f"{args.data_matrix_folder}/rm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat")
+  if os.path.isfile(f"{args.data_matrix_folder}/rm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_RM:
+    resp_matrix = LoadRespMatrix(f"{args.data_matrix_folder}/rm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat")
   else:
     resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
-    resp_matrix.Save(f"{args.data_matrix_folder}/rm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat")
+    resp_matrix.Save(f"{args.data_matrix_folder}/rm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat")
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   events['rdet'] = ensp['rdet'].GetIntegral()

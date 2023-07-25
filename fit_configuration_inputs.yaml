@@ -31,12 +31,13 @@ fit_options:
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: true # Force calculation of covariance matrices
-  PLOT_CM: true # Plot covariance matrices
+  PLOT_CM: false # Plot covariance matrices
 
 
-  input_data_file: ../../noda_log/Data/JUNOInputs2022_05_08.root #data file
+  input_data_file: ../../noda_diana_version/noda/2020/Data/JUNOInputs2022_05_08.root #data file
   reactor_model: Huber-Mueller
 
+  main_data_folder: Data
   cov_matrix_plots_folder: ../Data/CMplots #folder to store CM plots
   plots_folder: ../Data/Plots #folder to save plots of spectra
   data_matrix_folder: ../Data #folder to save or to use csv files of spectra and matrices
@@ -69,16 +70,16 @@ fit_options:
     - stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
 
-  sample_size_resp: 10000 # Sample size for response matrix fluctuations
-  sample_size_core: 10000 # Sample size for core powers fluctuations
-  sample_size_nonl: 10000 # Sample size for non-linearity fluctuations
-  sample_size_me: 10000 # Sample size for matter effect fluctuations
+  sample_size_resp: 1 # Sample size for response matrix fluctuations
+  sample_size_core: 100 # Sample size for core powers fluctuations
+  sample_size_nonl: 1 # Sample size for non-linearity fluctuations
+  sample_size_me: 1 # Sample size for matter effect fluctuations
 
 
 # Juno Inputs
 juno_inputs:
-  core_baselines_1: 52760.0
-  core_powers_1: 4.6
+  core_baselines_1: [52760.0]
+  core_powers_1: [4.6]
   core_powers_12: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
   core_baselines_12: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 52320.0, 52200.0, 215000.0, 265000.0]
   core_powers_10: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]

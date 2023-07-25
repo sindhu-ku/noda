@@ -94,12 +94,13 @@ def GetCM(ensp = {},
       deviations = np.random.normal(loc=1., scale=args.core_flux_unc, size=len(core_powers))
       flu_powers = [dev*p for dev, p in zip(deviations, core_powers)]
       flu_powers2 = np.array([dev*p for dev, p in zip(deviations, core_powers)])
+      flu_powers22 = flu_powers2*6.24e21*60*60*24 # MeV/day
       alpha_arr = np.array(args.alpha)
       efission_arr = np.array(args.efission)
       Pth_arr = np.array(args.Pth)
       L_arr = np.array(args.L)
       extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
-      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers2/(L_arr*L_arr))
+      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22/(L_arr*L_arr))
       ensp['ribd_crel'] = ensp['ribd'].Copy()
       ensp['ribd_crel'].GetScaled(1./extrafactors)
       ensp['ribd_crel'].GetScaled(extrafactors2)
@@ -131,7 +132,7 @@ def GetCM(ensp = {},
   del ensp['rtot'], ensp['acc'], ensp['fneu'], ensp['lihe'], ensp['aneu'], ensp['geo'], ensp['geoth'], ensp['geou']
   del ensp['rtot_noenecrop'], ensp['rdet_noenecrop'], ensp['acc_noenecrop'], ensp['fneu_noenecrop'], ensp['lihe_noenecrop'], ensp['aneu_noenecrop'], ensp['geo_noenecrop'], ensp['geou_noenecrop'], ensp['geoth_noenecrop']
 
-  SaveObject(cm, f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat")
+  SaveObject(cm, f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat")
   #print (cm['me'].data)
   for key in cm.keys():
       cm[key].Dump(f"{args.data_matrix_folder}/csv/cov_mat_{key}.csv")

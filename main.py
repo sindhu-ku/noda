@@ -18,9 +18,6 @@ import frequentist_results as freq_res
 def main(argv):
   if (len(sys.argv) <  2):
       print("ERROR: Please give the config file using the option --config_file=<filename>")
-  #This is where all the data comes and goes
-  if not os.path.exists("../Data"):
-    os.mkdir("../Data")
 
   start_sp_time = datetime.now()
 
@@ -40,6 +37,10 @@ def main(argv):
       parser.add_argument(f"--{option}", default=value)
   args = parser.parse_args()
 
+  #This is where all the data comes and goes
+  if not os.path.exists(f"{args.main_data_folder}"):
+    os.mkdir(f"{args.main_data_folder}")
+  
   #livetime calculation in number of days
   ndays =0
   if args.stat_opt[-4:] == "days":
@@ -78,9 +79,9 @@ def main(argv):
 
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
-  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat") and not args.FORCE_CALC_CM:
+  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_CM:
       print(" # Loading covariance matrices")
-      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat")
+      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat")
   else:
       cm = {}
       print(" # Constructing covariance matrices")
