@@ -64,7 +64,7 @@ def get_results(args=''):
       plt.ylabel(r"$\Delta \chi^2$")
       plt.savefig(f"{args.plots_folder}/Chi2_profiles/chi2_{args.stat_opt}_{op}_{unc}.png")
   #    if unc=='eff+r2+crel+snf+noneq+b2b_TAO+abc+nl+bg+me':
-      plt.show()
+  #    plt.show()
       plt.close()
     print("")
 
