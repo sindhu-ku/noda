@@ -78,9 +78,9 @@ def main(argv):
 
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
-  if os.path.isfile(f"{args.data_matrix_folder}/cm_{ndays:.0f}days.dat") and not args.FORCE_CALC_CM:
+  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat") and not args.FORCE_CALC_CM:
       print(" # Loading covariance matrices")
-      cm = LoadObject(f"{args.data_matrix_folder}/cm_{ndays:.0f}days.dat")
+      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat")
   else:
       cm = {}
       print(" # Constructing covariance matrices")
@@ -139,8 +139,8 @@ def main(argv):
 
  #For frequentist, function inside scan.py
   else:
-      scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
-                     baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
+   #   scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
+  #                   baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
       freq_res.get_results(args=args)
 
   end_scan_time = datetime.now()

@@ -131,7 +131,7 @@ def GetCM(ensp = {},
   del ensp['rtot'], ensp['acc'], ensp['fneu'], ensp['lihe'], ensp['aneu'], ensp['geo'], ensp['geoth'], ensp['geou']
   del ensp['rtot_noenecrop'], ensp['rdet_noenecrop'], ensp['acc_noenecrop'], ensp['fneu_noenecrop'], ensp['lihe_noenecrop'], ensp['aneu_noenecrop'], ensp['geo_noenecrop'], ensp['geou_noenecrop'], ensp['geoth_noenecrop']
 
-  SaveObject(cm, f"{args.data_matrix_folder}/cm_{ndays:.0f}days.dat")
+  SaveObject(cm, f"{args.data_matrix_folder}/cm_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.dat")
   #print (cm['me'].data)
   for key in cm.keys():
       cm[key].Dump(f"{args.data_matrix_folder}/csv/cov_mat_{key}.csv")
