@@ -140,8 +140,8 @@ def main(argv):
 
  #For frequentist, function inside scan.py
   else:
-   #   scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
-  #                   baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
+      scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
+                     baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
       freq_res.get_results(args=args)
 
   end_scan_time = datetime.now()
