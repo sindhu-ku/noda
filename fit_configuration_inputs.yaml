@@ -70,10 +70,10 @@ fit_options:
     - stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
 
-  sample_size_resp: 1 # Sample size for response matrix fluctuations
-  sample_size_core: 100 # Sample size for core powers fluctuations
-  sample_size_nonl: 1 # Sample size for non-linearity fluctuations
-  sample_size_me: 1 # Sample size for matter effect fluctuations
+  sample_size_resp: 10000 # Sample size for response matrix fluctuations
+  sample_size_core: 10000 # Sample size for core powers fluctuations
+  sample_size_nonl: 10000 # Sample size for non-linearity fluctuations
+  sample_size_me: 10000 # Sample size for matter effect fluctuations
 
 
 # Juno Inputs
