@@ -1,4 +1,4 @@
-Early version of cleaned-up and improved NODA code, used for the precision measurement of oscillation parameters with the JUNO experiment
+Early version of cleaned-up and improved NODA code, used for the precision measurement of oscillation parameters with the JUNO experiment (cross-checked, should give you results as in docdb #10250)
 
 NODA- Neutrino Oscillation Data Analysis
 
