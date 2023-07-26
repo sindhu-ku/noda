@@ -10,8 +10,6 @@ Change the path of your input file in the yaml file or do --input_data_file=<dat
 
 (add more parsers as you want, look at yaml file for the required parameter)
 
-There is much more optimization to-do. Next in list is to make directories for the scripts based on function
-
 spectra.py: produces all the spectra necessary for the fit and the energy response matrix
 
 matrices.py: produces covariance matrices for all the uncertainties
