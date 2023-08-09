@@ -40,7 +40,7 @@ def main(argv):
   #This is where all the data comes and goes
   if not os.path.exists(f"{args.main_data_folder}"):
     os.mkdir(f"{args.main_data_folder}")
-  
+
   #livetime calculation in number of days
   ndays =0
   if args.stat_opt[-4:] == "days":
@@ -134,14 +134,13 @@ def main(argv):
 
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args.stat_method_opt == 'bayesian': #TODO: have to paraleelize this still
-      for i in range (args.bayes_seed_beg, args.bayes_seed_beg+args.bayes_nprocesses):
-          bayes.run_emcee(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args)
+      Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args) for i in range (args.bayes_seed_beg, args.bayes_seed_beg+args.bayes_nprocesses))
       bayes_res.get_results(args=args)
 
  #For frequentist, function inside scan.py
   else:
-  #    scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
-   #                  baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
+      scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
+                     baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
       freq_res.get_results(args=args)
 
   end_scan_time = datetime.now()

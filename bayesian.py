@@ -10,8 +10,8 @@ import os
 #TO DO: This code needs more cleaning, mostly unedited from Pietro
 
 def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 0, args=''):
+  unc = args.bayes_unc
 
-  unc=args.unc_list[len(args.unc_list)-1]
   if(args.bayes_chi2 == 'CNP' and unc != 'stat'): unc = unc.replace('stat+', '')
 
   nuosc.SetOscillationParameters(opt=args.PDG_opt, NMO=args.NMO_opt) #Vals for osc parameters and NMO
@@ -59,13 +59,13 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
       s = s.GetWithPositronEnergy()
       s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
       s = s.ApplyDetResp(rm, pecrop=args.ene_crop)
-      chi2 = cm[unc].Chi2(ensp_nom["rdet"],s, args.bayes_chi2)
+      chi2 = cm[unc].Chi2(ensp_nom["rdet"],s, unc, args.bayes_chi2)
     #  print(chi2)
 
      # print("x", x)
       #print("chi2", chi2)
 
-      ll = chi2
+      ll = -0.5*chi2
       return p + ll, p + ll, p
   # 5 parameters
   # the number fo walkers should be >> ndim

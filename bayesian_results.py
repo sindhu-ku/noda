@@ -13,6 +13,8 @@ def get_results(args=''):
 
   if not os.path.exists(f"{args.bayes_plots_folder}"):
     os.makedirs(f"{args.bayes_plots_folder}")
+  if not os.path.exists(f"{args.bayes_plots_folder}/{args.stat_opt}"):
+    os.makedirs(f"{args.bayes_plots_folder}/{args.stat_opt}")
   stat_opt = args.stat_opt
 
   labels = [r"$\Delta M^2_{SOL}$",
@@ -27,7 +29,7 @@ def get_results(args=''):
   file_list = []
   nwalkers = args.bayes_nwalkers
   for i in range(args.bayes_seed_beg, args.bayes_nprocesses+args.bayes_seed_beg):
-      file_list.append(f"{args.bayes_data_folder}/MCMC_Bayesian_1_{nsteps}_{i}_{stat_opt}.npz")
+      file_list.append(f"{args.bayes_data_folder}/MCMC_Bayesian_1_{nsteps}_{i}_{stat_opt}_{args.bayes_chi2}.npz")
 
 
   chains = []
@@ -114,7 +116,7 @@ def get_results(args=''):
   for i in range(nvars):
       print("Autocorrplot ",labels[i])
       az.plot_autocorr(dataset_w0, var_names=labels[i])
-      plt.savefig(f"{bayes_plots_folder}/{stat_opt}/autocorrectplot.png")
+      plt.savefig(f"{args.bayes_plots_folder}/{stat_opt}/autocorrectplot.png")
 
   for i in range(nvars):
       fig, axes = plt.subplots(1, figsize = (10,7), sharex = True)
@@ -125,11 +127,11 @@ def get_results(args=''):
       axes.set_ylabel(labels[i])
       Axis.set_label_coords(axes.yaxis, -0.1, 0.5)
       axes.set_xlabel("step number")
-      plt.savefig(f'{bayes_plots_folder}/{stat_opt}_{nsteps}events/stepnumber.png')
+      plt.savefig(f'{args.bayes_plots_folder}/{stat_opt}/stepnumber.png')
 
 
 
-  plt.savefig(f'{bayes_plots_folder}/{stat_opt}_{nsteps}events/stepnumber-what.png')
+  plt.savefig(f'{args.bayes_plots_folder}/{stat_opt}/stepnumber-what.png')
 
   npchains_aw = npchains.reshape(nfiles*args.bayes_nwalkers,nsteps,nvars)
 
@@ -160,13 +162,13 @@ def get_results(args=''):
   print(az.summary(dataset_aw,round_to="none",fmt="long").to_string())
   az.plot_posterior(dataset_aw)
 
-  plt.savefig(f'{bayes_plots_folder}/{stat_opt}_{nsteps}events/az.png')
+  plt.savefig(f'{args.bayes_plots_folder}/{stat_opt}/az.png')
 
   npchains_cut  = npchains[:,skipsteps:,:]
   npchains_full = npchains_cut.reshape(nfiles*args.bayes_nwalkers*(nsteps-skipsteps),nvars)
   figure = cr.corner( npchains_full , labels = labels )
 
-  plt.savefig(f'{bayes_plots_folder}/{stat_opt}_{nsteps}events/corner.png')
+  plt.savefig(f'{args.bayes_plots_folder}/{stat_opt}/corner.png')
 
 
   means      = np.zeros((nfiles,nvars))

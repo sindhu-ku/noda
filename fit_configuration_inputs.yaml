@@ -29,20 +29,20 @@ fit_options:
     - 0.8
     - 12.0
 
-  FORCE_CALC_RM: true # Force calculation of response matrix
-  FORCE_CALC_CM: true # Force calculation of covariance matrices
+  FORCE_CALC_RM: false # Force calculation of response matrix
+  FORCE_CALC_CM: false # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
 
   input_data_file: ../../noda_diana_version/noda/2020/Data/JUNOInputs2022_05_08.root #data file
   reactor_model: Huber-Mueller
 
-  main_data_folder: Data
-  cov_matrix_plots_folder: ../Data/CMplots #folder to store CM plots
-  plots_folder: ../Data/Plots #folder to save plots of spectra
-  data_matrix_folder: ../Data #folder to save or to use csv files of spectra and matrices
-  bayes_data_folder: ../Data/Bayesian/npz_files
-  bayes_plots_folder: ../Data/Bayesian/Plots
+  main_data_folder: ../Data_test
+  cov_matrix_plots_folder: ../Data_test/CMplots #folder to store CM plots
+  plots_folder: ../Data_test/Plots #folder to save plots of spectra
+  data_matrix_folder: ../Data_test #folder to save or to use csv files of spectra and matrices
+  bayes_data_folder: ../Data_test/Bayesian/npz_files
+  bayes_plots_folder: ../Data_test/Bayesian/Plots
 
   #start and end points for each parameter in grid space
   grid_params:
@@ -69,6 +69,7 @@ fit_options:
     - stat+me
     - stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
+  bayes_unc: stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
   sample_size_resp: 10000 # Sample size for response matrix fluctuations
   sample_size_core: 10000 # Sample size for core powers fluctuations
