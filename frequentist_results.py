@@ -10,8 +10,8 @@ def get_results(args=''):
                 'dm2_21':    r"$\Delta m^2_{21} (10^{-5} {\rm eV}^2)$",
                 'dm2_31':    r"$\Delta m^2_{31} (10^{-3} {\rm eV}^2)$",
                 'dm2_ee':    r"$\Delta m^2_{ee} (10^{-3} {\rm eV}^2)$"}
-  chi2maps, grid = np.load(f"../Data/chi2maps_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.npy", allow_pickle=True)
-  file_out = open(f"../Data/fit_results_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.txt", "a")
+  chi2maps, grid = np.load(f"{args.main_data_folder}/chi2maps_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.npy", allow_pickle=True)
+  file_out = open(f"{args.main_data_folder}/fit_results_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.txt", "a")
   file_out.write("unc sin2_12 sin2_12_err sin2_13 sin2_13_err dm2_21 dm2_21_err dm2_31 dm2_31_err\n")
 
 

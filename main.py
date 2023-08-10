@@ -12,6 +12,7 @@ from noda import *
 import bayesian as bayes
 import bayesian_results as bayes_res
 import frequentist_results as freq_res
+import minuit as minuit
 
 
 
@@ -139,9 +140,16 @@ def main(argv):
 
  #For frequentist, function inside scan.py
   else:
-      scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
-                     baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
-      freq_res.get_results(args=args)
+      if(args.grid_scan):
+          scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
+                      baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
+          freq_res.get_results(args=args)
+      else:
+          filename = f"{args.main_data_folder}/fit_results_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_minuit.txt"
+          file_out = open(filename, "w")
+          file_out.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+          file_out.close()
+          Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom, unc=unc, baselines=baselines, powers=powers, rm=rm, cm=cm, args=args, fileout=filename) for unc in unc_list_new)
 
   end_scan_time = datetime.now()
   print("Scanning time", end_scan_time-start_scan_time)

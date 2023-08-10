@@ -12,7 +12,8 @@ fit_options:
   max_ene: 9.0 # Maximum energy
   bins: 411 # Number of bins
   stat_method_opt: CNP #NorP, CNP, or bayesian
-
+  grid_scan: false # if not grid scan, iminuit is run
+  show_minuit_posteriors: false
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
