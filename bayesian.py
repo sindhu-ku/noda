@@ -14,7 +14,7 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
 
   if(args.bayes_chi2 == 'CNP' and unc != 'stat'): unc = unc.replace('stat+', '')
 
-  nuosc.SetOscillationParameters(opt=args.PDG_opt, NMO=args.NMO_opt) #Vals for osc parameters and NMO
+  nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #Vals for osc parameters and NMO
   noda.SetOscFormula(args.osc_formula_opt) #Gets the antinu survival probability
   print(" # Oscillation parameters:")
   for k, val in nuosc.op_nom.items(): #print input values
