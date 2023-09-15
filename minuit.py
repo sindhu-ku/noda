@@ -26,8 +26,8 @@ def round_errors(param, neg_err, pos_err): #rounds errors for different paramete
     m_err = 0.
     p_err = 0.
     if(param=='sin2_12'):
-        m_err = round(neg_err, 4)
-        p_err = round(pos_err, 4)
+        m_err = round(neg_err, 5)
+        p_err = round(pos_err, 5)
     elif(param=='sin2_13'):
         m_err = round(neg_err, 5)
         p_err = round(pos_err, 5)
