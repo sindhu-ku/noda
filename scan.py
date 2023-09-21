@@ -43,7 +43,7 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
        s = ensp_nom['ribd'].GetOscillated(L=baselines, core_powers=powers,
                                           sin2_th12=sin2_12, dm2_21=dm2_21, dm2_31=dm2_31,
                                           me_rho=args.me_rho,
-                                          ene_mode='true')
+                                          ene_mode='true', args=args)
        s = s.GetWithPositronEnergy()
        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
        s = s.ApplyDetResp(rm, pecrop=args.ene_crop)
@@ -58,7 +58,7 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
        s = ensp_nom['ribd'].GetOscillated(L=baselines, core_powers=powers,
                                         sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31,
                                           me_rho=args.me_rho,
-                                          ene_mode='true')
+                                          ene_mode='true', args=args)
        s = s.GetWithPositronEnergy()
        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
        s = s.ApplyDetResp(rm, pecrop=args.ene_crop)
@@ -76,7 +76,7 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
        s = ensp_nom['ribd'].GetOscillated(L=baselines, core_powers=powers,
                                         sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31,
                                           me_rho=args.me_rho,
-                                          ene_mode='true')
+                                          ene_mode='true', args=args)
        s = s.GetWithPositronEnergy()
        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
        s = s.ApplyDetResp(rm, pecrop=args.ene_crop)

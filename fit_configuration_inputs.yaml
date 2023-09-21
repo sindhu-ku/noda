@@ -6,7 +6,7 @@ fit_options:
   stat_opt: 20years # time period for sensitivity studies
   sin2_th13_opt: free   # Sin2_theta13 option
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2019 # PDG option
+  PDG_opt: PDG2022 # PDG option
   NMO_opt: true   # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy

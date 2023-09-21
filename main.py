@@ -52,6 +52,7 @@ def main(argv):
       ndays = 365.25*int(args.stat_opt[:-5])
       ndays *= (11/12) #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
 
+ 
   livetime = ndays
   baselines = args.core_baselines_9 #which reactor baselines and cores
   powers = args.core_powers_9

@@ -55,7 +55,7 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
       s = ensp_nom['ribd'].GetOscillated(L=baselines, core_powers=powers,
       sin2_th12=x[2], sin2_th13=x[3], dm2_21=x[0], dm2_31=x[1],
       me_rho=args.me_rho,
-      ene_mode='true')
+      ene_mode='true', args=args)
       s = s.GetWithPositronEnergy()
       s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
       s = s.ApplyDetResp(rm, pecrop=args.ene_crop)

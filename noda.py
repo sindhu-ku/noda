@@ -184,7 +184,8 @@ class Spectrum:
                 dm2_32=None,
                 dm2_ee=None,
                 me_rho=0.,
-                ene_mode='vis'):
+                ene_mode='vis', args=''):
+    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
     if sin2_th12 is None:
       sin2_th12 = nuosc.op_nom["sin2_th12"]
     if sin2_th13 is None:

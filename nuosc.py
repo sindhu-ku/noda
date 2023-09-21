@@ -47,7 +47,7 @@ def SetOscillationParameters(opt, NO, silent=True):
   if not silent:
     print(f"Oscillation parameters are set to \"{opt}\":", op_nom)
 
-SetOscillationParameters(opt="PDG2022", NO=True) #WARNING TODO: change this
+
 
 
 

@@ -120,7 +120,7 @@ def Initialize( ndays=10,
   print(" Expected IBDs (no osc):     {:.2f} events".format(ensp["ribd"].GetIntegral(left_edge = 2, right_edge = 6)))
 
   # Oscillated spectrum
-  ensp['rosc'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true')
+  ensp['rosc'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
 
   events['rosc'] = ensp["rosc"].GetIntegral()
 
@@ -133,7 +133,7 @@ def Initialize( ndays=10,
                    xmin=0, xmax=10,
                    ymin=0, ymax=None, log_scale=False)
 
-  ensp['rosc_nome'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=0.0, ene_mode='true')
+  ensp['rosc_nome'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=0.0, ene_mode='true', args=args)
 
 
   ensp['rosc'].Plot(f"{args.plots_folder}/osc_spectrum_mecomp.pdf",
@@ -146,9 +146,9 @@ def Initialize( ndays=10,
                    ymin=0, ymax=None, log_scale=False)
   del ensp['rosc_nome']
 
-  ensp['snf_osc'] = ensp['snf'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true')
+  ensp['snf_osc'] = ensp['snf'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
   del ensp['snf']
-  ensp['noneq_osc'] = ensp['noneq'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true')
+  ensp['noneq_osc'] = ensp['noneq'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
   del ensp['noneq']
   #   Non-linearity
   ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy()
