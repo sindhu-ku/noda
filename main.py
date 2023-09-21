@@ -17,18 +17,18 @@ import minuit as minuit
 
 
 def main(argv):
-  #if (len(sys.argv) <  2):
-  #    print("ERROR: Please give the config file using the option --config_file=<filename>")
+  if (len(sys.argv) <  2):
+      print("ERROR: Please give the config file using the option --config_file=<filename>")
 
   start_sp_time = datetime.now()
 
-  # Create parser for config file
+  Create parser for config file
   parser = argparse.ArgumentParser()
- # parser.add_argument('--config', help='Path to the YAML configuration file')
- # args = parser.parse_args()
+  parser.add_argument('--config', help='Path to the YAML configuration file')
+  args = parser.parse_args()
 
   #create parser for yaml file
-  with open('fit_configuration_inputs.yaml', "r") as file:
+  with open(args.config, "r") as file:
     config = yaml.safe_load(file)
 
      # Parse arguments from the YAML content
