@@ -194,11 +194,11 @@ def Initialize( ndays=10,
   a_err, b_err, c_err =args.a_err, args.b_err, args.c_err
   ebins = ensp['ribd'].bins
 
-  if os.path.isfile(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_RM:
-    resp_matrix = LoadRespMatrix(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat")
+  if os.path.isfile(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_RM:
+    resp_matrix = LoadRespMatrix(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   else:
     resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
-    resp_matrix.Save(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat")
+    resp_matrix.Save(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   events['rdet'] = ensp['rdet'].GetIntegral()
@@ -209,6 +209,10 @@ def Initialize( ndays=10,
   events['rdet_noenecrop'] = ensp["rdet_noenecrop"].GetIntegral()
   del ensp['snf_osc_vis'], ensp['noneq_osc_vis']
 
+    #for delta_chi2 calc
+  ensp['unosc_pos'] = ensp['ribd'].GetWithPositronEnergy()
+  ensp['unosc_nonl'] = ensp['unosc_pos'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+  ensp['unosc'] = ensp['unosc_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
   #file_ibd = open("IBD_spec_noosc.txt", "a")
   #for i in range(0, len(ensp['rdet_temp'].bin_cont)):

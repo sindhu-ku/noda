@@ -74,8 +74,10 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
     print("Uncertainty: ", unc_new)
     print(m)
 
+    print(unc, abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - cm[unc].Chi2(ensp_nom["rdet"],ensp_nom["unosc"], unc, args.stat_method_opt)))
+
     #writing results
-    filename = f"{args.main_data_folder}/fit_results_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_minuit.txt"
+    filename = f"{args.main_data_folder}/fit_results_{args.stat_method_opt}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_minuit.txt"
     if unc_new==args.unc_list[0]:
         fileo = open(filename, "w")
         fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")

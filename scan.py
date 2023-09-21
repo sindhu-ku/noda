@@ -21,7 +21,7 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
   for k, val in nuosc.op_nom.items(): #print input values
       print(f"   {k:<12} {val}")
 
-  temp_file = f'../Data/chi2maps_temp_{args.stat_method_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.txt'
+  temp_file = f'{args.main_data_folder}/chi2maps_temp_{args.stat_method_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.txt'
   if os.path.isfile(temp_file):
       os.remove(temp_file)
   chi2maps = {}
@@ -124,4 +124,4 @@ def scan_chi2(grid={}, ensp_nom = {}, unc_list = [],
          chi2maps[key][i, j, k, l] = chi2
 
   os.remove(temp_file)
-  np.save(f"../Data/chi2maps_{args.stat_method_opt}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.npy", (chi2maps, grid),  allow_pickle=True)
+  np.save(f"{args.main_data_folder}/chi2maps_{args.stat_method_opt}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_{args.grid_points}gridpoints.npy", (chi2maps, grid),  allow_pickle=True)

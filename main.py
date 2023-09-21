@@ -17,18 +17,18 @@ import minuit as minuit
 
 
 def main(argv):
-  if (len(sys.argv) <  2):
-      print("ERROR: Please give the config file using the option --config_file=<filename>")
+  #if (len(sys.argv) <  2):
+  #    print("ERROR: Please give the config file using the option --config_file=<filename>")
 
   start_sp_time = datetime.now()
 
   # Create parser for config file
   parser = argparse.ArgumentParser()
-  parser.add_argument('--config', help='Path to the YAML configuration file')
-  args = parser.parse_args()
+ # parser.add_argument('--config', help='Path to the YAML configuration file')
+ # args = parser.parse_args()
 
   #create parser for yaml file
-  with open(args.config, "r") as file:
+  with open('fit_configuration_inputs.yaml', "r") as file:
     config = yaml.safe_load(file)
 
      # Parse arguments from the YAML content
@@ -81,9 +81,9 @@ def main(argv):
 
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
-  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_CM:
+  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_CM:
       print(" # Loading covariance matrices")
-      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_{args.stat_opt}_{args.bins}bins.dat")
+      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   else:
       cm = {}
       print(" # Constructing covariance matrices")

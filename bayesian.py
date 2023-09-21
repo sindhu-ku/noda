@@ -96,5 +96,5 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
   print(chain)
   if not os.path.exists(f"{args.bayes_data_folder}"):
     os.makedirs(f"{args.bayes_data_folder}")
-  np.savez(f"{args.bayes_data_folder}/MCMC_Bayesian_1_{EVENTS}_{SEED}_{args.stat_opt}_{args.bayes_chi2}.npz",chain=chain,blobs=blobs)
+  np.savez(f"{args.bayes_data_folder}/MCMC_Bayesian_1_{EVENTS}_{SEED}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bayes_chi2}.npz",chain=chain,blobs=blobs)
   print("Ending JBF")
