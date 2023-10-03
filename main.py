@@ -22,7 +22,7 @@ def main(argv):
 
   start_sp_time = datetime.now()
 
-  Create parser for config file
+  #Create parser for config file
   parser = argparse.ArgumentParser()
   parser.add_argument('--config', help='Path to the YAML configuration file')
   args = parser.parse_args()
