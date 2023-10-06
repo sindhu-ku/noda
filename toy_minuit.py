@@ -45,51 +45,30 @@ def run_minuit(ensp_nom = {}, baselines = [], powers=[], rm= [], cm ={}, args=''
         s = s.GetWithPositronEnergy() #shift to positron energy
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args.ene_crop) #apply energy resolution
-        chi2 = cm[args.unc].Chi2(ensp_nom["rdet"],s, args.unc, args.stat_method_opt) #calculate chi2 using covariance matrix
+        chi2 = cm[args.unc].Chi2(ensp_nom["toy"],s, args.unc, args.stat_method_opt) #calculate chi2 using covariance matrix
         return chi2
 
    #fitting stuff
     nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #Vals for osc parameters and NMO
     m = Minuit(chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
-    m.migrad() #fit
-    m.hesse() #get errors
-    m.minos() #get minos errors
+    print("# Chi2 function defined, performing migrad minimization")
+    m.migrad()#fit
+    if(m.valid):
+        #print("# Getting hesse errors")
+        #m.hesse() #get errors
+        #print("# Getting minos errors")
+        #m.minos() #get minos errors
 
-    #print results
-    unc_new = args.unc
-    if(args.stat_method_opt == "CNP" and args.unc != 'stat'): unc_new = 'stat+'+args.unc
-    print("args.uncertainty: ", unc_new)
-    print(m)
+        #print results
+        unc_new = args.unc
+        if(args.stat_method_opt == "CNP" and args.unc != 'stat'): unc_new = 'stat+'+args.unc
+        print("# Uncertainty used: ", unc_new)
+        print(m)
 
-    delta_chi2 = abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - cm[args.unc].Chi2(ensp_nom["rdet"],ensp_nom["unosc"], args.unc, args.stat_method_opt))
+        delta_chi2 = abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - cm[args.unc].Chi2(ensp_nom["rdet"],ensp_nom["unosc"], args.unc, args.stat_method_opt))
 
-    # #writing results
-    # filename = f"{args.main_data_folder}/fit_results_{args.stat_method_opt}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_minuit.txt"
-    # if unc_new==args.args.unc_list[0]:
-    #     fileo = open(filename, "w")
-    #     fileo.write("args.unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
-    #     fileo.close()
-    # write_results(m, filename, unc_new) #write results into a textfile
 
-   #fancy stuff
-    if(args.plot_minuit_matrix or args.plot_minuit_profiles): #make plots folders
-        if not os.path.exists(f"{args.plots_folder}/Chi2_profiles"): os.mkdir(f"{args.plots_folder}/Chi2_profiles")
-        if not os.path.exists(f"{args.plots_folder}/Chi2_profiles/Minuit"): os.mkdir(f"{args.plots_folder}/Chi2_profiles/Minuit")
-
-    if(args.plot_minuit_profiles): #create chi2 profiles
-        print("Plotting chi2 profiles")
-        param_list = ["sin2_12", "sin2_13", "dm2_21", "dm2_31"]
-        for i in range(len(param_list)): #there is something weird with draw_mnprofile in minuit, so I have to do this from scratch inside plot_profile
-            plotname = f"{args.plots_folder}/Chi2_profiles/Minuit/chi2_{args.stat_opt}_{param_list[i]}_{unc_new}.png"
-            plot_profile(m, i, param_list[i], plotname)
-
-    if(args.print_minuit_correlation):
-        print("Correlation co-efficient between parameters")
-        print(m.covariance.correlation())
-
-    if (args.plot_minuit_matrix):
-        print("Plotting matrix")
-        fig, ax = m.draw_mnmatrix(cl=[1,2,3])
-        plt.savefig(f"{args.plots_folder}/Chi2_profiles/Minuit/matrix_{args.stat_opt}_{unc_new}.png")
-
-    return m.values[0], m.values[1], m.values[2], m.values[3], delta_chi2
+        return m.values[0], m.values[1], m.values[2], m.values[3], delta_chi2
+    else:
+        print("Failed to find minimum")
+        return -111, -111, -111, -111, -111

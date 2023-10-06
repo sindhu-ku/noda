@@ -11,10 +11,6 @@ def Initialize( ndays=10,
                core_baselines=[],
                core_powers=[],
                ebins=None,
-               sin2_th12=0,
-               sin2_th13=0,
-               dm2_21=0,
-               dm2_31=0,
                args=""):
 
 
@@ -42,6 +38,7 @@ def Initialize( ndays=10,
                  GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_Pu239', scale=args.Pu239_scale) + \
                  GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_Pu241', scale=args.Pu241_scale)
   # IBD xsection
+  print("# Applying IBD cross-section")
   ensp['sibd'] = GetSpectrumFromROOT(args.input_data_file, 'IBDXsec_VogelBeacom_DYB')
   s_ibd = sp.interpolate.interp1d(ensp['sibd'].GetBinCenters(), ensp['sibd'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp['sibd'].bin_cont[0], ensp['sibd'].bin_cont[-1]))
   #why s_ibd rebinned separately?
@@ -55,26 +52,10 @@ def Initialize( ndays=10,
 
   #  DYB Bump
   #  Previous spectrum (Oct2020) + extra bins + interpolation lin + getweightedwithfunction
+  print("# Applying DYB 5 MeV bump")
   ensp['bump_corr'] = GetSpectrumFromROOT(args.input_data_file, 'DYBFluxBump_ratio')
-#  bins_new_bump = [1.799]+list(ensp['bump_corr'].bins)+[11.999,12]
-#  bin_cont_new_bump = [ensp['bump_corr'].bin_cont[0]]+list(ensp['bump_corr'].bin_cont)+[ensp['bump_corr'].bin_cont[-1]]*2
- # ensp['bump_corr'].bins = np.array(bins_new_bump)
- # ensp['bump_corr'].bin_cont = np.array(bin_cont_new_bump)
-  ensp['bump_corr'].Plot(f"{args.plots_folder}/bump_correction.pdf",
-                   xlabel="Neutrino energy (MeV)",
-                   xmin=0, xmax=10,
-                   ymin=0.8, ymax=1.1, log_scale=False)
-
   s_bump_lin = sp.interpolate.interp1d(ensp['bump_corr'].GetBinCenters(), ensp['bump_corr'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp['bump_corr'].bin_cont[0], ensp['bump_corr'].bin_cont[-1]))
   del ensp['bump_corr']
-  xlin = np.linspace(0.8, 12., 561)
-  #xlin = np.linspace(1.5, 15., 2700)
-  xlin_c = 0.5*(xlin[:-1]+xlin[1:])
-  ylin = s_bump_lin(xlin_c)
-  with open(f'{args.data_matrix_folder}/csv/s_bump_lin.csv', 'w') as f:
-    writer = csv.writer(f, delimiter=' ')
-    writer.writerows(zip(xlin_c,ylin))
-  f.close()
   ensp['rfis_b'] = ensp['rfis0'].GetWeightedWithFunction(s_bump_lin)
   del s_bump_lin
   #
@@ -87,10 +68,11 @@ def Initialize( ndays=10,
   Pth_arr = np.array(args.Pth)
   L_arr = np.array(args.L)
   extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
-  print("extrafactors", extrafactors)
+  print("# Extrafactors for scaling the spectra", extrafactors)
   ensp['rfis'].GetScaled(extrafactors) #correct normalization including fission fractions, mean energy per fission ... eq.13.5 YB
 
   #
+  print("# Applying SNF and non-equilibrium corrections")
   ensp['snf0'] = GetSpectrumFromROOT(args.input_data_file, 'SNF_FluxRatio')     #spent nuclear fuel
   ensp['snf0'].Rebin(ebins, mode='spline-not-keep-norm')
   ensp['snf'] = ensp['snf0'].GetWeightedWithSpectrum(ensp['rfis'])
@@ -103,14 +85,9 @@ def Initialize( ndays=10,
   ensp['ribd'] = ensp['rfis'] + ensp['snf'] + ensp['noneq']
 
 
+  print("# Applying Oscillations")
   # Oscillated spectrum
-  ensp['rosc'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true', sin2_th12=sin2_th12,\
-                                         sin2_th13=sin2_th13, dm2_21=dm2_21, dm2_31=dm2_31,args=args)
-
-
-
-
-
+  ensp['rosc'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
 
   #   Non-linearity
   ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy()
@@ -118,11 +95,12 @@ def Initialize( ndays=10,
 
   ensp['scintNL'] = GetSpectrumFromROOT(args.input_data_file, 'positronScintNL')
 
-  print("applying non-linearity")
+  print("# Applying non-linearity")
   ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
 
 
   #   Energy resolution
+  print("# Applying energy resolution")
   a, b, c = args.a, args.b, args.c
   a_err, b_err, c_err =args.a_err, args.b_err, args.c_err
   ebins = ensp['ribd'].bins
@@ -131,7 +109,7 @@ def Initialize( ndays=10,
     resp_matrix = LoadRespMatrix(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   else:
     resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
-    resp_matrix.Save(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
+  #  resp_matrix.Save(f"{args.data_matrix_folder}/rm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
   ensp['rdet_noenecrop'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop2)
@@ -140,7 +118,7 @@ def Initialize( ndays=10,
   ensp['unosc_nonl'] = ensp['unosc_pos'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['unosc'] = ensp['unosc_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
-  print ("Backgrounds")
+  print ("Creating background spectra")
   bg_labels = ['AccBkgHistogramAD', 'FnBkgHistogramAD', 'Li9BkgHistogramAD', 'AlphaNBkgHistogramAD', 'GeoNuHistogramAD', 'GeoNuTh232', 'GeoNuU238', 'AtmosphericNeutrinoModelGENIE2', 'OtherReactorSpectrum_L300km']
   bg_keys = ['acc', 'fneu', 'lihe', 'aneu', 'geo', 'geoth', 'geou', 'atm', 'rea300']
   for key, label in zip(bg_keys, bg_labels):
