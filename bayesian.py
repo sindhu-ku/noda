@@ -23,7 +23,7 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
   EVENTS = args.bayes_events
   # here set your estimates of central values
   mid_dm2sol = nuosc.op_nom["dm2_21"]
-  mid_dm2atm = nuosc.op_nom["dm2_31"]
+  mid_dm2atm = nuosc.op_nom["dm2_32"]
   mid_s2t12  = nuosc.op_nom["sin2_th12"]
   mid_s2t13  = nuosc.op_nom["sin2_th13"]
   mid_vals = np.array([mid_dm2sol, mid_dm2atm, mid_s2t12, mid_s2t13])
@@ -39,14 +39,14 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
   # Parameters: like in mid_vals
   def prior(x):
       p = 1
-      if x[0] < mid_dm2sol/10.: p = -1.*float("inf")
-      if x[0] > mid_dm2sol*10.: p = -1.*float("inf")
-      if x[1] < mid_dm2atm/10.: p = -1.*float("inf")
-      if x[1] > mid_dm2atm*10.: p = -1.*float("inf")
-      if x[2] < mid_s2t12/10. : p = -1.*float("inf")
-      if x[2] > mid_s2t12*10. : p = -1.*float("inf")
-      if x[3] < mid_s2t13/10. : p = -1.*float("inf")
-      if x[3] > mid_s2t13*10. : p = -1.*float("inf")
+      if x[0] < mid_dm2sol - mid_dm2sol*0.1 : p = -1.*float("inf")
+      if x[0] > mid_dm2sol + mid_dm2sol*0.1 : p = -1.*float("inf")
+      if x[1] < mid_dm2atm - mid_dm2atm*0.5 : p = -1.*float("inf")
+      if x[1] > mid_dm2atm + mid_dm2atm*0.5 : p = -1.*float("inf")
+      if x[2] < mid_s2t12 - mid_s2t12*0.1 : p = -1.*float("inf")
+      if x[2] > mid_s2t12 + mid_s2t12*0.1 : p = -1.*float("inf")
+      if x[3] < mid_s2t13 - mid_s2t13*3. : p = -1.*float("inf")
+      if x[3] > mid_s2t13 + mid_s2t13*3. : p = -1.*float("inf")
       return p
   def log_prob(x):
       p = prior(x)

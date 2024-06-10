@@ -56,10 +56,10 @@ def Initialize( ndays=10,
 #  bin_cont_new_bump = [ensp['bump_corr'].bin_cont[0]]+list(ensp['bump_corr'].bin_cont)+[ensp['bump_corr'].bin_cont[-1]]*2
  # ensp['bump_corr'].bins = np.array(bins_new_bump)
  # ensp['bump_corr'].bin_cont = np.array(bin_cont_new_bump)
-  ensp['bump_corr'].Plot(f"{args.plots_folder}/bump_correction.pdf",
-                   xlabel="Neutrino energy (MeV)",
-                   xmin=0, xmax=10,
-                   ymin=0.8, ymax=1.1, log_scale=False)
+#  ensp['bump_corr'].Plot(f"{args.plots_folder}/bump_correction.pdf",
+#                   xlabel="Neutrino energy (MeV)",
+#                   xmin=0, xmax=10,
+#                   ymin=0.8, ymax=1.1, log_scale=False)
 
   s_bump_lin = sp.interpolate.interp1d(ensp['bump_corr'].GetBinCenters(), ensp['bump_corr'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp['bump_corr'].bin_cont[0], ensp['bump_corr'].bin_cont[-1]))
   del ensp['bump_corr']
@@ -103,14 +103,14 @@ def Initialize( ndays=10,
   del ensp['noneq0']
   ensp['ribd'] = ensp['rfis'] + ensp['snf'] + ensp['noneq']
   events['ribd'] = ensp["ribd"].GetIntegral()
-  ensp['rfis0'].Plot(f"{args.plots_folder}/reac_spectrum.pdf",
-                   xlabel="Neutrino energy (MeV)",
-                   ylabel=f"Events per {binw:0.1f} keV",
-                   extra_spectra=[ensp['rfis'], ensp['ribd'], ensp['snf'], ensp['noneq']],
-                   leg_labels=['From HM', '+ bump fix', ' + SNF + NonEq', 'SNF', 'NonEq'],
-                   colors=['black', 'red', 'blue', 'green', 'magenta'],
-                   xmin=0, xmax=10,
-                   ymin=0, ymax=None, log_scale=False)
+#  ensp['rfis0'].Plot(f"{args.plots_folder}/reac_spectrum.pdf",
+#                   xlabel="Neutrino energy (MeV)",
+#                   ylabel=f"Events per {binw:0.1f} keV",
+#                   extra_spectra=[ensp['rfis'], ensp['ribd'], ensp['snf'], ensp['noneq']],
+#                   leg_labels=['From HM', '+ bump fix', ' + SNF + NonEq', 'SNF', 'NonEq'],
+#                   colors=['black', 'red', 'blue', 'green', 'magenta'],
+#                   xmin=0, xmax=10,
+#                   ymin=0, ymax=None, log_scale=False)
   del ensp['rfis0'], ensp['rfis']
   print(" ")
   print("NUMBER OF IBD + SNF + nEq")
@@ -124,26 +124,26 @@ def Initialize( ndays=10,
 
   events['rosc'] = ensp["rosc"].GetIntegral()
 
-  ensp['ribd'].Plot(f"{args.plots_folder}/osc_spectrum.pdf",
-                   xlabel="Neutrino energy (MeV)",
-                   ylabel=f"Events per {binw:0.1f} keV",
-                   extra_spectra=[ensp['rosc']],
-                   leg_labels=['Reactor', 'Oscillated'],
-                   colors=['black', 'darkred'],
-                   xmin=0, xmax=10,
-                   ymin=0, ymax=None, log_scale=False)
+  #ensp['ribd'].Plot(f"{args.plots_folder}/osc_spectrum.pdf",
+  #                 xlabel="Neutrino energy (MeV)",
+  #                 ylabel=f"Events per {binw:0.1f} keV",
+  #                 extra_spectra=[ensp['rosc']],
+  #                 leg_labels=['Reactor', 'Oscillated'],
+  #                 colors=['black', 'darkred'],
+  #                 xmin=0, xmax=10,
+  #                 ymin=0, ymax=None, log_scale=False)
 
   ensp['rosc_nome'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=0.0, ene_mode='true', args=args)
 
 
-  ensp['rosc'].Plot(f"{args.plots_folder}/osc_spectrum_mecomp.pdf",
-                   xlabel="Neutrino energy (MeV)",
-                   ylabel=f"Events per {binw:0.1f} keV",
-                   extra_spectra=[ensp['rosc_nome']],
-                   leg_labels=['With ME', 'Without ME'],
-                   colors=['black', 'darkred'],
-                   xmin=0, xmax=10,
-                   ymin=0, ymax=None, log_scale=False)
+  #ensp['rosc'].Plot(f"{args.plots_folder}/osc_spectrum_mecomp.pdf",
+  #                 xlabel="Neutrino energy (MeV)",
+  #                 ylabel=f"Events per {binw:0.1f} keV",
+  #                 extra_spectra=[ensp['rosc_nome']],
+  #                 leg_labels=['With ME', 'Without ME'],
+  #                 colors=['black', 'darkred'],
+  #                 xmin=0, xmax=10,
+  #                 ymin=0, ymax=None, log_scale=False)
   del ensp['rosc_nome']
 
   ensp['snf_osc'] = ensp['snf'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
@@ -174,20 +174,20 @@ def Initialize( ndays=10,
   del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
-  ensp['rvis_nonl'].Plot(f"{args.plots_folder}/vis_spectra.pdf",
-                   xlabel="Visual energy (MeV)",
-                   ylabel=f"Events per {binw:0.1f} keV",
-                   extra_spectra=[ensp['rvis']],
-                   leg_labels=['Before NL', 'After NL'],
-                   colors=['darkred', 'green'],
-                   xmin=0, xmax=10,
-                   ymin=0, ymax=None, log_scale=False)
+  #ensp['rvis_nonl'].Plot(f"{args.plots_folder}/vis_spectra.pdf",
+  #                 xlabel="Visual energy (MeV)",
+  #                 ylabel=f"Events per {binw:0.1f} keV",
+  #                 extra_spectra=[ensp['rvis']],
+  #                 leg_labels=['Before NL', 'After NL'],
+  #                 colors=['darkred', 'green'],
+  #                 xmin=0, xmax=10,
+  #                 ymin=0, ymax=None, log_scale=False)
 
-  ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
-                   xlabel="Reconstructed energy (MeV)",
-                   extra_spectra=ensp['NL_pull'],
-                   xmin=0, xmax=10,
-                   ymin=0.9, ymax=1.1, log_scale=False)
+  #ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
+  #                 xlabel="Reconstructed energy (MeV)",
+  #                 extra_spectra=ensp['NL_pull'],
+  #                 xmin=0, xmax=10,
+  #                 ymin=0.9, ymax=1.1, log_scale=False)
 
   #   Energy resolution
   a, b, c = args.a, args.b, args.c
@@ -258,17 +258,17 @@ def Initialize( ndays=10,
   events['lihe'] = ensp['lihe'].GetIntegral()
   events['aneu'] = ensp['aneu'].GetIntegral()
   events['geo'] = ensp['geo'].GetIntegral()
-  ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra.pdf",
-                   xlabel="Reconstructed energy (MeV)",
-                   ylabel=f"Events per {binw:0.1f} keV",
-                   extra_spectra=[ensp['acc'], ensp['geo'], ensp['lihe'],
-                                  ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']],
-                   leg_labels=['Reactor', 'Accidentals', 'Geo-neutrino', 'Li9/He8',
-                               'Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km'],
-                   colors=['darkred', 'green', 'navy', 'orange', 'magenta', 'lightblue', 'yellow', 'brown'],
-                   xmin=0, xmax=10,
-                   ymin=1e-3, ymax=None, log_scale=True)
-
+#  ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra.pdf",
+#                   xlabel="Reconstructed energy (MeV)",
+#                   ylabel=f"Events per {binw:0.1f} keV",
+#                   extra_spectra=[ensp['acc'], ensp['geo'], ensp['lihe'],
+#                                  ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']],
+#                   leg_labels=['Reactor', 'Accidentals', 'Geo-neutrino', 'Li9/He8',
+#                               'Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km'],
+#                   colors=['darkred', 'green', 'navy', 'orange', 'magenta', 'lightblue', 'yellow', 'brown'],
+#                   xmin=0, xmax=10,
+#                   ymin=1e-3, ymax=None, log_scale=True)
+#
 
   ensp['rtot_noenecrop'] = ensp['rdet_noenecrop'] + ensp['acc_noenecrop'] + ensp['fneu_noenecrop'] + ensp['lihe_noenecrop'] + ensp['aneu_noenecrop'] + ensp['geo_noenecrop']
   events['rtot_noenecrop'] = ensp['rtot_noenecrop'].GetIntegral()
@@ -280,7 +280,7 @@ def Initialize( ndays=10,
 
 
 
-  resp_matrix.Plot(f"{args.plots_folder}/resp_mat.pdf")
+#  resp_matrix.Plot(f"{args.plots_folder}/resp_mat.pdf")
 
   #
   print(" ")

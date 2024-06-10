@@ -184,19 +184,33 @@ class Spectrum:
                 dm2_32=None,
                 dm2_ee=None,
                 me_rho=0.,
-                ene_mode='vis', args=''):
-    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
+                ene_mode='vis', opp=False, args=''):
+
     if sin2_th12 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       sin2_th12 = nuosc.op_nom["sin2_th12"]
     if sin2_th13 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       sin2_th13 = nuosc.op_nom["sin2_th13"]
     if dm2_21 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_21 = nuosc.op_nom["dm2_21"]
     if dm2_31 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_31 = nuosc.op_nom["dm2_31"]
     if dm2_32 is None:
-      dm2_32 = nuosc.op_nom["dm2_32"]
+      if dm2_31 is None or dm2_21 is None: 
+        if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+        else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
+        dm2_32 = nuosc.op_nom["dm2_32"]
+      else: dm2_32 = dm2_31 - dm2_21
     if dm2_ee is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_ee = nuosc.op_nom["dm2_ee"]
     spec = self.Copy(0.)
     if type(L) != list:
@@ -559,14 +573,33 @@ class CovMatrix:
         chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
     return chi2
 
-  def Chi2_p(self, s1, s2, pulls=[], pull_unc=[]):
-    if not self.IsInvertible():
-      return None
-    d = s1.bin_cont - s2.bin_cont
+  def Chi2_p(self, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
+    #if not self.IsInvertible():
+    #  return None
     penalty = 0.
     for p, u in zip(pulls, pull_unc):
         penalty += (p/u)**2
-    return d.dot(self.data_inv).dot(d) + penalty
+    diff = s1.bin_cont - s2.bin_cont
+    chi2 = 0.
+    if stat_meth == "NorP":
+      chi2 = diff.dot(self.data_inv).dot(diff) + penalty
+    else:
+      cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+      if unc == "stat":
+        chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
+    #    print("diff", diff)
+    #    print("inv", cnp_stat_cm.data_inv)
+      else:
+        chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff + penalty
+    return chi2
+#  def Chi2_p(self, s1, s2, pulls=[], pull_unc=[]):
+#    if not self.IsInvertible():
+#      return None
+#    d = s1.bin_cont - s2.bin_cont
+#    penalty = 0.
+#    for p, u in zip(pulls, pull_unc):
+#        penalty += (p/u)**2
+#    return d.dot(self.data_inv).dot(d) + penalty
 
   def SetXlabel(self, label):
     self.xlabel = label

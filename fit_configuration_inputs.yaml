@@ -3,8 +3,9 @@ config: ''
 
 fit_options:
 
-  stat_opt: 20years # time period for sensitivity studies
+  stat_opt: 100days # time period for sensitivity studies
   sin2_th13_opt: free   # Sin2_theta13 option
+  sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: PDG2022 # PDG option
   NMO_opt: true   # NMO option, true is normal
@@ -14,7 +15,7 @@ fit_options:
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
-  plot_minuit_profiles: false
+  plot_minuit_profiles: true
   print_minuit_correlation: false
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
@@ -37,10 +38,10 @@ fit_options:
   PLOT_CM: false # Plot covariance matrices
 
 
-  input_data_file: ../../noda_diana_version/noda/2020/Data/JUNOInputs2022_05_08.root #data file
+  input_data_file: ../../noda_log/Data/JUNOInputs2022_05_08.root #data file
   reactor_model: Huber-Mueller
 
-  main_data_folder: ../Data_test
+  main_data_folder: ../../noda_bayes/Data_test
   cov_matrix_plots_folder: ../Data_test/CMplots #folder to store CM plots
   plots_folder: ../Data_test/Plots #folder to save plots of spectra
   data_matrix_folder: ../Data_test #folder to save or to use csv files of spectra and matrices
@@ -57,22 +58,23 @@ fit_options:
   #number of points for each parameter in the grid space
   grid_points: 21
 
+  shape_unc: TAO
   # Uncertainty list
   unc_list:
-    - stat
-    - stat+eff
-    - stat+r2
-    - stat+crel
-    - stat+snf
-    - stat+noneq
-    - stat+b2b_DYB
-    - stat+abc
-    - stat+nl
-    - stat+bg
-    - stat+me
-    - stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
+    #  - stat
+    #   - stat+eff
+    #   - stat+r2
+    #   - stat+crel
+    #   - stat+snf
+    #   - stat+noneq
+    #   - stat+b2b_DYB
+    #   - stat+abc
+    #   - stat+nl
+    #   - stat+bg
+    #   - stat+me
+     - stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
-  bayes_unc: stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
+  bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
   sample_size_resp: 10000 # Sample size for response matrix fluctuations
   sample_size_core: 10000 # Sample size for core powers fluctuations

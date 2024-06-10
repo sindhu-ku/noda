@@ -24,11 +24,11 @@ def main(argv):
 
   #Create parser for config file
   parser = argparse.ArgumentParser()
-  parser.add_argument('--config', help='Path to the YAML configuration file')
-  args = parser.parse_args()
+#  parser.add_argument('--config', help='Path to the YAML configuration file')
+#  args = parser.parse_args()
 
   #create parser for yaml file
-  with open(args.config, "r") as file:
+  with open("fit_configuration_inputs.yaml", "r") as file:
     config = yaml.safe_load(file)
 
      # Parse arguments from the YAML content
@@ -78,15 +78,14 @@ def main(argv):
 
   end_sp_time = datetime.now()
   print("Spectra production time: ", end_sp_time - start_sp_time)
-
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
-  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_CM:
-      print(" # Loading covariance matrices")
-      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
+  if os.path.isfile(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_free_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat") and not args.FORCE_CALC_CM:
+      print(" # Loading covariance matrices", f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
+      cm = LoadObject(f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_free_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   else:
       cm = {}
-      print(" # Constructing covariance matrices")
+      print(f" # Constructing covariance matrices {args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
       cm = mat.GetCM(ensp = ensp_nom,
             core_baselines=baselines,
             core_powers=powers,
@@ -128,11 +127,6 @@ def main(argv):
     #   del cm[key]
     #   continue
 
-  #Form grid for the gridscan
-  grid ={'sin2_12': np.linspace(args.grid_params['sin2_12'][0],args.grid_params['sin2_12'][1],args.grid_points),
-  'sin2_13': np.linspace(args.grid_params['sin2_13'][0],args.grid_params['sin2_13'][1],args.grid_points),
-  'dm2_21': np.linspace(args.grid_params['dm2_21'][0],args.grid_params['dm2_21'][1],args.grid_points),
-  'dm2_31': np.linspace(args.grid_params['dm2_31'][0],args.grid_params['dm2_31'][1],args.grid_points)}
 
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args.stat_method_opt == 'bayesian': #TODO: have to paraleelize this still
@@ -142,11 +136,19 @@ def main(argv):
  #For frequentist, function inside scan.py
   else:
       if(args.grid_scan):
+          #Form grid for the gridscan
+          grid ={'sin2_12': np.linspace(args.grid_params['sin2_12'][0],args.grid_params['sin2_12'][1],args.grid_points),
+          'sin2_13': np.linspace(args.grid_params['sin2_13'][0],args.grid_params['sin2_13'][1],args.grid_points),
+          'dm2_21': np.linspace(args.grid_params['dm2_21'][0],args.grid_params['dm2_21'][1],args.grid_points),
+          'dm2_31': np.linspace(args.grid_params['dm2_31'][0],args.grid_params['dm2_31'][1],args.grid_points)}
           scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
                       baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
           freq_res.get_results(args=args)
       else:
           Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom, unc=unc, baselines=baselines, powers=powers, rm=rm, cm=cm, args=args) for unc in unc_list_new)
+          dm2_31_val = 2.5283e-3
+          dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
+          #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=rm, cm=cm, args=args, dm2_31=m31) for m31 in dm2_31_list)
 
   end_scan_time = datetime.now()
   print("Scanning time", end_scan_time-start_scan_time)
