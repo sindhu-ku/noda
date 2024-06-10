@@ -11,7 +11,7 @@ from noda import *
 import bayesian as bayes
 import bayesian_results as bayes_res
 import frequentist_results as freq_res
-import toy_minuit as minuit
+import toy_minuit2 as minuit
 import toy_plot_results as plot_res
 import itertools
 
@@ -101,7 +101,7 @@ def main(argv):
   #ensp_nom['rtot'].Plot(f"rtot.png",
   #                 xlabel="Reconstructed energy (MeV)",
   #                 xmin=0, xmax=10, log_scale=False)
-  #cm['stat'] = ensp_nom['rtot'].GetStatCovMatrix()
+  cm['stat'] = ensp_nom['rdet'].GetStatCovMatrix()
   def generate_poisson_fluctuated_spectrum(original_spectrum):
     l_poisson = []
     for i in range(len(original_spectrum.bin_cont)):
@@ -115,53 +115,39 @@ def main(argv):
                             xlabel=original_spectrum.xlabel, ylabel=original_spectrum.ylabel)
     return new_spectrum
 
-  dm2_31_val = 2.5283e-3
-  dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
-  def run_experiment(i, m2_31):
+  def run_experiment(i):
       print("Toy experiment {}".format(i))
       ensp = {}
-      #ensp['rosc'] = ensp_nom['ribd'].GetOscillated(L=baselines, core_powers=powers,dm2_31=m2_31, me_rho=args.me_rho, ene_mode='true', args=args)
-      #ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy()
-      #ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])
-
-      #ensp['rdet'] = ensp['rvis'].ApplyDetResp(rm, pecrop=args.ene_crop)
-      #ensp['rtot'] = ensp['rdet'] + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + ensp_nom['aneu'] + ensp_nom['geo'] + ensp_nom['atm'] + ensp_nom['rea300']
-
-      new_spectrum = generate_poisson_fluctuated_spectrum(ensp_nom['rtot'])
+      new_spectrum = generate_poisson_fluctuated_spectrum(ensp_nom['rdet'])
       ensp_nom['rdet_toy'] = new_spectrum
-      #ensp_nom['rdet_toy'].Plot(f"toy_{i}_rtot.png",
-      #             xlabel="Reconstructed energy (MeV)",
-      #             xmin=0, xmax=10, log_scale=False)
 
-      cm['stat'] = ensp_nom['rdet_toy'].GetStatCovMatrix()
-      minuit.run_minuit(ensp_nom=ensp_nom, baselines=baselines, powers=powers, rm=rm, cm=cm, args=args, i=i, m2_31=m2_31)   
-      del cm['stat']
-      #return sin2_12, sin2_13, dm2_21, dm2_31, delta_chi2
+  #    cm['stat'] = ensp_nom['rdet_toy'].GetStatCovMatrix()
+      sin2_12, sin2_13, dm2_21, dm2_31, delta_chi2 = minuit.run_minuit(ensp_nom=ensp_nom, baselines=baselines, powers=powers, rm=rm, cm=cm, args=args, i=i)   
+   #   del cm['stat']
+      return sin2_12, sin2_13, dm2_21, dm2_31, delta_chi2
 
-  #results = 
-  Parallel(n_jobs=-1)(delayed(run_experiment)(i, m31) for i in range(num_experiments) for m31 in dm2_31_list)
-  #Parallel(n_jobs=-1)(delayed(run_experiment)(i) for i in range(num_experiments))
+  results =  Parallel(n_jobs=-1)(delayed(run_experiment)(i) for i in range(num_experiments))
   #
- # sin2_12_arr, sin2_13_arr, dm2_21_arr, dm2_31_arr, delta_chi2_arr = [], [], [], [], []
+  sin2_12_arr, sin2_13_arr, dm2_21_arr, dm2_31_arr, delta_chi2_arr = [], [], [], [], []
 
 ##   Unpack the results
- # for result in results:
- #       sin2_12, sin2_13, dm2_21, dm2_31, delta_chi2 = result
- #       if(delta_chi2==-111): continue
- #       sin2_12_arr.append(sin2_12)
- #       sin2_13_arr.append(sin2_13)
- #       dm2_21_arr.append(dm2_21)
- #       dm2_31_arr.append(dm2_31)
- #       delta_chi2_arr.append(delta_chi2)
+  for result in results:
+        sin2_12, sin2_13, dm2_21, dm2_31, delta_chi2 = result
+        if(delta_chi2==-111): continue
+        sin2_12_arr.append(sin2_12)
+        sin2_13_arr.append(sin2_13)
+        dm2_21_arr.append(dm2_21)
+        dm2_31_arr.append(dm2_31)
+        delta_chi2_arr.append(delta_chi2)
 
- # 
- # 
- # np.savez(f"toy_results_{args.stat_opt}_1k.npz",
- #        sin2_12_arr=sin2_12_arr,
- #        sin2_13_arr=sin2_13_arr,
- #        dm2_21_arr=dm2_21_arr,
- #        dm2_31_arr=dm2_31_arr,
- #        delta_chi2_arr=delta_chi2_arr)
+  
+  
+  np.savez(f"toy_results_{args.stat_opt}_Feb21.npz",
+         sin2_12_arr=sin2_12_arr,
+         sin2_13_arr=sin2_13_arr,
+         dm2_21_arr=dm2_21_arr,
+         dm2_31_arr=dm2_31_arr,
+         delta_chi2_arr=delta_chi2_arr)
 
  # plot_res.plot(f"toy_results_{args.stat_opt}_1k.npz", args=args)
   end_time = datetime.now()

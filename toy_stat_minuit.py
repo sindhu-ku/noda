@@ -39,60 +39,34 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
 #    plt.savefig(plotname)
     #plt.close()
 
-def run_minuit(ensp_nom = {}, baselines = [], powers=[], rm= [], cm ={}, args='',i =0, m2_31=0):
+def run_minuit(ensp_nom = {}, baselines = [], powers=[], rm= [], cm ={}, args='',i =0):
 
     nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #Vals for osc parameters and NMO
-    def chi2(sin2_12=0, sin2_13=0, dm2_21=0):#, dm2_31=0): #chi2 definition
-        s = ensp_nom['ribd'].GetOscillated(L=baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=m2_31, core_powers=powers, me_rho=args.me_rho, ene_mode='true', args=args)
+    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
+        s = ensp_nom['ribd'].GetOscillated(L=baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=powers, me_rho=args.me_rho, ene_mode='true', args=args)
         s = s.GetWithPositronEnergy() #shift to positron energy
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + ensp_nom['aneu'] + ensp_nom['geo'] + ensp_nom['atm'] + ensp_nom['rea300']
        # chi2 = 1e+6
         if args.sin2_th13_opt== "pull":
-            chi2 = cm['stat'].Chi2_p(ensp_nom["rdet_toy"], s_tot,ensp_nom["rtot"], 'stat', args.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = cm['stat'].Chi2_p(ensp_nom["rdet_toy"], s, ensp_nom["rdet"], 'stat', args.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
           #  print(m2_31, sin2_13, [sin2_13-nuosc.op_nom['sin2_th13']], [args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
             #print(chi2/(410-3.), cm['stat'].Chi2_p(ensp_nom["rtot"], s,'stat', args.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']]))
         if args.sin2_th13_opt== "free":
-            chi2 = cm['stat'].Chi2(ensp_nom["rdet_toy"],s_tot,ensp_nom["rtot"],'stat', args.stat_method_opt) #calculate chi2 using covariance matrix
-       # print("chi2", chi2)
-       # print(sin2_12, sin2_13, dm2_21, m2_31, chi2/(410.-3.))
-        filet = open(f"chi2_txt/chi2_{args.stat_opt}_{i}_pull_100p.txt", "a")
-        filet.write(str(m.values[0])+" "+str(m.values[1])+" "+str(m.values[2])+" "+str(m2_31)+" "+str(chi2)+"\n")
-        filet.close()
-        return chi2/(410.-3.)
-        #if chi2 is not None:
-        #    #print(chi2)
-        #    return chi2/(410-4.) 
-        #else:
-        #    print("Chi2 is None!")
-        #    return 1e+6
+            chi2 = cm['stat'].Chi2(ensp_nom["rdet_toy"],s,ensp_nom["rdet"],'stat', args.stat_method_opt) #calculate chi2 using covariance matrix
+        return chi2/(410.-4.)
 
    #fitting stuff
-    m = Minuit(chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"])#, dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
+    m = Minuit(chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"],dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #print(m.values[0], m.values[1], m.values[2], m2_31, chi2(m.values[0], m.values[1], m.values[2]))
     print("# Chi2 function defined, performing migrad minimization")
     m.migrad()#fit
     if(m.valid):
-        #print("# Getting hesse errors")
-        #m.hesse() #get errors
-        #print("# Getting minos errors")
-       # m.minos() #get minos errors
-
-        #print results
-        #unc_new = args.unc
-
-        #print results
-       # unc_new = args.unc
-       # if(args.stat_method_opt == "CNP" and args.unc != 'stat'): unc_new = 'stat+'+args.unc
-       # print("# Uncertainty used: ", unc_new)
-       print(m)
-  #     print("plotting")
-       #plot_profile(m, 1, "sin2_13", "")
+        print(m)
+        delta_chi2 = chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3])
 
 
-        #delta_chi2 = abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - cm[args.unc].Chi2(ensp_nom["rdet"],ensp_nom["unosc"], args.unc, args.stat_method_opt))
-        #delta_chi2 = chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2])#, dm2_31=m.values[3])
-
-
-  #      return m.values[0], m.values[1], m.values[2], m.values[3],  delta_chi2
+        return m.values[0], m.values[1], m.values[2], m.values[3],  delta_chi2
+    else:
+        return -111, -111, -111, -111, -111

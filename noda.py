@@ -388,6 +388,7 @@ class Spectrum:
     nb = len(self.bin_cont)
     data = np.zeros(shape=(nb,nb))
     for i,x in enumerate(self.bin_cont):
+     # if(x==0): x = min(exp.bin_cont)
       data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
@@ -544,29 +545,56 @@ class CovMatrix:
     size = self.data.shape[0]
     return rank == size
 
-  def Chi2(self, s1, s2, unc=' ', stat_meth=' '):
-    #if not self.IsInvertible():
-    #  return None
+  def Chi2(self, s1, s2, det_sp, unc=' ', stat_meth=' '):
     diff = s1.bin_cont - s2.bin_cont
+#    print(diff, diff1)
     chi2 = 0.
     if stat_meth == "NorP":
+ #     if not self.IsInvertible():
+  #      return None
       chi2 = diff.dot(self.data_inv).dot(diff)
     else:
-      cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+      cnp_stat_cm = det_sp.GetCNPStatCovMatrix(s2)
+#      if not cnp_stat_cm.IsInvertible():
+#        print("matrix not invertible")
+#        return None
       if unc == "stat":
         chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
       else:
         chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
     return chi2
 
-  def Chi2_p(self, s1, s2, pulls=[], pull_unc=[]):
-    if not self.IsInvertible():
-      return None
-    d = s1.bin_cont - s2.bin_cont
+  def Chi2_p(self, s1, s2, det_sp, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
+    #if not self.IsInvertible():
+    #  return None
     penalty = 0.
     for p, u in zip(pulls, pull_unc):
         penalty += (p/u)**2
-    return d.dot(self.data_inv).dot(d) + penalty
+    diff = s1.bin_cont - s2.bin_cont
+    #print("diff", diff)
+    chi2 = 0.
+    if stat_meth == "NorP":
+      chi2 = diff.dot(self.data_inv).dot(diff) + penalty
+    else:
+      cnp_stat_cm = det_sp.GetCNPStatCovMatrix(s2)
+     # print("inv", cnp_stat_cm.data_inv)
+      if not cnp_stat_cm.IsInvertible():
+        #print("matrix not invertible")
+        return None
+      if unc == "stat":
+        chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
+
+      else:
+        chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff + penalty
+    return chi2
+  #def Chi2_p(self, s1, s2, pulls=[], pull_unc=[]):
+  #  if not self.IsInvertible():
+  #    return None
+  #  d = s1.bin_cont - s2.bin_cont
+  #  penalty = 0.
+  #  for p, u in zip(pulls, pull_unc):
+  #      penalty += (p/u)**2
+  #  return d.dot(self.data_inv).dot(d) + penalty
 
   def SetXlabel(self, label):
     self.xlabel = label

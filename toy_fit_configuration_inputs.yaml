@@ -7,7 +7,8 @@ toy:
 fit_options:
 
   stat_opt: 20years # time period for sensitivity studies
-  sin2_th13_opt: free   # Sin2_theta13 option
+  sin2_th13_opt: free  # Sin2_theta13 option
+  sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: PDG2022 # PDG option
   NMO_opt: true   # NMO option, true is normal
