@@ -575,6 +575,7 @@ class CovMatrix:
         chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
     return chi2
 
+
   def Chi2_p(self, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
     #if not self.IsInvertible():
     #  return None
@@ -589,6 +590,7 @@ class CovMatrix:
       cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
       if unc == "stat":
         chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
+
     #    print("diff", diff)
     #    print("inv", cnp_stat_cm.data_inv)
       else:

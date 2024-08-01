@@ -34,7 +34,7 @@ def round_errors(param, neg_err, pos_err): #rounds errors for different paramete
     elif(param=='dm2_21'):
         m_err = round(neg_err, 7)
         p_err = round(pos_err, 7)
-    elif(param=='dm2_31'):
+    elif(param=='dm2_32'):
         m_err = round(neg_err, 9)
         p_err = round(pos_err, 9)
     return m_err, p_err
@@ -122,12 +122,14 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
         return s
 
    #fitting stuff
+
     print(nuosc.op_nom['dm2_32'], nuosc.op_nom['dm2_31'])
     m = Minuit(chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.limits['sin2_12'] = (nuosc.op_nom["sin2_th12"] - nuosc.op_nom["sin2_th12"]*0.1, nuosc.op_nom["sin2_th12"] + nuosc.op_nom["sin2_th12"]*0.1)
     #m.limits['dm2_21'] = (nuosc.op_nom["dm2_21"] - nuosc.op_nom["dm2_21"]*0.1, nuosc.op_nom["dm2_21"] + nuosc.op_nom["dm2_21"]*0.1)
     #m.limits['sin2_13'] = (nuosc.op_nom["sin2_th13"] - nuosc.op_nom["sin2_th13"]*3., nuosc.op_nom["sin2_th13"] + nuosc.op_nom["sin2_th13"]*0.3)
     #m.scan(ncall=100)
+
     m.migrad() #fit
     m.hesse() #get errors
     m.minos() #get minos errors
@@ -142,11 +144,13 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
     m1.minos() #get minos errors
 #  
     print(chi22(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
+
     unc_new = unc
     if(args.stat_method_opt == "CNP" and unc != 'stat'): unc_new = 'stat+'+unc
     print("Uncertainty: ", unc_new)
     print(m)
    # print(m1)
+
     print("chi2", abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi22(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3])))
 
  #plot IO and NO
@@ -158,6 +162,7 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
    # IO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=True)
 #    NO_sp_fit= get_spectrum(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3])
 #    IO_sp_fit = get_spectrum(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3], opp=True)
+
 #    ensp_nom['rdet'].Plot(f"{args.plots_folder}/NO_vs_IO_vs_data.png",
 #                   xlabel="Neutrino energy (MeV)",
 #                   ylabel=f"Events per 20 keV",
@@ -166,6 +171,7 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
 #                   colors=['black', 'darkred', 'steelblue'],
 #                   xmin=0, xmax=10,
 #                   ymin=0, ymax=None, log_scale=False)
+
    # NO_sp.Plot("NO_vs_IO.png",
    #                xlabel="Neutrino energy (MeV)",
    #                ylabel=f"Events per 20 keV",
@@ -174,6 +180,7 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
    #                colors=['darkred', 'steelblue'],
    #                xmin=0, xmax=10,
    #                ymin=0, ymax=None, log_scale=False)
+
 #    NO_sp_fit.Plot(f"{args.plots_folder}/NO_vs_IO_fit.png",
 #                   xlabel="Neutrino energy (MeV)",
 #                   ylabel=f"Events per 20 keV",
@@ -186,7 +193,9 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
     #filename = f"{args.main_data_folder}/fit_results_{args.stat_method_opt}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_minuit.txt"
     #if unc_new==args.unc_list[0]:
     #    fileo = open(filename, "w")
+
     #    fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+
     #    fileo.close()
     #write_results(m, filename, unc_new) #write results into a textfile
    #fancy stuff
@@ -196,7 +205,7 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
 
     if(args.plot_minuit_profiles): #create chi2 profiles
         print("Plotting chi2 profiles")
-        param_list = ["sin2_12", "sin2_13", "dm2_21", "dm2_31"]
+        param_list = ["sin2_12", "sin2_13", "dm2_21", "dm2_32"]
         for i in range(len(param_list)): #there is something weird with draw_mnprofile in minuit, so I have to do this from scratch inside plot_profile
             if (i!=3): continue
             plotname = f"{args.plots_folder}/Chi2_profiles/Minuit/chi2_{args.stat_opt}_{param_list[i]}_{unc_new}.png"

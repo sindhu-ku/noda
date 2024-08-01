@@ -3,6 +3,7 @@ config: ''
 
 fit_options:
 
+
   stat_opt: 20years # time period for sensitivity studies
   sin2_th13_opt: free   # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
@@ -12,10 +13,10 @@ fit_options:
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
   bins: 411 # Number of bins
-  stat_method_opt: CNP #NorP, CNP, or bayesian
+  stat_method_opt: bayesian #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
-  plot_minuit_matrix: false
-  plot_minuit_profiles: false
+  plot_minuit_matrix: true
+  plot_minuit_profiles: true
   print_minuit_correlation: false
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
