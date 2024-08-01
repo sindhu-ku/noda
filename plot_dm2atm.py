@@ -25,23 +25,50 @@ def get_xy(filename):
 
 def main(argv):
 
-    unique_4th_values_100, min_5th_values_100 = get_xy("chi2_100days_pull_bayes.txt")
-    unique_4th_values_200, min_5th_values_200 = get_xy("chi2_200days_pull_bayes.txt")
-    unique_4th_values_300, min_5th_values_300 = get_xy("chi2_300days_pull_bayes.txt")
-    unique_4th_values_400, min_5th_values_400 = get_xy("chi2_400days_pull_bayes.txt")
+    #unique_4th_values_100, min_5th_values_100 = get_xy("chi2_100days_pull_bayes.txt")
+    #unique_4th_values_200, min_5th_values_200 = get_xy("chi2_200days_pull_bayes.txt")
+    #unique_4th_values_300, min_5th_values_300 = get_xy("chi2_300days_pull_bayes.txt")
+    #unique_4th_values_400, min_5th_values_400 = get_xy("chi2_400days_pull_bayes.txt")
     #unique_4th_values_500, min_5th_values_500 = get_xy("chi2_500days_pull_bayes.txt")
     #unique_4th_values_1000, min_5th_values_1000 = get_xy("chi2_1000days_pull_bayes.txt")
    # unique_4th_values_2000, min_5th_values_2000 = get_xy("chi2_2000days_bayes.txt")
+
+    unique_4th_values_100, min_5th_values_100 = get_xy("chi2_100days_sin2_th13_free.txt")
+    unique_4th_values_200, min_5th_values_200 = get_xy("chi2_200days_sin2_th13_free.txt")
+    unique_4th_values_300, min_5th_values_300 = get_xy("chi2_300days_sin2_th13_free.txt")
+    unique_4th_values_400, min_5th_values_400 = get_xy("chi2_400days_sin2_th13_free.txt")
+    unique_4th_values_500, min_5th_values_500 = get_xy("chi2_500days_sin2_th13_free.txt")
+    unique_4th_values_600, min_5th_values_600 = get_xy("chi2_600days_sin2_th13_free.txt")
+    unique_4th_values_700, min_5th_values_700 = get_xy("chi2_700days_sin2_th13_free.txt")
+    unique_4th_values_800, min_5th_values_800 = get_xy("chi2_800days_sin2_th13_free.txt")
+    unique_4th_values_900, min_5th_values_900 = get_xy("chi2_900days_sin2_th13_free.txt")
+    unique_4th_values_1000, min_5th_values_1000 = get_xy("chi2_1000days_sin2_th13_free.txt")
+
     plt.plot(unique_4th_values_100, min_5th_values_100, linestyle='-', label='100d')# marker='.', markersize=10)
     plt.plot(unique_4th_values_200, min_5th_values_200, linestyle='-', label='200d')# marker='.', markersize=10)
     plt.plot(unique_4th_values_300, min_5th_values_300, linestyle='-', label='300d')# marker='.', markersize=10)
     plt.plot(unique_4th_values_400, min_5th_values_400, linestyle='-', label='400d')# marker='.', markersize=10)
+
     #plt.plot(unique_4th_values_500, min_5th_values_500, linestyle='-', label='500d')# marker='.', markersize=10)
     #plt.plot(unique_4th_values_1000, min_5th_values_1000, linestyle='-', label='1000d')# marker='.', markersize=10)
     #plt.plot(unique_4th_values_2000, min_5th_values_2000, linestyle='-', label='2000d')# marker='.', markersize=10)
-    plt.xlabel('dm2_atm')
-    plt.ylabel('chi2_CNP')
+    #plt.xlabel('dm2_atm')
+    #plt.ylabel('chi2_CNP')
+    #plt.legend()
+
+    plt.plot(unique_4th_values_500, min_5th_values_500, linestyle='-', label='500d')# marker='.', markersize=10)
+    plt.plot(unique_4th_values_600, min_5th_values_600, linestyle='-', label='600d')# marker='.', markersize=10)
+    plt.plot(unique_4th_values_700, min_5th_values_700, linestyle='-', label='700d')# marker='.', markersize=10)
+    plt.plot(unique_4th_values_800, min_5th_values_800, linestyle='-', label='800d')# marker='.', markersize=10)
+    plt.plot(unique_4th_values_900, min_5th_values_900, linestyle='-', label='900d')# marker='.', markersize=10)
+    plt.plot(unique_4th_values_1000, min_5th_values_1000, linestyle='-', label='1000d')# marker='.', markersize=10)
+    plt.xlabel('$\Delta m^{2}_{31}$')
+    plt.ylabel('$\Delta \chi^{2}_{CNP}$')
     plt.legend()
+    plt.axhline(9, color='black', linestyle='--', linewidth=0.8, alpha=0.5) 
+    plt.axhline(16, color='black', linestyle='--', linewidth=0.8, alpha=0.5) 
+    plt.axhline(25, color='black', linestyle='--', linewidth=0.8, alpha=0.5) 
+
     plt.show()
 
 

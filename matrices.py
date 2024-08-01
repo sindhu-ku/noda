@@ -39,7 +39,7 @@ def GetCM(ensp = {},
   ensp['rvis_me_flu'] = Parallel(n_jobs=-1)(delayed(mat_flu)(val) for val in me_rho_flu)
   ensp['rdet_me_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_me_flu']]
   del ensp['rvis_me_flu']
-  ensp['rdet'].Plot(f"{args.plots_folder}/rdet_me_flu.pdf", extra_spectra=ensp['rdet_me_flu'], ylabel="Events per bin")
+  #ensp['rdet'].Plot(f"{args.plots_folder}/rdet_me_flu.pdf", extra_spectra=ensp['rdet_me_flu'], ylabel="Events per bin")
   cm['me'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
   del ensp['rdet_me_flu']
   time_end_me = datetime.now()
@@ -62,12 +62,12 @@ def GetCM(ensp = {},
   end_time_nl = datetime.now()
   print ("NL flu time", end_time_nl - start_time_nl)
   del ensp['rvis_nonl'], ensp['NL_pull']
-  ensp['rdet'].Plot(f"{args.plots_folder}/det_nl_flu.png",
-               xlabel="Reconstructed energy (MeV)",
-               ylabel=f"Events",
-               extra_spectra=ensp['rdet_nl_flu_0']+ensp['rdet_nl_flu_1']+ensp['rdet_nl_flu_2']+ensp['rdet_nl_flu_3'],
-               xmin=0, xmax=10,
-               ymin=0, ymax=None, log_scale=False)
+  #ensp['rdet'].Plot(f"{args.plots_folder}/det_nl_flu.png",
+  #             xlabel="Reconstructed energy (MeV)",
+  #             ylabel=f"Events",
+  #             extra_spectra=ensp['rdet_nl_flu_0']+ensp['rdet_nl_flu_1']+ensp['rdet_nl_flu_2']+ensp['rdet_nl_flu_3'],
+  #             xmin=0, xmax=10,
+  #             ymin=0, ymax=None, log_scale=False)
   for i in range(4):
       del ensp['rdet_nl_flu'+f'_{i}']
 
@@ -129,7 +129,6 @@ def GetCM(ensp = {},
   cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) + ensp['rea300'].GetStatCovMatrix()
   cm['bg'] = cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300']
 
-  del ensp['rtot'], ensp['acc'], ensp['fneu'], ensp['lihe'], ensp['aneu'], ensp['geo'], ensp['geoth'], ensp['geou']
   del ensp['rtot_noenecrop'], ensp['rdet_noenecrop'], ensp['acc_noenecrop'], ensp['fneu_noenecrop'], ensp['lihe_noenecrop'], ensp['aneu_noenecrop'], ensp['geo_noenecrop'], ensp['geou_noenecrop'], ensp['geoth_noenecrop']
 
   SaveObject(cm, f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")

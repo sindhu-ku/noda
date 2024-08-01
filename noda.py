@@ -11,6 +11,7 @@ from matplotlib import cm
 from datetime import datetime
 import gc
 from joblib import Parallel, delayed
+
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -402,8 +403,8 @@ class Spectrum:
     nb = len(self.bin_cont)
     data = np.zeros(shape=(nb,nb))
     for i,x in enumerate(self.bin_cont):
-       if(x==0): x = min(exp.bin_cont)
-       data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
+      #if(x==0): x = min(exp.bin_cont)
+      data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
   def GetB2BCovMatrix(self, sigma):
@@ -589,19 +590,20 @@ class CovMatrix:
       cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
       if unc == "stat":
         chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
-        print("diff", diff)
-        print("inv", cnp_stat_cm.data_inv)
+
+    #    print("diff", diff)
+    #    print("inv", cnp_stat_cm.data_inv)
       else:
         chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff + penalty
     return chi2
-  #def Chi2_p(self, s1, s2, pulls=[], pull_unc=[]):
-  #  if not self.IsInvertible():
-  #    return None
-  #  d = s1.bin_cont - s2.bin_cont
-  #  penalty = 0.
-  #  for p, u in zip(pulls, pull_unc):
-  #      penalty += (p/u)**2
-  #  return d.dot(self.data_inv).dot(d) + penalty
+#  def Chi2_p(self, s1, s2, pulls=[], pull_unc=[]):
+#    if not self.IsInvertible():
+#      return None
+#    d = s1.bin_cont - s2.bin_cont
+#    penalty = 0.
+#    for p, u in zip(pulls, pull_unc):
+#        penalty += (p/u)**2
+#    return d.dot(self.data_inv).dot(d) + penalty
 
   def SetXlabel(self, label):
     self.xlabel = label
