@@ -11,6 +11,7 @@ from matplotlib import cm
 from datetime import datetime
 import gc
 from joblib import Parallel, delayed
+
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -184,19 +185,33 @@ class Spectrum:
                 dm2_32=None,
                 dm2_ee=None,
                 me_rho=0.,
-                ene_mode='vis', args=''):
-    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
+                ene_mode='vis', opp=False, args=''):
+
     if sin2_th12 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       sin2_th12 = nuosc.op_nom["sin2_th12"]
     if sin2_th13 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       sin2_th13 = nuosc.op_nom["sin2_th13"]
     if dm2_21 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_21 = nuosc.op_nom["dm2_21"]
     if dm2_31 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_31 = nuosc.op_nom["dm2_31"]
     if dm2_32 is None:
-      dm2_32 = nuosc.op_nom["dm2_32"]
+      if dm2_31 is None or dm2_21 is None: 
+        if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+        else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
+        dm2_32 = nuosc.op_nom["dm2_32"]
+      else: dm2_32 = dm2_31 - dm2_21
     if dm2_ee is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_ee = nuosc.op_nom["dm2_ee"]
     spec = self.Copy(0.)
     if type(L) != list:
@@ -388,7 +403,7 @@ class Spectrum:
     nb = len(self.bin_cont)
     data = np.zeros(shape=(nb,nb))
     for i,x in enumerate(self.bin_cont):
-     # if(x==0): x = min(exp.bin_cont)
+      #if(x==0): x = min(exp.bin_cont)
       data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
@@ -564,6 +579,7 @@ class CovMatrix:
         chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
     return chi2
 
+
   def Chi2_p(self, s1, s2, det_sp, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
     #if not self.IsInvertible():
     #  return None
@@ -571,7 +587,6 @@ class CovMatrix:
     for p, u in zip(pulls, pull_unc):
         penalty += (p/u)**2
     diff = s1.bin_cont - s2.bin_cont
-    #print("diff", diff)
     chi2 = 0.
     if stat_meth == "NorP":
       chi2 = diff.dot(self.data_inv).dot(diff) + penalty
