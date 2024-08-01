@@ -52,7 +52,29 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
     plt.close()
 
 def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, args=''):#, dm2_31=0.):
+    import ROOT
+    #from array import array
+    #output_file = ROOT.TFile("Asimov_NO.root", "RECREATE")
+    #bins = ensp_nom['rtot'].bins
+    #bin_cont = ensp_nom['rtot'].bin_cont
+    #  # Create a TH1D histogram
+    #hist = ROOT.TH1D("Asimov NO", "Asimov NO", len(bins) - 1, array('d', bins))
+    #hist.Sumw2()
+      # Fill the histogram with the bin contents
+    #for i in range(len(bin_cont)):
+    #    hist.SetBinContent(i + 1, bin_cont[i])
+    #  # Save the histogram in the ROOT file
+    #hist.Write()
+    #output_file.Close()
     #print("Scanning ", dm2_31)
+    def get_hist_from_root(filename, histname):
+        root_file = ROOT.TFile.Open(filename)
+        histogram = root_file.Get(histname)
+        bins = np.array([histogram.GetBinLowEdge(i) for i in range(1, histogram.GetNbinsX() + 2)])
+        bin_cont = np.array([histogram.GetBinContent(i) for i in range(1, histogram.GetNbinsX() + 1)])
+        root_file.Close()
+        return Spectrum(bin_cont=bin_cont, bins=bins)
+    
     nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #Vals for osc parameters and NMO
     def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
         s = ensp_nom['ribd'].GetOscillated(L=baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=powers, me_rho=args.me_rho, ene_mode='true', args=args)
@@ -61,14 +83,16 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
         s = s.ApplyDetResp(rm, pecrop=args.ene_crop) #apply energy resolution
         s_tot = s  + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + ensp_nom['aneu'] + ensp_nom['geo'] + ensp_nom['atm'] + ensp_nom['rea300']
         chi2 = 1e+6
+        #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args.sin2_th13_opt== "pull":
-            chi2 = cm[unc].Chi2_p(ensp_nom["rtot"], s_tot, unc, args.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])  
+            chi2 = cm[unc].Chi2_p(ensp_nom['rtot'], s_tot, unc, args.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])  
         if args.sin2_th13_opt== "free":
-            chi2 = cm[unc].Chi2(ensp_nom["rtot"],s_tot, unc, args.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = cm[unc].Chi2(ensp_nom['rtot'],s_tot, unc, args.stat_method_opt) #calculate chi2 using covariance matrix
         #filet = open(f"chi2_{args.stat_opt}_{args.sin2_th13_opt}.txt", "a")
         #filet.write(str(sin2_12)+" "+str(sin2_13)+" "+str(dm2_21)+" "+str(dm2_31)+" "+str(chi2)+"\n")
         #filet.close()
         #print(sin2_12, sin2_13, dm2_21, dm2_31, chi2)
+        #print("NO",sin2_12, sin2_13, dm2_21, dm2_31, chi2)
         return chi2
 
     def chi22(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
@@ -76,11 +100,21 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
         s = s.GetWithPositronEnergy() #shift to positron energy
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args.ene_crop) #apply energy resolution
-        chi2 = cm[unc].Chi2(ensp_nom["rdet"],s, unc, args.stat_method_opt) #calculate chi2 using covariance matrix
+        s_tot = s  + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + ensp_nom['aneu'] + ensp_nom['geo'] + ensp_nom['atm'] + ensp_nom['rea300']
+        chi2 = 1e+6
+        #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
+        if args.sin2_th13_opt== "pull":
+            chi2 = cm[unc].Chi2_p(ensp_nom['rtot'], s_tot, unc, args.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])  
+        if args.sin2_th13_opt== "free":
+            chi2 = cm[unc].Chi2(ensp_nom['rtot'],s_tot, unc, args.stat_method_opt) #calculate chi2 using covariance matrix
+        
+        #chi2 = cm[unc].Chi2(ensp_nom["rdet"],s, unc, args.stat_method_opt) #calculate chi2 using covariance matrix
   #      print(chi2)
+        #print("IO", sin2_12, sin2_13, dm2_21, dm2_31, chi2)
         return chi2
    
     def get_spectrum(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False):
+        print("now asimov")
         s = ensp_nom['ribd'].GetOscillated(L=baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=powers, me_rho=args.me_rho, ene_mode='true', opp=opp, args=args)
         s = s.GetWithPositronEnergy() #shift to positron energy
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL']) #apply non-linearity
@@ -88,7 +122,7 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
         return s
 
    #fitting stuff
-#    print(nuosc.op_nom['dm2_31'])
+    print(nuosc.op_nom['dm2_32'], nuosc.op_nom['dm2_31'])
     m = Minuit(chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.limits['sin2_12'] = (nuosc.op_nom["sin2_th12"] - nuosc.op_nom["sin2_th12"]*0.1, nuosc.op_nom["sin2_th12"] + nuosc.op_nom["sin2_th12"]*0.1)
     #m.limits['dm2_21'] = (nuosc.op_nom["dm2_21"] - nuosc.op_nom["dm2_21"]*0.1, nuosc.op_nom["dm2_21"] + nuosc.op_nom["dm2_21"]*0.1)
@@ -97,28 +131,31 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
     m.migrad() #fit
     m.hesse() #get errors
     m.minos() #get minos errors
+    print(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]))
 
-#    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO= not args.NMO_opt) #Vals for osc parameters and NMO
-#    print(nuosc.op_nom['dm2_31'])
-#    m1 = Minuit(chi22, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
-#    m1.migrad() #fit
-#    m1.hesse() #get errors
-#    m1.minos() #get minos errors
-#
+    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO= not args.NMO_opt) #Vals for osc parameters and NMO
+    print(nuosc.op_nom['dm2_32'], nuosc.op_nom['dm2_31'])
+    m1 = Minuit(chi22, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
+    #m.scan(ncall=100)
+    m1.migrad() #fit
+    m1.hesse() #get errors
+    m1.minos() #get minos errors
+#  
+    print(chi22(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
     unc_new = unc
     if(args.stat_method_opt == "CNP" and unc != 'stat'): unc_new = 'stat+'+unc
     print("Uncertainty: ", unc_new)
     print(m)
    # print(m1)
+    print("chi2", abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi22(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3])))
 
-    #print(unc, abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi22(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3])))
+ #plot IO and NO
 
-    #plot IO and NO
 
 #    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #Vals for osc parameters and NMO
-#    NO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=False)
+    #NO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=False)
 #    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO= not args.NMO_opt) #Vals for osc parameters and NMO
-#    IO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=True)
+   # IO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=True)
 #    NO_sp_fit= get_spectrum(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3])
 #    IO_sp_fit = get_spectrum(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3], opp=True)
 #    ensp_nom['rdet'].Plot(f"{args.plots_folder}/NO_vs_IO_vs_data.png",
@@ -129,14 +166,14 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
 #                   colors=['black', 'darkred', 'steelblue'],
 #                   xmin=0, xmax=10,
 #                   ymin=0, ymax=None, log_scale=False)
-#    NO_sp.Plot(f"{args.plots_folder}/NO_vs_IO.png",
-#                   xlabel="Neutrino energy (MeV)",
-#                   ylabel=f"Events per 20 keV",
-#                   extra_spectra=[IO_sp],
-#                   leg_labels=['NO curve', 'IO curve'],
-#                   colors=['darkred', 'steelblue'],
-#                   xmin=0, xmax=10,
-#                   ymin=0, ymax=None, log_scale=False)
+   # NO_sp.Plot("NO_vs_IO.png",
+   #                xlabel="Neutrino energy (MeV)",
+   #                ylabel=f"Events per 20 keV",
+   #                extra_spectra=[IO_sp],
+   #                leg_labels=['NO curve', 'IO curve'],
+   #                colors=['darkred', 'steelblue'],
+   #                xmin=0, xmax=10,
+   #                ymin=0, ymax=None, log_scale=False)
 #    NO_sp_fit.Plot(f"{args.plots_folder}/NO_vs_IO_fit.png",
 #                   xlabel="Neutrino energy (MeV)",
 #                   ylabel=f"Events per 20 keV",

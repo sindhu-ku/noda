@@ -146,8 +146,8 @@ def main(argv):
           freq_res.get_results(args=args)
       else:
           Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom, unc=unc, baselines=baselines, powers=powers, rm=rm, cm=cm, args=args) for unc in unc_list_new)
-          dm2_31_val = 2.5283e-3
-          dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
+         # dm2_31_val = 2.5283e-3
+         # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=rm, cm=cm, args=args, dm2_31=m31) for m31 in dm2_31_list)
 
   end_scan_time = datetime.now()

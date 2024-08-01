@@ -3,7 +3,7 @@ config: ''
 
 fit_options:
 
-  stat_opt: 100days # time period for sensitivity studies
+  stat_opt: 20years # time period for sensitivity studies
   sin2_th13_opt: free   # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
@@ -15,7 +15,7 @@ fit_options:
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
-  plot_minuit_profiles: true
+  plot_minuit_profiles: false
   print_minuit_correlation: false
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
@@ -33,18 +33,18 @@ fit_options:
     - 0.8
     - 12.0
 
-  FORCE_CALC_RM: false # Force calculation of response matrix
-  FORCE_CALC_CM: false # Force calculation of covariance matrices
+  FORCE_CALC_RM: true # Force calculation of response matrix
+  FORCE_CALC_CM: true # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
 
   input_data_file: ../../noda_log/Data/JUNOInputs2022_05_08.root #data file
   reactor_model: Huber-Mueller
 
-  main_data_folder: ../../noda_bayes/Data_test
+  main_data_folder: ../../noda_bayes/NMO_data
   cov_matrix_plots_folder: ../Data_test/CMplots #folder to store CM plots
   plots_folder: ../Data_test/Plots #folder to save plots of spectra
-  data_matrix_folder: ../Data_test #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: ../NMO_data #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: ../Data_test/Bayesian/npz_files
   bayes_plots_folder: ../Data_test/Bayesian/Plots
 
@@ -61,7 +61,7 @@ fit_options:
   shape_unc: TAO
   # Uncertainty list
   unc_list:
-    #  - stat
+      - stat
     #   - stat+eff
     #   - stat+r2
     #   - stat+crel
@@ -72,7 +72,7 @@ fit_options:
     #   - stat+nl
     #   - stat+bg
     #   - stat+me
-     - stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
+    #  - stat+eff+r2+crel+snf+noneq+b2b_TAO+abc+nl+bg+me
 
   bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
@@ -107,9 +107,9 @@ juno_inputs:
   U238_scale: 0.07
   Pu239_scale: 0.30
   Pu241_scale: 0.05
-  a: 0.0261
-  b: 0.0082
-  c: 0.0123
+  a: 0.02614 #0.0261
+  b: 0.0064 #0.0082
+  c: 0.012 #0.0123
   a_err: 0.0002
   b_err: 0.0001
   c_err: 0.0004

@@ -11,6 +11,7 @@ from matplotlib import cm
 from datetime import datetime
 import gc
 from joblib import Parallel, delayed
+
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -402,6 +403,7 @@ class Spectrum:
     nb = len(self.bin_cont)
     data = np.zeros(shape=(nb,nb))
     for i,x in enumerate(self.bin_cont):
+      #if(x==0): x = min(exp.bin_cont)
       data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
