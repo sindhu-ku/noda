@@ -204,7 +204,7 @@ class Spectrum:
       else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_31 = nuosc.op_nom["dm2_31"]
     if dm2_32 is None:
-      if dm2_31 is None or dm2_21 is None: 
+      if dm2_31 is None or dm2_21 is None:
         if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
         else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
         dm2_32 = nuosc.op_nom["dm2_32"]
@@ -574,6 +574,7 @@ class CovMatrix:
 #        print("matrix not invertible")
 #        return None
       if unc == "stat":
+        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
         chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
       else:
         chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
@@ -593,12 +594,12 @@ class CovMatrix:
     else:
       cnp_stat_cm = det_sp.GetCNPStatCovMatrix(s2)
      # print("inv", cnp_stat_cm.data_inv)
-      if not cnp_stat_cm.IsInvertible():
-        #print("matrix not invertible")
-        return None
+      # if not cnp_stat_cm.IsInvertible():
+      #   #print("matrix not invertible")
+      #   return None
       if unc == "stat":
+        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
         chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
-
       else:
         chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff + penalty
     return chi2
