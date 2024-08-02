@@ -9,9 +9,9 @@ import spectra as spec
 import matrices as mat
 import scan as scan
 from noda import *
-import bayesian as bayes
-import bayesian_results as bayes_res
-import frequentist_results as freq_res
+from bayesian import bayesian as bayes
+from bayesian import bayesian_results as bayes_res
+import grid_scan_results as scab_res
 import minuit as minuit
 
 
@@ -52,7 +52,7 @@ def main(argv):
       ndays = 365.25*int(args.stat_opt[:-5])
       ndays *= (11/12) #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
 
- 
+
   livetime = ndays
   baselines = args.core_baselines_9 #which reactor baselines and cores
   powers = args.core_powers_9
@@ -133,7 +133,7 @@ def main(argv):
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args.stat_method_opt == 'bayesian': #TODO: have to paraleelize this still
       # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args) for i in range (args.bayes_seed_beg, args.bayes_seed_beg+args.bayes_nprocesses))
-       dm2_31_val = 2.583e-3 
+       dm2_31_val = 2.583e-3
        dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 10)
       # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom =ensp_nom, baselines = baselines, powers=powers, rm=rm, cm=cm, SEED=i, args=args, dm2_31=m31) for i in range (args.bayes_seed_beg, args.bayes_seed_beg+args.bayes_nprocesses) for m31 in dm2_31_list)
        bayes_res.get_results(args=args)
@@ -148,7 +148,7 @@ def main(argv):
           'dm2_31': np.linspace(args.grid_params['dm2_31'][0],args.grid_params['dm2_31'][1],args.grid_points)}
           scan.scan_chi2(grid=grid, ensp_nom =ensp_nom, unc_list =unc_list_new,
                       baselines = baselines, powers=powers, rm=rm, cm=cm, args=args)
-          freq_res.get_results(args=args)
+          scan_res.get_results(args=args)
       else:
           Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom, unc=unc, baselines=baselines, powers=powers, rm=rm, cm=cm, args=args) for unc in unc_list_new)
          # dm2_31_val = 2.5283e-3

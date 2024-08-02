@@ -320,6 +320,6 @@ def Initialize( ndays=10,
           ensp[key].Dump(f"{args.data_matrix_folder}/csv/ensp_{key}.csv")
 
 
-  ensp["rtot_toy"] = GetSpectrumFromROOT(f"../fake_data/toy{args.ntoy}/fake_data_{args.ntoy}.root", "data_0")
+  #ensp["rtot_toy"] = GetSpectrumFromROOT(f"../fake_data/toy{args.ntoy}/fake_data_{args.ntoy}.root", "data_0")
 
   return ensp, resp_matrix, opt
