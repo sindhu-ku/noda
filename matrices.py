@@ -12,10 +12,10 @@ def GetCM(ensp = {},
 
  #take the longest string in the unc list to calculate CMs
   unc_max = max(args.unc_list, key=len)
-  if "+" in unc_max:
+  if '+' in unc_max:
       unc = unc_max.split('+')
   else:
-      unc = unc_max
+      unc = [unc_max]
   # Define a dictionary mapping the strings to their corresponding function calls
   unc_map = {
     'stat': lambda: ensp['rtot'].GetStatCovMatrix(),
@@ -48,11 +48,24 @@ def GetCM(ensp = {},
       ensp['rdet_me_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_me_flu']]
       del ensp['rvis_me_flu']
       #ensp['rdet'].Plot(f"{args.plots_folder}/rdet_me_flu.pdf", extra_spectra=ensp['rdet_me_flu'], ylabel="Events per bin")
-      del ensp['rdet_me_flu']
       time_end_me = datetime.now()
       print ("ME flu time", time_end_me - time_start_me)
       return ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
+  
+  def new_NL_curve(pull_num, w):
+      new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
+      for i in range(len(new_nonl.bins)-1):
+        new_nonl.bin_cont[i] = ensp['scintNL'].bin_cont[i] + w*(ensp['NL_pull'][pull_num].bin_cont[i] - ensp['scintNL'].bin_cont[i])
+      output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
+      del new_nonl
+      return output
 
+  def GetFluNL(pull_num):
+      weights = np.random.normal(loc=0., scale=1., size=args.sample_size_nonl)
+      # output_spectra = [*map(lambda w: new_NL_curve(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, w), weights)]
+      output_spectra = Parallel(n_jobs=-1)(delayed(new_NL_curve)(pull_num, w) for w in weights)
+      return output_spectra
+  
   def get_NL_CM():
       print ("NL fluctuated spectra")
       start_time_nl = datetime.now()
@@ -60,7 +73,7 @@ def GetCM(ensp = {},
       for i in range(4):
           print("   NL pull curve {}".format(i))
           print("     getting rvis spectra")
-          ensp['rvis_nl_flu'+f'_{i}'] = GetFluNL(ensp['rvis_nonl'], ensp['scintNL'], ensp['NL_pull'][i], sample_size=args.sample_size_nonl)
+          ensp['rvis_nl_flu'+f'_{i}'] = GetFluNL(i)
           print("     getting rdet spectra")
           ensp['rdet_nl_flu'+f'_{i}'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_nl_flu'+f'_{i}']]
           del ensp['rvis_nl_flu'+f'_{i}']
@@ -80,16 +93,27 @@ def GetCM(ensp = {},
   #             xmin=0, xmax=10,
   #             ymin=0, ymax=None, log_scale=False)
 
-  def get_abc_CM():
+
+
+  def CalcRespMatrix_abc_flu(ebins, pebins, escale=1., eshift=0., norm_mode='per_MeV'):
+      print(" # Fluctuating (a,b,c) parameters...")
       a, b, c = args.a, args.b, args.c
       a_err, b_err, c_err =args.a_err, args.b_err, args.c_err
+      a_flu = np.random.normal(loc=a, scale=a_err, size=args.sample_size_resp)
+      b_flu = np.random.normal(loc=b, scale=b_err, size=args.sample_size_resp)
+      c_flu = np.random.normal(loc=c, scale=c_err, size=args.sample_size_resp)
+
+      CalcRM = lambda a,b,c: CalcRespMatrix_abc( a, b, c, ebins, pebins, escale=escale,  eshift=eshift, norm_mode=norm_mode, verbose=False)
+      spectra = Parallel(n_jobs=-1)(delayed(CalcRM)(a_flu[i], b_flu[i], c_flu[i]) for i in range(len(a_flu)))
+      return spectra
+
+  def get_abc_CM():
       ebins = ensp['ribd'].bins
       print ("Response matrix fluctuated spectra")
       start_time_resp = datetime.now()
-      resp_mat_flu = CalcRespMatrix_abc_flu(a, b, c, unc=(a_err,b_err,c_err), escale=1, ebins=ebins, pebins=ebins, sample_size=args.sample_size_resp)
+      resp_mat_flu = CalcRespMatrix_abc_flu(escale=1, ebins=ebins, pebins=ebins)
       ensp['rdet_abc_flu'] = [*map(lambda x :  ensp['rvis'].ApplyDetResp(x, pecrop=args.ene_crop), resp_mat_flu)]
       del resp_mat_flu
-      del ensp['rdet_abc_flu']
       end_time_resp = datetime.now()
       del ensp['rvis']
       print("RM flu time", end_time_resp - start_time_resp)
