@@ -18,6 +18,7 @@ fit_options:
   plot_minuit_matrix: false
   plot_minuit_profiles: false
   print_minuit_correlation: false
+  write_results: false
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
@@ -108,9 +109,14 @@ juno_inputs:
   U238_scale: 0.07
   Pu239_scale: 0.30
   Pu241_scale: 0.05
-  a: 0.02614 #0.0261
-  b: 0.0064 #0.0082
-  c: 0.012 #0.0123
+  a: 0.02614
+  b: 0.0064
+  c: 0.012
+  #old abc
+  # a: 0.0261
+  # b: 0.0082
+  # c: 0.0123
+
   a_err: 0.0002
   b_err: 0.0001
   c_err: 0.0004
