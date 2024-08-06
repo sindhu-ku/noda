@@ -760,21 +760,6 @@ def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0)
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
 
-
-def new_NL_curve(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, w):
-  new_nonl =  Spectrum(bins = ensp_nl_nom.bins, bin_cont=np.zeros(len(ensp_nl_nom.bin_cont)))
-  for i in range(len(new_nonl.bins)-1):
-    new_nonl.bin_cont[i] = ensp_nl_nom.bin_cont[i] + w*(ensp_nl_pull_curve.bin_cont[i] - ensp_nl_nom.bin_cont[i])
-  output = ensp_nonl.GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
-  del new_nonl
-  return output
-
-def GetFluNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size = 10000):
-  weights = np.random.normal(loc=0., scale=1., size=sample_size)
- # output_spectra = [*map(lambda w: new_NL_curve(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, w), weights)]
-  output_spectra = Parallel(n_jobs=-1)(delayed(new_NL_curve)(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, w) for w in weights)
-  return output_spectra
-
 # def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
 #   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,
 #                                          kind='slinear', bounds_error=False,
