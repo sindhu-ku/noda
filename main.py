@@ -50,7 +50,10 @@ def main(argv):
       ndays = 365.25*int(args.stat_opt[:-4])
   elif args.stat_opt[-5:] == "years":
       ndays = 365.25*int(args.stat_opt[:-5])
-      ndays *= (11/12) #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
+  else:
+      raise ValueError("only days or year(s) supported")
+
+  ndays *= (11/12) #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
 
 
   livetime = ndays
