@@ -11,6 +11,7 @@ from matplotlib import cm
 from datetime import datetime
 import gc
 from joblib import Parallel, delayed
+
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -184,19 +185,33 @@ class Spectrum:
                 dm2_32=None,
                 dm2_ee=None,
                 me_rho=0.,
-                ene_mode='vis', args=''):
-    nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
+                ene_mode='vis', opp=False, args=''):
+
     if sin2_th12 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       sin2_th12 = nuosc.op_nom["sin2_th12"]
     if sin2_th13 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       sin2_th13 = nuosc.op_nom["sin2_th13"]
     if dm2_21 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_21 = nuosc.op_nom["dm2_21"]
     if dm2_31 is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_31 = nuosc.op_nom["dm2_31"]
     if dm2_32 is None:
-      dm2_32 = nuosc.op_nom["dm2_32"]
+      if dm2_31 is None or dm2_21 is None:
+        if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+        else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
+        dm2_32 = nuosc.op_nom["dm2_32"]
+      else: dm2_32 = dm2_31 - dm2_21
     if dm2_ee is None:
+      if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
+      else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_ee = nuosc.op_nom["dm2_ee"]
     spec = self.Copy(0.)
     if type(L) != list:
@@ -209,6 +224,7 @@ class Spectrum:
     eshift = 0
     if ene_mode == 'vis':
       eshift = -0.511+1.293
+    #print(sin2_th12, sin2_th13, dm2_21, dm2_32)
     for l, share in zip(L, core_shares):
       if osc_formula == nuosc.AntiNueSurvProb:
         P = lambda evis: osc_formula(evis+eshift, l,
@@ -388,6 +404,7 @@ class Spectrum:
     nb = len(self.bin_cont)
     data = np.zeros(shape=(nb,nb))
     for i,x in enumerate(self.bin_cont):
+      #if(x==0): x = min(exp.bin_cont)
       data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
@@ -545,28 +562,35 @@ class CovMatrix:
     return rank == size
 
   def Chi2(self, s1, s2, unc=' ', stat_meth=' '):
-    #if not self.IsInvertible():
-    #  return None
     diff = s1.bin_cont - s2.bin_cont
     chi2 = 0.
     if stat_meth == "NorP":
-      chi2 = diff.dot(self.data_inv).dot(diff)
+      chi2 = diff.T @ self.data_inv @ diff
     else:
-      cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
-      if unc == "stat":
-        chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
-      else:
-        chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
+        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+        if unc == "stat":
+            chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
+        else:
+            chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
     return chi2
 
-  def Chi2_p(self, s1, s2, pulls=[], pull_unc=[]):
-    if not self.IsInvertible():
-      return None
-    d = s1.bin_cont - s2.bin_cont
+
+  def Chi2_p(self, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
     penalty = 0.
     for p, u in zip(pulls, pull_unc):
         penalty += (p/u)**2
-    return d.dot(self.data_inv).dot(d) + penalty
+    diff = s1.bin_cont - s2.bin_cont
+    chi2 = 0.
+    if stat_meth == "NorP":
+      chi2 = diff.T @ self.data_inv @ diff + penalty
+    else:
+        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+        if unc == "stat":
+            chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
+        else:
+            chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff + penalty
+    return chi2
+
 
   def SetXlabel(self, label):
     self.xlabel = label

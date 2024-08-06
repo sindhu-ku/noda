@@ -8,27 +8,31 @@ import corner as cr
 import sys
 import os
 
+np.set_printoptions(threshold=sys.maxsize)
 
 def get_results(args=''):
 
   if not os.path.exists(f"{args.bayes_plots_folder}"):
     os.makedirs(f"{args.bayes_plots_folder}")
-  if not os.path.exists(f"{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins"):
-    os.makedirs(f"{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins")
+  if not os.path.exists(f"{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins_asimov_fullrange"):
+    os.makedirs(f"{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins_asimov_fullrange")
 
   labels = [r"$\Delta M^2_{SOL}$",
           r"$\Delta M^2_{ATM}$",
           r"$S^2\Theta_{12}$",
           r"$S^2\Theta_{13}$"]
 
-  nfiles    = args.bayes_nprocesses
+  nfiles    = args.bayes_nprocesses*10
   nvars     = len(labels)
   nsteps    = args.bayes_events
   skipsteps = 50
   file_list = []
   nwalkers = args.bayes_nwalkers
+  dm2_31_val = 2.583e-3 
+  dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 10)
   for i in range(args.bayes_seed_beg, args.bayes_nprocesses+args.bayes_seed_beg):
-      file_list.append(f"{args.bayes_data_folder}/MCMC_Bayesian_1_{nsteps}_{i}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_{args.bayes_chi2}.npz")
+      for j in dm2_31_list:
+        file_list.append(f"{args.bayes_data_folder}/MCMC_Bayesian_1_{nsteps}_{i}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_{args.bayes_chi2}_dm231_asimov_{j}.npz")
 
 
   chains = []
@@ -115,7 +119,7 @@ def get_results(args=''):
   for i in range(nvars):
       print("Autocorrplot ",labels[i])
       az.plot_autocorr(dataset_w0, var_names=labels[i])
-      plt.savefig(f"{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins/autocorrectplot.png")
+      plt.savefig(f"{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins_asimov_fullrange/autocorrectplot.png")
 
   for i in range(nvars):
       fig, axes = plt.subplots(1, figsize = (10,7), sharex = True)
@@ -126,11 +130,11 @@ def get_results(args=''):
       axes.set_ylabel(labels[i])
       Axis.set_label_coords(axes.yaxis, -0.1, 0.5)
       axes.set_xlabel("step number")
-      plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins/stepnumber.png')
+      plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins_asimov_fullrange/stepnumber.png')
 
 
 
-  plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins/stepnumber-what.png')
+  plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins_asimov_fullrange/stepnumber-what.png')
 
   npchains_aw = npchains.reshape(nfiles*args.bayes_nwalkers,nsteps,nvars)
 
@@ -161,13 +165,13 @@ def get_results(args=''):
   print(az.summary(dataset_aw,round_to="none",fmt="long").to_string())
   az.plot_posterior(dataset_aw)
 
-  plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins/az.png')
+  plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins_asimov_fullrange/az.png')
 
   npchains_cut  = npchains[:,skipsteps:,:]
   npchains_full = npchains_cut.reshape(nfiles*args.bayes_nwalkers*(nsteps-skipsteps),nvars)
   figure = cr.corner( npchains_full , labels = labels )
-
-  plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins/corner.png')
+  np.savez(f"fchain_{args.stat_opt}_asimov_fullrange.npz", npchains_full)
+  plt.savefig(f'{args.bayes_plots_folder}/{args.stat_opt}_NO-{args.NMO_opt}_{args.bins}bins_asimov_fullrange/corner.png')
 
 
   means      = np.zeros((nfiles,nvars))

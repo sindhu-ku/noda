@@ -30,14 +30,22 @@ def SetOscillationParameters(opt, NO, silent=True):
   elif opt == "PDG2022": # https://pdg.lbl.gov/2022/tables/rpp2022-sum-leptons.pdf
     op_nom['sin2_th12'] = 0.307
     op_nom['sin2_th13'] = 0.0220
+    op_nom['sin2_th12_err'] = 0.013
+    op_nom['sin2_th13_err'] = 0.07e-2
     op_nom['dm2_21'] = 7.53e-5
+    op_nom['dm2_21_err'] = 0.18e-5
     if NO:
       op_nom['sin2_th23'] = 0.546
+      op_nom['sin2_th23_err'] = 0.022
       op_nom['dm2_32'] = 2.453e-3
+      op_nom['dm2_32_err'] = 0.033e-3
     else:
       op_nom['sin2_th23'] = 0.539
+      op_nom['sin2_th23_err'] = 0.021
       op_nom['dm2_32'] = -2.536e-3
+      op_nom['dm2_32_err'] = 0.034e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
+    op_nom['dm2_31_err'] = np.sqrt(pow(op_nom["dm2_32_err"], 2) + pow(op_nom["dm2_21_err"], 2))
   else:
     print(f"No such option \"{opt}\"")
     return
@@ -63,7 +71,11 @@ def AntiNueSurvProb(E, L,
   if sin2_th13 == None: sin2_th13 = op_nom["sin2_th13"]
   if dm2_21 == None:    dm2_21=op_nom["dm2_21"]
   if dm2_31 == None:    dm2_31=op_nom["dm2_31"]
-  if dm2_32 == None:    dm2_32=op_nom["dm2_32"]
+  if dm2_32 == None:
+      if dm2_31 == None or dm2_21 == None: 
+          print("this should not ever happen")
+          dm2_32=op_nom["dm2_32"]
+      else: dm2_32 = dm2_31 - dm2_21
   #
   # make sure that the mass splitting sum rule holds
   if dm2_32 == op_nom["dm2_32"]:

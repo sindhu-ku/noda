@@ -1,11 +1,13 @@
 config: ''
 # Fit options configuration
 
+toy:
+  nexp: 10000
+
 fit_options:
 
-
-  stat_opt: 6years # time period for sensitivity studies
-  sin2_th13_opt: pull # Sin2_theta13 option
+  stat_opt: 20years # time period for sensitivity studies
+  sin2_th13_opt: free  # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: PDG2022 # PDG option
@@ -13,12 +15,11 @@ fit_options:
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
   bins: 411 # Number of bins
-  stat_method_opt: NorP #NorP, CNP, or bayesian
+  stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
   plot_minuit_profiles: false
   print_minuit_correlation: false
-  write_results: false
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
@@ -40,15 +41,15 @@ fit_options:
   PLOT_CM: false # Plot covariance matrices
 
 
-  input_data_file: data/JUNOInputs2022_05_08.root #data file
+  input_data_file: ../../noda_log/Data/JUNOInputs2022_05_08.root #data file
   reactor_model: Huber-Mueller
 
-  main_data_folder: NMO_data
-  cov_matrix_plots_folder: CMplots #folder to store CM plots
-  plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: NMO_data #folder to save or to use csv files of spectra and matrices
-  bayes_data_folder: ../Data_test/Bayesian/npz_files
-  bayes_plots_folder: ../Data_test/Bayesian/Plots
+  main_data_folder: ../Data_toy
+  cov_matrix_plots_folder: ../Data_toy/CMplots #folder to store CM plots
+  plots_folder: ../Data_toy/Plots #folder to save plots of spectra
+  data_matrix_folder: ../Data_toy #folder to save or to use csv files of spectra and matrices
+  bayes_data_folder: ../Data_toy/Bayesian/npz_files
+  bayes_plots_folder: ../Data_toy/Bayesian/Plots
 
   #start and end points for each parameter in grid space
   grid_params:
@@ -60,23 +61,10 @@ fit_options:
   #number of points for each parameter in the grid space
   grid_points: 21
 
-  shape_unc: TAO
   # Uncertainty list
-  unc_list:
-      - stat
-    #   - stat+eff
-    #   - stat+r2
-    #   - stat+crel
-    #   - stat+snf
-    #   - stat+noneq
-    #   - stat+b2b_DYB
-    #   - stat+abc
-    #   - stat+nl
-    #   - stat+bg
-    #   - stat+me
-    #  - stat+eff+r2+crel+snf+noneq+b2b_TAO+abc+nl+bg+me
+  unc: stat
 
-  bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
+  bayes_unc: stat+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
   sample_size_resp: 10000 # Sample size for response matrix fluctuations
   sample_size_core: 10000 # Sample size for core powers fluctuations
@@ -109,14 +97,9 @@ juno_inputs:
   U238_scale: 0.07
   Pu239_scale: 0.30
   Pu241_scale: 0.05
-  a: 0.02614
-  b: 0.0064
-  c: 0.012
-  #old abc
-  # a: 0.0261
-  # b: 0.0082
-  # c: 0.0123
-
+  a: 0.0261
+  b: 0.0082
+  c: 0.0123
   a_err: 0.0002
   b_err: 0.0001
   c_err: 0.0004
