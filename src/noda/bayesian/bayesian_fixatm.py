@@ -1,10 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys
 import numpy as np
 import emcee
-from nuosc import *
-from  noda import *
-import noda
+from .. import nuosc as nuosc
+from .. import noda as noda
 import os
 
 #TO DO: This code needs more cleaning, mostly unedited from Pietro
@@ -69,7 +68,7 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
       s = s.ApplyDetResp(rm, pecrop=args.ene_crop)
       chi2 = 1e+6
       if args.sin2_th13_opt== "pull":
-        chi2 = cm[unc].Chi2_p(ensp_nom["rdet"], s, pulls=[x[2]-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']], stat_meth=args.bayes_chi2) 
+        chi2 = cm[unc].Chi2_p(ensp_nom["rdet"], s, pulls=[x[2]-nuosc.op_nom['sin2_th13']], pull_unc=[args.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']], stat_meth=args.bayes_chi2)
       if args.sin2_th13_opt== "free":
         chi2 = cm[unc].Chi2(ensp_nom["rdet"],s, unc, args.bayes_chi2)
       filet = open(f"chi2_{args.stat_opt}_pull_bayes.txt", "a")

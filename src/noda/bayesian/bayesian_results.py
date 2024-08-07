@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy  as np
 from scipy import stats
 import xarray as xr
@@ -28,7 +29,7 @@ def get_results(args=''):
   skipsteps = 50
   file_list = []
   nwalkers = args.bayes_nwalkers
-  dm2_31_val = 2.583e-3 
+  dm2_31_val = 2.583e-3
   dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 10)
   for i in range(args.bayes_seed_beg, args.bayes_nprocesses+args.bayes_seed_beg):
       for j in dm2_31_list:

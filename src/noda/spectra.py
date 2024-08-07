@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
 import sys, os
-from noda import *
+from .noda import *
 import csv
 from datetime import datetime
 from joblib import Parallel, delayed

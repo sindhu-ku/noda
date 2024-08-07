@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
 import sys, os
-from noda import *
+from .noda import *
 import csv
 from datetime import datetime
 
@@ -51,7 +52,7 @@ def GetCM(ensp = {},
       time_end_me = datetime.now()
       print ("ME flu time", time_end_me - time_start_me)
       return ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
-  
+
   def new_NL_curve(pull_num, w):
       new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
       for i in range(len(new_nonl.bins)-1):
@@ -65,7 +66,7 @@ def GetCM(ensp = {},
       # output_spectra = [*map(lambda w: new_NL_curve(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, w), weights)]
       output_spectra = Parallel(n_jobs=-1)(delayed(new_NL_curve)(pull_num, w) for w in weights)
       return output_spectra
-  
+
   def get_NL_CM():
       print ("NL fluctuated spectra")
       start_time_nl = datetime.now()

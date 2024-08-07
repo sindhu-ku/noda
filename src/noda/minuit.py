@@ -1,7 +1,7 @@
+#!/usr/bin/env python3
 import sys
-import nuosc
-from  noda import *
-import noda
+from . import nuosc as nuosc
+from .noda import *
 import numpy as np
 import os
 import gc
@@ -53,20 +53,20 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
     plt.close()
 
 def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, args=''):#, dm2_31=0.):
-    #import ROOT
-    #from array import array
-    #output_file = ROOT.TFile("Asimov_NO.root", "RECREATE")
-    #bins = ensp_nom['rtot'].bins
-    #bin_cont = ensp_nom['rtot'].bin_cont
+    # import ROOT
+    # from array import array
+    # output_file = ROOT.TFile("Asimov_NO.root", "RECREATE")
+    # bins = ensp_nom['rtot'].bins
+    # bin_cont = ensp_nom['rtot'].bin_cont
     #  # Create a TH1D histogram
-    #hist = ROOT.TH1D("Asimov NO", "Asimov NO", len(bins) - 1, array('d', bins))
-    #hist.Sumw2()
-      # Fill the histogram with the bin contents
-    #for i in range(len(bin_cont)):
+    # hist = ROOT.TH1D("Asimov NO", "Asimov NO", len(bins) - 1, array('d', bins))
+    # hist.Sumw2()
+    #  #Fill the histogram with the bin contents
+    # for i in range(len(bin_cont)):
     #    hist.SetBinContent(i + 1, bin_cont[i])
     #  # Save the histogram in the ROOT file
-    #hist.Write()
-    #output_file.Close()
+    # hist.Write()
+    # output_file.Close()
     #print("Scanning ", dm2_31)
     # def get_hist_from_root(filename, histname):
     #     root_file = ROOT.TFile.Open(filename)
