@@ -1,7 +1,7 @@
+#!/usr/bin/env python3
 import sys
-import nuosc
-from  noda import *
-import noda
+from . import nuosc as nuosc
+from .noda import *
 import numpy as np
 import os
 import gc

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy as np
 
 op_nom = {}
@@ -72,7 +73,7 @@ def AntiNueSurvProb(E, L,
   if dm2_21 == None:    dm2_21=op_nom["dm2_21"]
   if dm2_31 == None:    dm2_31=op_nom["dm2_31"]
   if dm2_32 == None:
-      if dm2_31 == None or dm2_21 == None: 
+      if dm2_31 == None or dm2_21 == None:
           print("this should not ever happen")
           dm2_32=op_nom["dm2_32"]
       else: dm2_32 = dm2_31 - dm2_21

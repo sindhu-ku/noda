@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import numpy as np
 import os
@@ -5,20 +6,18 @@ import gc
 from datetime import datetime
 import argparse
 import yaml
-import spectra as spec
-import matrices as mat
-import scan as scan
-from noda import *
-from bayesian import bayesian as bayes
-from bayesian import bayesian_results as bayes_res
-import grid_scan_results as scab_res
-import minuit as minuit
+from . import spectra as spec
+from . import matrices as mat
+from . import scan as scan
+from .noda import *
+from .bayesian import bayesian as bayes
+from .bayesian import bayesian_results as bayes_res
+from . import grid_scan_results as scan_res
+from . import minuit as minuit
 
-
-
-def main(argv):
-  if (len(sys.argv) <  2):
-      print("ERROR: Please give the config file using the option --config_file=<filename>")
+def main(argv=None):
+  if argv is None:
+    argv = sys.argv[1:]
 
   start_sp_time = datetime.now()
 
@@ -28,7 +27,7 @@ def main(argv):
 #  args = parser.parse_args()
 
   #create parser for yaml file
-  with open("fit_configuration_inputs.yaml", "r") as file:
+  with open("config/fit_configuration_inputs.yaml", "r") as file:
     config = yaml.safe_load(file)
 
      # Parse arguments from the YAML content

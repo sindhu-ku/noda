@@ -1,11 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys
 import numpy as np
 import emcee
 import ptemcee
-from nuosc import *
-from  noda import *
-import noda
+from .. import nuosc as nuosc
+from .. import noda as noda
 import os
 
 #TO DO: This code needs more cleaning, mostly unedited from Pietro
@@ -131,7 +130,3 @@ def run_emcee(ensp_nom = {}, baselines = [],  powers=[], rm= [], cm ={}, SEED = 
     os.makedirs(f"{args.bayes_data_folder}")
   np.savez(f"{args.bayes_data_folder}/MCMC_Bayesian_1_{EVENTS}_{SEED}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins_{args.bayes_chi2}.npz",chain=chain,blobs=blobs)
   print("Ending JBF")
-
-
-
-

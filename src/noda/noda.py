@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
 import pickle
 import csv
 import sys
-import nuosc
+from .noda import *
+from . import nuosc as nuosc
 import numpy as np
 import scipy as sp
 from scipy import interpolate

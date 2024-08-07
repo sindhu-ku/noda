@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy as np
 from scipy.optimize import curve_fit
 
@@ -32,7 +33,7 @@ def FitChi2Pol2_through_zero(x, y, p0, chi2_level=1., return_param = False):
   else:
     #return x_min, a, b, c
     return dx12/x_min*100./2., a, b, c
- 
+
 
 
 def Scan():
