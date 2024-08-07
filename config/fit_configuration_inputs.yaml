@@ -63,7 +63,7 @@ fit_options:
   shape_unc: TAO
   # Uncertainty list
   unc_list:
-      - stat
+     - stat
     #   - stat+eff
     #   - stat+r2
     #   - stat+crel
@@ -74,7 +74,7 @@ fit_options:
     #   - stat+nl
     #   - stat+bg
     #   - stat+me
-    #  - stat+eff+r2+crel+snf+noneq+b2b_TAO+abc+nl+bg+me
+    # - stat+eff+r2+crel+snf+noneq+b2b_TAO+abc+nl+bg+me
 
   bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
@@ -112,7 +112,7 @@ juno_inputs:
   a: 0.02614
   b: 0.0064
   c: 0.012
-  #old abc
+  # old abc
   # a: 0.0261
   # b: 0.0082
   # c: 0.0123
