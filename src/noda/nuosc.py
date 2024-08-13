@@ -77,15 +77,14 @@ def AntiNueSurvProb(E, L,
           print("this should not ever happen")
           dm2_32=op_nom["dm2_32"]
       else: dm2_32 = dm2_31 - dm2_21
-  #
-  # make sure that the mass splitting sum rule holds
-  if dm2_32 == op_nom["dm2_32"]:
-      dm2_31 = np.abs(dm2_31)
-      dm2_32 = dm2_31 - dm2_21
-  elif dm2_31 == op_nom["dm2_31"]:
-      dm2_32 = np.abs(dm2_32)
-      dm2_31 = dm2_32 + dm2_21
-  #
+  # # make sure that the mass splitting sum rule holds
+  # if dm2_32 == op_nom["dm2_32"]:
+  #     dm2_31 = np.abs(dm2_31)
+  #     dm2_32 = dm2_31 - dm2_21
+  # elif dm2_31 == op_nom["dm2_31"]:
+  #     dm2_32 = np.abs(dm2_32)
+  #     dm2_31 = dm2_32 + dm2_21
+
   cos2_th12 = 1. - sin2_th12
   cos_2th12 = cos2_th12 - sin2_th12
   cos2_th13 = 1. - sin2_th13
