@@ -29,20 +29,24 @@ def main():
     filenames1 = []
     filenames2 = []
     filenames3 = []
+    steven_years = [1, 6]
+    steven_sigma = [np.sqrt(1.470), np.sqrt(8.795)]
 
     for y in years:
         filenames1.append(f'{y}yr_newabc.out')
-        filenames2.append(f'{y}yr_nofact.out')
+        filenames2.append(f'{y}yr_IO.out')
 
     # Get years and sigmas
     years1, sigma1 = get_years_and_sigmas(filenames1)
     years2, sigma2 = get_years_and_sigmas(filenames2)
     years3, sigma3 = get_years_and_sigmas(filenames3)
 
+    #print(sigma1)
     # Plotting
     plt.figure(figsize=(10, 6))
-    plt.plot(years1, sigma1, marker='o', label='without 11/12 factor for livetime')
-    plt.plot(years2, sigma2, marker='o', label='with 11/12 factor for livetime')
+    plt.plot(years1, sigma1, marker='o', label='NO stat. only')
+    #plt.plot(steven_years, steven_sigma, marker='o', label='Steven')
+    plt.plot(years2, sigma2, marker='o', label='IO stat. only')
     plt.xlabel('Years')
     plt.ylabel('$\sigma$')
     plt.grid(True)
