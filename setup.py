@@ -25,7 +25,8 @@ setup(
         'xarray',
         'arviz',
         'corner',
-        'iminuit'
+        'iminuit',
+        'uproot'
     ],
     python_requires='>=3.9',
 )
