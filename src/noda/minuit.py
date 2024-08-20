@@ -195,7 +195,7 @@ def run_minuit(ensp_nom = {}, unc='',baselines = [], powers=[], rm= [], cm ={}, 
             fileo = open(filename, "w")
             fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
             fileo.close()
-            write_results(m, filename, unc_new) #write results into a textfile
+        write_results(m, filename, unc_new) #write results into a textfile
    #fancy stuff
     if(args.plot_minuit_matrix or args.plot_minuit_profiles): #make plots folders
         if not os.path.exists(f"{args.plots_folder}/Chi2_profiles"): os.mkdir(f"{args.plots_folder}/Chi2_profiles")
