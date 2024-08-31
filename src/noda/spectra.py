@@ -15,9 +15,8 @@ def CreateSpectra(ndays=10,
                args=""):
 
 
-  opt = {'ndays': ndays, "me_rho": args.me_rho,
-         'core_baselines': args.core_baselines, 'core_powers': args.core_powers,
-         'ebins': ebins }  # for output
+  opt = {'detector': detector, 'ndays': ndays, "me_rho": args.me_rho,
+         'core_baselines': args.core_baselines, 'core_powers': args.core_powers}
 
   print(opt)
 
@@ -268,6 +267,9 @@ def CreateSpectra(ndays=10,
   events['lihe'] = ensp['lihe'].GetIntegral()
   events['aneu'] = ensp['aneu'].GetIntegral()
   events['geo'] = ensp['geo'].GetIntegral()
+  events['atm'] = ensp['atm'].GetIntegral()
+  events['rea300'] = ensp['rea300'].GetIntegral()
+
 
   ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra_{detector}.png",
                   xlabel="Reconstructed energy (MeV)",
@@ -303,12 +305,14 @@ def CreateSpectra(ndays=10,
 
   print("   Backgrounds")
   print("      accidentals:    {:.2f} events".format(events["acc"]))
-  print("      geo-nu:         {:.2f} events".format(events["geo"]))
   print("      Li-9/He-8:      {:.2f} events".format(events["lihe"]))
+  print("      fast n:         {:.2f} events".format(events["fneu"]))
 
   if detector == "juno":
-      print("      fast n:         {:.2f} events".format(events["fneu"]))
-      print("      (alpha,n):      {:.2f} events".format(events["aneu"]))
+    print("      (alpha,n):      {:.2f} events".format(events["aneu"]))
+    print("      geo-nu:         {:.2f} events".format(events["geo"]))
+    print("      atmospheric:         {:.2f} events".format(events["atm"]))
+    print("      global reactors:         {:.2f} events".format(events["rea300"]))
   # print("      accidentals NoEneC:    {:.2f} events".format(events["acc_noenecrop"]))
   # print("      geo-nu NoEneC:         {:.2f} events".format(events["geo_noenecrop"]))
   # print("      Li-9/He-8 NoEneC:      {:.2f} events".format(events["lihe_noenecrop"]))
