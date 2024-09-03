@@ -563,37 +563,6 @@ class CovMatrix:
     size = self.data.shape[0]
     return rank == size
 
-  def Chi2(self, s1, s2, unc=' ', stat_meth=' '):
-    diff = s1.bin_cont - s2.bin_cont
-    chi2 = 0.
-    if stat_meth == "NorP":
-      chi2 = diff.T @ self.data_inv @ diff
-    else:
-        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
-        if unc == "stat":
-            chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
-        else:
-            chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
-    return chi2
-
-
-  def Chi2_p(self, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
-    penalty = 0.
-    for p, u in zip(pulls, pull_unc):
-        penalty += (p/u)**2
-    diff = s1.bin_cont - s2.bin_cont
-    chi2 = 0.
-    if stat_meth == "NorP":
-      chi2 = diff.T @ self.data_inv @ diff + penalty
-    else:
-        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
-        if unc == "stat":
-            chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
-        else:
-            chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff + penalty
-    return chi2
-
-
   def SetXlabel(self, label):
     self.xlabel = label
 
@@ -761,6 +730,35 @@ def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0)
   bin_cont = hist.values()*scale
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
+
+def Chi2(cm, s1, s2, unc=' ', stat_meth=' '):
+  diff = s1.bin_cont - s2.bin_cont
+  chi2 = 0.0
+  norp_stat_cm = s1.GetStatCovMatrix()
+  if stat_meth == "NorP":
+    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff
+    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff
+  else:
+    cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
+    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff
+  return chi2
+
+def Chi2_p(cm, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
+  penalty = 0.
+  for p, u in zip(pulls, pull_unc):
+    penalty += (p/u)**2
+  diff = s1.bin_cont - s2.bin_cont
+  chi2 = 0.0
+  norp_stat_cm = s1.GetStatCovMatrix()
+  if stat_meth == "NorP":
+    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff + penalty
+    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff + penalty
+  else:
+    cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
+    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff + penalty
+  return chi2
 
 # def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
 #   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,

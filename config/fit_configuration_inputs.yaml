@@ -17,6 +17,7 @@ fit_options:
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
   plot_minuit_profiles: false
+  plot_spectra: false
   print_minuit_correlation: false
   write_results: false
   #just for the bayesian method, random seeds and chi2 def

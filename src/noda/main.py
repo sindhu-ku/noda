@@ -90,6 +90,9 @@ def main(argv=None):
     resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
     resp_matrix.Save(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
+  if args_juno.FORCE_CALC_RM:
+      resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv/resp_matrix.csv")
+
   #Create reactor spectra and get backgrounds spectra, function inside spectra.py
   ensp_nom_juno  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
@@ -135,8 +138,7 @@ def main(argv=None):
   #TODO: This is mainly for CNP when stat matrix is included by default, can be done better
   print("Uncertainty list for ", args_juno.stat_method_opt)
   for unc in args_juno.unc_list:
-    if((args_juno.stat_method_opt == 'CNP' and unc != 'stat') or (args_juno.stat_method_opt == 'bayesian' and args_juno.bayes_chi2 == 'CNP' and unc != 'stat')):
-        unc = unc.replace('stat+', "")
+    unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
     print(unc)
     unc_list_new.append(unc)
 
@@ -177,7 +179,7 @@ def main(argv=None):
                       baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno)
           scan_res.get_results(args=args_juno)
       else:
-          Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc, baselines=juno_baselines, powers=juno_powers, rm=resp_matrix, cm=cm, args=args_juno) for unc in unc_list_new)
+          Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, cm_juno=cm, cm_tao=cm, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)

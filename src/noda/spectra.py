@@ -15,8 +15,7 @@ def CreateSpectra(ndays=10,
                args=""):
 
 
-  opt = {'detector': detector, 'ndays': ndays, "me_rho": args.me_rho,
-         'core_baselines': args.core_baselines, 'core_powers': args.core_powers}
+  opt = {'detector': detector, 'ndays': ndays, 'core_baselines': args.core_baselines, 'core_powers': args.core_powers}
 
   print(opt)
 
@@ -271,14 +270,16 @@ def CreateSpectra(ndays=10,
   events['rea300'] = ensp['rea300'].GetIntegral()
 
 
-  ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra_{detector}.png",
+  if args.plot_spectra:
+      print("I am here")
+      ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra_log_{detector}.png",
                   xlabel="Reconstructed energy (MeV)",
                   ylabel=f"Events per {binw:0.1f} keV",
                   extra_spectra=extra_spectra,
                   leg_labels=leg_labels,
                   colors=colors,
                   xmin=0, xmax=10,
-                  ymin=1e-3, ymax=None, log_scale=False)
+                  ymin=1e-3, ymax=None, log_scale=True)
 
   #
   # ensp['rtot_noenecrop'] = ensp['rdet_noenecrop'] + ensp['acc_noenecrop'] + ensp['fneu_noenecrop'] + ensp['lihe_noenecrop'] + ensp['aneu_noenecrop'] + ensp['geo_noenecrop']
@@ -320,20 +321,14 @@ def CreateSpectra(ndays=10,
   # print("      (alpha,n) NoEneC:      {:.2f} events".format(events["aneu_noenecrop"]))
 
   del events
-  #
-  #
-  if args.FORCE_CALC_RM:
-      resp_matrix.Dump(f"{args.data_matrix_folder}/csv/resp_matrix.csv")
-      print("Finished first loop")
-      #
-    #
+
 
   print(" # Initialization completed")
     #
   print(" # Dumping data")
   for key in ensp.keys():
       if type(ensp[key]) != list:
-          ensp[key].Dump(f"{args.data_matrix_folder}/csv/ensp_{key}.csv")
+          ensp[key].Dump(f"{args.data_matrix_folder}/csv/ensp_{detector}_{key}.csv")
 
 
   #ensp["rtot_toy"] = GetSpectrumFromROOT(f"../fake_data/toy{args.ntoy}/fake_data_{args.ntoy}.root", "data_0")
