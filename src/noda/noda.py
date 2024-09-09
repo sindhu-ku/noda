@@ -13,6 +13,7 @@ from matplotlib import cm
 from datetime import datetime
 import gc
 from joblib import Parallel, delayed
+import uproot
 
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
@@ -723,8 +724,31 @@ def CalcRespMatrix_abc_flu(a, b, c, unc, ebins, pebins, escale=1., eshift=0., no
   gc.collect()
   return spectra
 
+def Rebin2D(data, xedges, yedges, new_xedges, new_yedges):
+  rebinned_data = np.zeros((len(new_xedges) - 1, len(new_yedges) - 1))
+  for i in range(len(new_xedges) - 1):
+    for j in range(len(new_yedges) - 1):
+      mask_x = (xedges[:-1] >= new_xedges[i]) & (xedges[:-1] < new_xedges[i + 1])
+      mask_y = (yedges[:-1] >= new_yedges[j]) & (yedges[:-1] < new_yedges[j + 1])
+      rebinned_data[i, j] = data[mask_x][:, mask_y].sum()
+  return rebinned_data
+
+def CalcEnergyLeak(rootfile, histname, ebins, pebins):
+  with uproot.open(rootfile) as file:
+    hist = file[histname].to_numpy()
+  data, ebins_ori, pebins_ori = hist
+
+  ebin_width_ori = np.diff(ebins_ori)
+  pebin_width_ori = np.diff(pebins_ori)
+  ebin_width = np.diff(ebins)
+  pebin_width = np.diff(pebins)
+
+  if (ebin_width_ori[0] < ebin_width[0]) or (pebin_width_ori[0] < pebin_width[0]):
+    data = Rebin2D(data, ebins_ori, pebins_ori, ebins, pebins)
+
+  return RespMatrix(data, ebins, pebins)
+
 def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0):
-  import uproot
   rf = uproot.open(fname)
   hist = rf[hname]
   bin_cont = hist.values()*scale
