@@ -55,16 +55,15 @@ def main(argv=None):
   #livetime calculation in number of days
   ndays =0
   if args_juno.stat_opt[-4:] == "days":
-      ndays = int(args_juno.stat_opt[:-4])
+      ndays = float(args_juno.stat_opt[:-4])
   elif args_juno.stat_opt[-4:] == "year":
-      ndays = 365.25*int(args_juno.stat_opt[:-4])
+      ndays = 365.25*float(args_juno.stat_opt[:-4])
   elif args_juno.stat_opt[-5:] == "years":
-      ndays = 365.25*int(args_juno.stat_opt[:-5])
+      ndays = 365.25*float(args_juno.stat_opt[:-5])
   else:
       raise ValueError("only days or year(s) supported")
 
   ndays *= args_juno.duty_cycle #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
-
 
   juno_baselines = args_juno.core_baselines #which reactor baselines and cores
   juno_powers = args_juno.core_powers
@@ -91,8 +90,16 @@ def main(argv=None):
     resp_matrix.Save(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
   if args_juno.FORCE_CALC_RM:
-      resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv/resp_matrix.csv")
+    resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv/resp_matrix.csv")
 
+  if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_RM:
+    ene_leak_tao = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  else:
+    ene_leak_tao = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
+    ene_leak_tao.Save(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+
+  if args_tao.FORCE_CALC_ENE_LEAK:
+    ene_leak_tao.Dump(f"{args_juno.data_matrix_folder}/csv/ene_leak_tao_matrix.csv")
   #Create reactor spectra and get backgrounds spectra, function inside spectra.py
   ensp_nom_juno  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
@@ -104,6 +111,7 @@ def main(argv=None):
                                     ebins=ebins,
                                     detector="tao",
                                     resp_matrix=resp_matrix,
+                                    ene_leak_tao=ene_leak_tao,
                                     args=args_tao)
 
   end_sp_time = datetime.now()
