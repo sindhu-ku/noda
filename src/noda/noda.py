@@ -765,6 +765,8 @@ def CalcEnergyLeak(rootfile, histname, ebins, pebins):
 
   respMat = RespMatrix(data, ebins, pebins)
   row_sums = respMat.data.sum(axis=1, keepdims=True)
+  row_sums[row_sums == 0] = 1
+
   respMat.data = respMat.data / row_sums  # Normalize to probabilities
   respMat.data = np.nan_to_num(respMat.data, nan=0.0)
 
@@ -796,8 +798,8 @@ def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0)
 def Chi2(cm, s1, s2, unc=' ', stat_meth=' '):
   diff = s1.bin_cont - s2.bin_cont
   chi2 = 0.0
-  norp_stat_cm = s1.GetStatCovMatrix()
   if stat_meth == "NorP":
+    norp_stat_cm = s1.GetStatCovMatrix()
     if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff
     else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff
   else:
@@ -812,8 +814,8 @@ def Chi2_p(cm, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
     penalty += (p/u)**2
   diff = s1.bin_cont - s2.bin_cont
   chi2 = 0.0
-  norp_stat_cm = s1.GetStatCovMatrix()
   if stat_meth == "NorP":
+    norp_stat_cm = s1.GetStatCovMatrix()
     if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff + penalty
     else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff + penalty
   else:

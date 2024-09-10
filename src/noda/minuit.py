@@ -86,9 +86,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_juno, ensp_nom_juno['rdet'], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_juno[unc], ensp_nom_juno['rdet'], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_juno, ensp_nom_juno['rdet'],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_juno[unc], ensp_nom_juno['rdet'],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
         #filet = open(f"chi2_{args_juno.stat_opt}_{args_juno.sin2_th13_opt}.txt", "a")
         #filet.write(str(sin2_12)+" "+str(sin2_13)+" "+str(dm2_21)+" "+str(dm2_31)+" "+str(chi2)+"\n")
         #filet.close()
@@ -106,9 +106,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_juno, ensp_nom_juno['rdet'], s,unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_juno[unc], ensp_nom_juno['rdet'], s,unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_juno, ensp_nom_juno['rdet'],s,unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_juno[unc], ensp_nom_juno['rdet'],s,unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
 
         #chi2 = cm_juno[unc].Chi2(ensp_nom_juno["rdet"],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
   #      print(chi2)
@@ -125,9 +125,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_tao, ensp_nom_tao['rdet'], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao['rdet'], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_tao, ensp_nom_tao['rdet'],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_tao[unc], ensp_nom_tao['rdet'],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
         #filet = open(f"chi2_{args_juno.stat_opt}_{args_juno.sin2_th13_opt}.txt", "a")
         #filet.write(str(sin2_12)+" "+str(sin2_13)+" "+str(dm2_21)+" "+str(dm2_31)+" "+str(chi2)+"\n")
         #filet.close()
@@ -146,9 +146,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_tao, ensp_nom_tao['rdet'], s,unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao['rdet'], s,unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_tao, ensp_nom_tao['rdet'],s,unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_tao[unc], ensp_nom_tao['rdet'],s,unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
 
         #chi2 = cm_juno[unc].Chi2(ensp_nom_juno["rdet"],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
   #      print(chi2)
@@ -203,8 +203,10 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     m1_tao.migrad() #fit
     # m1_tao.hesse() #get errors
     # m1_tao.minos() #get minos errors
-#
-    print("Uncertainty: ", unc)
+    unc_new = unc
+    unc_new = 'stat+'+unc
+    print("Uncertainty: ", unc_new)
+
     print("Measurement of oscillation parameters: ")
     print(m)
    # print(m1)
