@@ -14,7 +14,8 @@ from datetime import datetime
 import gc
 from joblib import Parallel, delayed
 import uproot
-
+import ROOT
+from scipy.integrate import quad
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -36,9 +37,9 @@ class Spectrum:
     self.bins = bins
     self.xlabel = xlabel
     self.ylabel = ylabel
+
     for i, x in enumerate(self.bin_cont):  # make negative bins equal to one
-      if x<0:
-        self.bin_cont[i] = 0
+      if x<0: self.bin_cont[i] = 0
 
   def __add__(self, other):
 # Should we check weather the bins are the same in two spectra? May be slow.
@@ -266,19 +267,34 @@ class Spectrum:
     Enu = self.bins
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
-
+  #
+  # def GetWithPositronEnergy(self):
+  #   # #print("entering pos E")
+  #   Enu = self.bins
+  #   Mn = 939.56536 #MeV
+  #   Mp = 938.27203 #MeV
+  #   Me = 0.51099893 #MeV
+  #   Deltanp = Mn - Mp
+  #   Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
+  #   #print ("Any Mdiff is < 0", (Mdiff<0.).any())
+  #   Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
+  #   #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
+  #
+  #   Evis = Epos + 0.511
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
   def GetWithPositronEnergy(self):
-    # #print("entering pos E")
-    Enu = self.bins
-    Mn = 939.56536 #MeV
-    Mp = 938.27203 #MeV
-    Me = 0.51099893 #MeV
-    Deltanp = Mn - Mp
-    Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
-    #print ("Any Mdiff is < 0", (Mdiff<0.).any())
-    Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
-
-    Evis = Epos + 0.511
+    # Constants
+    Enu = self.bins  # Antineutrino energy bins
+    Epos = np.zeros_like(Enu)
+    file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
+    Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
+    for i, energy in enumerate(Enu):
+        Epos_temp =0.
+        for cos_theta in range(-1, 1, 100):  # Random angle for each energy
+            Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
+        Epos[i] = -1e2*Epos_temp/100.
+    # Visible energy includes the positron mass contribution
+    Evis = Epos + 0.511  # Adding the rest mass of the positron
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
 
   def ShiftEnergy(self, eshift):
@@ -440,7 +456,6 @@ class Spectrum:
  #   return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
   def GetVariedB2BCovMatrixFromROOT(self, fname, hname):
-    import uproot
     rf = uproot.open(fname)
     hist = rf[hname]
     edges = hist.axis().edges()
@@ -468,7 +483,7 @@ class Spectrum:
   def Plot(self, fname, **kwargs):
     self.Print(fname, **kwargs)
 
-  def Print(self, fname, xlabel=None, ylabel=None, leg_labels=None, colors=None, extra_spectra=[], xmin=None, xmax=None, log_scale=False, ymin=None, ymax=None):
+  def Print(self, fname, xlabel=None, ylabel=None, leg_labels=None, colors=None, extra_spectra=[], xmin=None, xmax=None, log_scale=False, ymin=None, ymax=None, yinterval=None):
     if xlabel != None: self.xlabel = xlabel
     if ylabel != None: self.ylabel = ylabel
     if leg_labels == None:
@@ -479,14 +494,16 @@ class Spectrum:
       colors = ['darkred'] + ['lightsteelblue']*len(extra_spectra)
     elif type(colors) == 'str':
       colors = [colors] + ['lightsteelblue']*len(extra_spectra)
+    plt.figure(figsize=(10,6))
     plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=1, color=colors[0], label=leg_labels[0], log=log_scale)
     for i,s in enumerate(extra_spectra):
       plt.hist(s.bins[:-1], weights=s.bin_cont, bins=s.bins, fill=False, histtype='step', linewidth=1, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
     plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=1, color=colors[0])
-    if xmin!=None: plt.xlim(left=xmin)
-    if xmax!=None: plt.xlim(right=xmax)
-    if ymin!=None: plt.ylim(bottom=ymin)
-    if ymax!=None: plt.ylim(top=ymax)
+    if xmin is not None: plt.xlim(left=xmin)
+    if xmax is not None: plt.xlim(right=xmax)
+    if ymin is not None: plt.ylim(bottom=ymin)
+    if ymax is not None: plt.ylim(top=ymax)
+    if yinterval: plt.yticks(np.arange(ymin, ymax, yinterval))
     plt.xlabel(self.xlabel)
     plt.ylabel(self.ylabel)
     if all(leg_labels): plt.legend()
@@ -746,7 +763,28 @@ def CalcEnergyLeak(rootfile, histname, ebins, pebins):
   if (ebin_width_ori[0] < ebin_width[0]) or (pebin_width_ori[0] < pebin_width[0]):
     data = Rebin2D(data, ebins_ori, pebins_ori, ebins, pebins)
 
-  return RespMatrix(data, ebins, pebins)
+  respMat = RespMatrix(data, ebins, pebins)
+  row_sums = respMat.data.sum(axis=1, keepdims=True)
+  respMat.data = respMat.data / row_sums  # Normalize to probabilities
+  respMat.data = np.nan_to_num(respMat.data, nan=0.0)
+
+  return respMat
+
+def MakeTAOFastNSpectrum(bins, A, B, C):
+  bin_cont = np.zeros(len(bins) - 1)
+  for i in range(len(bin_cont)):
+    E_j = bins[i]
+    E_j1 = bins[i + 1]
+    bin_cont[i] = spectrum_integral(E_j, E_j1, A, B, C)
+  print(np.sum(np.array(bin_cont)))
+  fastn = Spectrum(bin_cont=bin_cont, bins=bins).GetScaled(1./np.sum(np.array(bin_cont)))
+  return fastn
+
+def spectrum_integral(E_j, E_j1, A, B, C):
+  def integrand(E):
+    return A * np.exp(B * E) + C
+  integral, _ = quad(integrand, E_j, E_j1)
+  return integral
 
 def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0):
   rf = uproot.open(fname)

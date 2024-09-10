@@ -83,7 +83,7 @@ def CreateSpectra(ndays=10,
   efission_arr = np.array(args.efission)
   Pth_arr = np.array(args.Pth)
   L_arr = np.array(args.L)
-  extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
+  extrafactors = args.detector_efficiency*args.veto*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
   print("extrafactors", extrafactors)
   ensp['rfis'].GetScaled(extrafactors) #correct normalization including fission fractions, mean energy per fission ... eq.13.5 YB
   print(" ")
@@ -152,33 +152,35 @@ def CreateSpectra(ndays=10,
   ensp['noneq_osc'] = ensp['noneq'].GetOscillated(L=args.core_baselines, core_powers=args.core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
   del ensp['noneq']
 
-  # if detector=="tao":
-  #   ensp['rosc'] = ensp['rosc'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
-  #   ensp['snf_osc'] = ensp['snf_osc'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
-  #   ensp['noneq_osc'] = ensp['noneq_osc'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
 
-  #   Non-linearity
 
   ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy()
   ensp['rvis_nonl_temp'] = ensp['ribd'].GetWithPositronEnergy()
-  del ensp['rosc']
-
-
 
   ensp['snf_osc_nonl'] = ensp['snf_osc'].GetWithPositronEnergy()
   del ensp['snf_osc']
   ensp['noneq_osc_nonl'] = ensp['noneq_osc'].GetWithPositronEnergy()
   del ensp['noneq_osc']
-  ensp['scintNL'] = GetSpectrumFromROOT(args.input_data_file, 'J22rc0_positronScintNL')
+
+  if detector=="tao":
+      ensp['rosc_pos'] = ensp['rosc'].GetWithPositronEnergy() #only for plotting
+      ensp['rosc_eneleak'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop) #only for plotting
+
+      ensp['rvis_nonl'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
+      ensp['snf_osc_nonl'] = ensp['snf_osc_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
+      ensp['noneq_osc_nonl'] = ensp['noneq_osc_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
+
+  #   Non-linearity
+  ensp['J22rc0_positronScintNL'] = GetSpectrumFromROOT(args.input_data_file, 'J22rc0_positronScintNL')
   ensp['NL_pull'] = [ GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull0'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull1'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull2'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull3') ]
   print("applying non-linearity")
-  ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-  ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-  ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-  ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+  ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
+  ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
+  ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
+  ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
   del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
@@ -191,7 +193,7 @@ def CreateSpectra(ndays=10,
   #                 xmin=0, xmax=10,
   #                 ymin=0, ymax=None, log_scale=False)
 
-  #ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
+  #ensp['J22rc0_positronScintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
   #                 xlabel="Reconstructed energy (MeV)",
   #                 extra_spectra=ensp['NL_pull'],
   #                 xmin=0, xmax=10,
@@ -238,7 +240,9 @@ def CreateSpectra(ndays=10,
   if detector == "tao":
       ensp['acc'].GetScaled(args.acc_scale)
       ensp['lihe'].GetScaled(args.lihe_scale)
-      ensp['fneu'].GetScaled(args.fneu_scale)
+      ensp['fneu'] = MakeTAOFastNSpectrum(bins=ebins, A=args.fneu_A, B=args.fneu_B, C=args.fneu_C)
+      ensp['fneu'].GetScaled(args.fneu_rate*ndays/args.duty_cycle)
+
   #
   # bg_keys2 = ['acc_noenecrop', 'fneu_noenecrop', 'lihe_noenecrop', 'aneu_noenecrop', 'geo_noenecrop', 'geoth_noenecrop', 'geou_noenecrop']
   # for key2, label in zip(bg_keys2, bg_labels):
@@ -251,15 +255,15 @@ def CreateSpectra(ndays=10,
 
   if detector == "juno":
       ensp['bckg'] = ensp['acc'] + ensp['fneu'] + ensp['lihe'] + ensp['aneu'] + ensp['geo'] + ensp['atm'] + ensp['rea300']
-      extra_spectra=[ensp['rdet'], ensp['acc'], ensp['geo'], ensp['lihe'], ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']]
-      leg_labels = ['Total', 'Reactor', 'Accidentals', 'Geo-neutrino', 'Li9/He8','Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km']
-      colors=['grey', 'darkred', 'green', 'navy', 'orange', 'magenta', 'lightblue', 'yellow', 'brown']
+      extra_spectra=[ensp['acc'], ensp['geo'], ensp['lihe'], ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']]
+      leg_labels = ['Reactor', 'Accidentals', 'Geo-neutrino', 'Li9/He8','Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km']
+      colors=['darkred', 'green', 'navy', 'orange', 'magenta', 'lightblue', 'yellow', 'brown']
 
   if detector == "tao":
       ensp['bckg'] = ensp['acc'] + ensp['fneu'] + ensp['lihe']
-      extra_spectra=[ensp['rdet'], ensp['acc'], ensp['lihe'], ensp['fneu']]
-      leg_labels = ['Total', 'Reactor', 'Accidentals', 'Li9/He8', 'Fast neutrons']
-      colors=['grey', 'darkred', 'green', 'navy', 'orange']
+      extra_spectra=[ensp['rosc_pos'], ensp['rosc_eneleak'], ensp['acc'], ensp['lihe'], ensp['fneu']]
+      leg_labels = ['+ NL + energy res', '+ flux and cross-sec', '+ energy leak', 'Accidentals', 'Li9/He8', 'Fast neutrons']
+      colors=['grey', 'magenta', 'darkred', 'green', 'navy', 'orange']
 
   ensp['rtot'] = ensp['rdet'] + ensp['bckg']
 
@@ -275,14 +279,15 @@ def CreateSpectra(ndays=10,
 
 
   if args.plot_spectra:
-      ensp['rtot'].Plot(f"{args.plots_folder}/det_spectra_{detector}.png",
+      ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra_{detector}.png",
                   xlabel="Reconstructed energy (MeV)",
                   ylabel=f"Events per {binw:0.1f} keV",
                   extra_spectra=extra_spectra,
                   leg_labels=leg_labels,
                   colors=colors,
-                  xmin=0, xmax=10,
-                  ymin=1e-3, ymax=None, log_scale=False)
+                  xmin=0.8, xmax=9.0,
+                  ymin=1e-3,log_scale=False)
+                  #ymin=0.0, ymax=14900, yinterval=2500, log_scale=False)
 
   #
   # ensp['rtot_noenecrop'] = ensp['rdet_noenecrop'] + ensp['acc_noenecrop'] + ensp['fneu_noenecrop'] + ensp['lihe_noenecrop'] + ensp['aneu_noenecrop'] + ensp['geo_noenecrop']

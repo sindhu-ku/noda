@@ -52,7 +52,7 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
     plt.savefig(plotname)
     plt.close()
 
-def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], cm_juno ={}, cm_tao={}, args_juno='', args_tao=''):#, dm2_31=0.):
+def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao =[], cm_juno ={}, cm_tao={}, args_juno='', args_tao=''):#, dm2_31=0.):
     # import ROOT
     # from array import array
     # output_file = ROOT.TFile("Asimov_NO.root", "RECREATE")
@@ -80,7 +80,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], cm_juno ={}, 
     def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
         s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', args=args_juno)
         s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL']) #apply non-linearity
+        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + ensp_nom_juno['rea300']
         chi2 = 1e+6
@@ -100,7 +100,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], cm_juno ={}, 
     def chi2opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
         s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=True, args=args_juno)
         s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL']) #apply non-linearity
+        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + ensp_nom_juno['rea300']
         chi2 = 1e+6
@@ -118,7 +118,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], cm_juno ={}, 
     def chi2_tao(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
         s = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', args=args_tao)
         s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['scintNL']) #apply non-linearity
+        s = s.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
+        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_tao['acc'] + ensp_nom_tao['fneu'] + ensp_nom_tao['lihe']
         chi2 = 1e+6
@@ -138,7 +139,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], cm_juno ={}, 
     def chi2opp_tao(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
         s = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=True, args=args_tao)
         s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['scintNL']) #apply non-linearity
+        s = s.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
+        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_tao['acc'] + ensp_nom_tao['fneu'] + ensp_nom_tao['lihe']
         chi2 = 1e+6
@@ -156,7 +158,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], cm_juno ={}, 
     def get_spectrum(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False):
         s = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_tao)
         s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['scintNL']) #apply non-linearity
+        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         print(s.bin_cont)
         return s
@@ -186,21 +188,21 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], cm_juno ={}, 
     #m.scan(ncall=100)
 
     m_tao.migrad() #fit
-    m_tao.hesse() #get errors
-    m_tao.minos() #get minos errors
+    # m_tao.hesse() #get errors
+    # m_tao.minos() #get minos errors
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO= not args_juno.NMO_opt) #Vals for osc parameters and NMO
     m1 = Minuit(chi2opp, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.scan(ncall=100)
     m1.migrad() #fit
-    m1.hesse() #get errors
-    m1.minos() #get minos errors
+    # m1.hesse() #get errors
+    # m1.minos() #get minos errors
 
     m1_tao = Minuit(chi2opp_tao, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.scan(ncall=100)
     m1_tao.migrad() #fit
-    m1_tao.hesse() #get errors
-    m1_tao.minos() #get minos errors
+    # m1_tao.hesse() #get errors
+    # m1_tao.minos() #get minos errors
 #
     print("Uncertainty: ", unc)
     print("Measurement of oscillation parameters: ")

@@ -19,7 +19,7 @@ def GetCM(ensp = {},
       unc = [unc_max]
   # Define a dictionary mapping the strings to their corresponding function calls
   unc_map = {
-    'stat': lambda: ensp['rtot'].GetStatCovMatrix(),
+    'stat': lambda: ensp['rdet'].GetStatCovMatrix(),
     'r2': lambda: ensp['rdet'].GetRateCovMatrix(args.r2_unc),
     'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc),
     'b2b_DYB': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "DYBUncertainty"),
@@ -37,7 +37,7 @@ def GetCM(ensp = {},
   def mat_flu(me_rho_flu):
       ensp['rosc_me_flu'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=me_rho_flu, ene_mode='true', args=args)
       ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy()
-      ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
       del ensp['rosc_me_flu'], ensp['rvis_me_flu_0']
       return ensp['rvis_me_flu']
 
@@ -54,9 +54,9 @@ def GetCM(ensp = {},
       return ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
 
   def new_NL_curve(pull_num, w):
-      new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
+      new_nonl =  Spectrum(bins = ensp['J22rc0_positronScintNL'].bins, bin_cont=np.zeros(len(ensp['J22rc0_positronScintNL'].bin_cont)))
       for i in range(len(new_nonl.bins)-1):
-        new_nonl.bin_cont[i] = ensp['scintNL'].bin_cont[i] + w*(ensp['NL_pull'][pull_num].bin_cont[i] - ensp['scintNL'].bin_cont[i])
+        new_nonl.bin_cont[i] = ensp['J22rc0_positronScintNL'].bin_cont[i] + w*(ensp['NL_pull'][pull_num].bin_cont[i] - ensp['J22rc0_positronScintNL'].bin_cont[i])
       output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       del new_nonl
       return output
@@ -131,15 +131,15 @@ def GetCM(ensp = {},
       efission_arr = np.array(args.efission)
       Pth_arr = np.array(args.Pth)
       L_arr = np.array(args.L)
-      extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
-      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22/(L_arr*L_arr))
+      extrafactors = args.detector_efficiency*args.veto*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
+      extrafactors2 = args.detector_efficiency*args.veto*args.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22/(L_arr*L_arr))
       ensp['ribd_crel'] = ensp['ribd'].Copy()
       ensp['ribd_crel'].GetScaled(1./extrafactors)
       ensp['ribd_crel'].GetScaled(extrafactors2)
       ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true', args=args)
       del ensp['ribd_crel']
       ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy()
-      ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
       del ensp['rvis_crel_flu_nonl']
       return ensp['rvis_crel_flu']
 
