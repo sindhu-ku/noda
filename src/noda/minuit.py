@@ -76,6 +76,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     #     root_file.Close()
     #     return Spectrum(bin_cont=bin_cont, bins=bins)
 
+    # ensp_nom_juno["rdet"] = ensp_nom_juno['rdet'].Rebin_nonuniform(args_juno.bins_nonuniform)
+    # ensp_nom_tao["rdet"] = ensp_nom_tao['rdet'].Rebin_nonuniform(args_juno.bins_nonuniform)
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
     def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
         s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', args=args_juno)
@@ -83,12 +85,13 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + ensp_nom_juno['rea300']
+        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_juno[unc], ensp_nom_juno['rdet'], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_juno[unc], ensp_nom_juno["rdet"], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_juno[unc], ensp_nom_juno['rdet'],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_juno[unc], ensp_nom_juno["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
         #filet = open(f"chi2_{args_juno.stat_opt}_{args_juno.sin2_th13_opt}.txt", "a")
         #filet.write(str(sin2_12)+" "+str(sin2_13)+" "+str(dm2_21)+" "+str(dm2_31)+" "+str(chi2)+"\n")
         #filet.close()
@@ -103,12 +106,13 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + ensp_nom_juno['rea300']
+        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_juno[unc], ensp_nom_juno['rdet'], s,unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_juno[unc],ensp_nom_juno["rdet"], s,unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_juno[unc], ensp_nom_juno['rdet'],s,unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_juno[unc], ensp_nom_juno["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
 
         #chi2 = cm_juno[unc].Chi2(ensp_nom_juno["rdet"],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
   #      print(chi2)
@@ -122,12 +126,13 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_tao['acc'] + ensp_nom_tao['fneu'] + ensp_nom_tao['lihe']
+        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao['rdet'], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_tao[unc], ensp_nom_tao['rdet'],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_tao[unc], ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
         #filet = open(f"chi2_{args_juno.stat_opt}_{args_juno.sin2_th13_opt}.txt", "a")
         #filet.write(str(sin2_12)+" "+str(sin2_13)+" "+str(dm2_21)+" "+str(dm2_31)+" "+str(chi2)+"\n")
         #filet.close()
@@ -143,12 +148,13 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
         s_tot = s + ensp_nom_tao['acc'] + ensp_nom_tao['fneu'] + ensp_nom_tao['lihe']
+        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
         chi2 = 1e+6
         #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
         if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao['rdet'], s,unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
+            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
         if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_tao[unc], ensp_nom_tao['rdet'],s,unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+            chi2 = Chi2(cm_tao[unc], ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
 
         #chi2 = cm_juno[unc].Chi2(ensp_nom_juno["rdet"],s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
   #      print(chi2)
@@ -212,9 +218,11 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
    # print(m1)
     #print(f"chi2 NO:  chi2 IO: ")
     dchi2 = abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2opp(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
+    #print(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]), chi2opp(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
     print(f"JUNO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
     dchi2_tao = abs(chi2_tao(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2opp_tao(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
+    #print(chi2_tao(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]), chi2opp_tao(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
     print(f"TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2_tao} and corresponding significance: {np.sqrt(dchi2_tao)}")
 
     print(f"JUNO+TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2+dchi2_tao} and corresponding significance: {np.sqrt(dchi2+dchi2_tao)}")

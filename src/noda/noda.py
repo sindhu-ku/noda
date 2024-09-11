@@ -163,6 +163,7 @@ class Spectrum:
     self.bin_cont = s_new.bin_cont
     self.bins = s_new.bins
     del s_new
+
   def Rebin_spline(self, new_bins, keep_norm=True):   # Better for binning with much more bins
     s_new = Spectrum(np.zeros(len(new_bins)-1), new_bins, xlabel=self.xlabel, ylabel=self.ylabel)
     #x = [(b1+b2)/2. for b1,b2 in zip(self.bins[:-1],self.bins[1:])]  # center of bins
@@ -179,6 +180,28 @@ class Spectrum:
     self.bin_cont = s_new.bin_cont
     self.bins = s_new.bins
     del s_new
+
+  def Rebin_nonuniform(self, bins_nonuniform):
+    new_bins = []
+    for start, end, num_bins in bins_nonuniform:
+      bin_edges = np.linspace(start, end, num_bins + 1)
+      new_bins.extend(bin_edges[:-1])  # Exclude the last bin edge for overlap
+    new_bins.append(bins_nonuniform[-1][1])  # Append the last bin edge
+
+    new_bin_cont = np.zeros(len(new_bins) - 1)
+
+    for i in range(len(new_bins) - 1):
+      bin_start, bin_end = new_bins[i], new_bins[i+1]
+      bin_mask = (self.bins[:-1] < bin_end) & (self.bins[1:] > bin_start)
+      for j, in_bin in enumerate(bin_mask):
+        if in_bin:
+          overlap_start = max(bin_start, self.bins[j])
+          overlap_end = min(bin_end, self.bins[j+1])
+          overlap_fraction = (overlap_end - overlap_start) / (self.bins[j+1] - self.bins[j])
+          new_bin_cont[i] += self.bin_cont[j] * overlap_fraction
+
+    return Spectrum(bin_cont=new_bin_cont, bins=np.array(new_bins), xlabel=self.xlabel, ylabel=self.ylabel)
+
 
   def GetOscillated(self, L, points_per_bin=1,
                 core_powers=None,
@@ -268,34 +291,35 @@ class Spectrum:
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
   #
-  # def GetWithPositronEnergy(self):
-  #   # #print("entering pos E")
-  #   Enu = self.bins
-  #   Mn = 939.56536 #MeV
-  #   Mp = 938.27203 #MeV
-  #   Me = 0.51099893 #MeV
-  #   Deltanp = Mn - Mp
-  #   Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
-  #   #print ("Any Mdiff is < 0", (Mdiff<0.).any())
-  #   Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
-  #   #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
-  #
-  #   Evis = Epos + 0.511
-  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
   def GetWithPositronEnergy(self):
-    # Constants
-    Enu = self.bins  # Antineutrino energy bins
-    Epos = np.zeros_like(Enu)
-    file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
-    Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
-    for i, energy in enumerate(Enu):
-        Epos_temp =0.
-        for cos_theta in range(-1, 1, 100):  # Random angle for each energy
-            Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
-        Epos[i] = -1e2*Epos_temp/100.
-    # Visible energy includes the positron mass contribution
-    Evis = Epos + 0.511  # Adding the rest mass of the positron
+    # #print("entering pos E")
+    Enu = self.bins
+    Mn = 939.56536 #MeV
+    Mp = 938.27203 #MeV
+    Me = 0.51099893 #MeV
+    Deltanp = Mn - Mp
+    Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
+    #print ("Any Mdiff is < 0", (Mdiff<0.).any())
+    Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
+    #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
+
+    Evis = Epos + 0.511
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+    
+  # def GetWithPositronEnergy(self):
+  #   # Constants
+  #   Enu = self.bins  # Antineutrino energy bins
+  #   Epos = np.zeros_like(Enu)
+  #   file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
+  #   Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
+  #   for i, energy in enumerate(Enu):
+  #       Epos_temp =0.
+  #       for cos_theta in range(-1, 1, 100):  # Random angle for each energy
+  #           Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
+  #       Epos[i] = -1e2*Epos_temp/100.
+  #   # Visible energy includes the positron mass contribution
+  #   Evis = Epos + 0.511  # Adding the rest mass of the positron
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins

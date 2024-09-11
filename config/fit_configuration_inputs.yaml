@@ -8,7 +8,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2022 # PDG option
+  PDG_opt: PDG2020 # PDG option
   NMO_opt: true   # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
@@ -37,6 +37,13 @@ fit_options:
   ene_crop2:
     - 0.8
     - 12.0
+
+  bins_nonuniform:
+    - [0.8, 0.94, 1]
+    - [0.94, 7.44, 325]
+    - [7.44, 7.8, 9]
+    - [7.8, 8.2, 4]
+    - [8.2, 9, 1]
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: true # Force calculation of covariance matrices
@@ -106,10 +113,12 @@ common_det_inputs:
   #b: 0.0082
   #c: 0.0123
 
-  a_err: 0.0002
-  b_err: 0.0001
-  c_err: 0.0004
-
+  # a_err: 0.0002
+  # b_err: 0.0001
+  # c_err: 0.0004
+  a_err: 0.00005
+  b_err: 0.00003
+  c_err: 0.00001
   #b2b_unc: 0.0134
   r2_unc: 0.02
   snf_unc: 0.3
