@@ -8,7 +8,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2020 # PDG option
+  PDG_opt: PDG2022 # PDG option
   NMO_opt: true   # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
@@ -97,7 +97,6 @@ fit_options:
 # Juno Inputs
 common_det_inputs:
   me_rho: 2.45
-  me_rho_scale: 0.15
   duty_cycle: 0.91666667
   alpha: [0.58, 0.07, 0.30, 0.05]
   efission: [202.36, 205.99, 211.12, 214.26]
@@ -118,12 +117,14 @@ common_det_inputs:
   # c_err: 0.0004
   a_err: 0.00005
   b_err: 0.00003
-  c_err: 0.00001
+  c_err: 0.0001
   #b2b_unc: 0.0134
+
   r2_unc: 0.02
   snf_unc: 0.3
   noneq_unc: 0.3
   core_flux_unc: 0.008
+  ff: 0.0005
 
 juno_inputs:
   # core_baselines_1: [52760.0]
@@ -137,7 +138,7 @@ juno_inputs:
   Pth: [1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 2.4800256e+27, 2.4800256e+27, 9.3809664e+27]  #Pth*6.24e21*60*60*24**6.24e21 # MeV per s
   L: [5274000.0, 5282000.0, 5241000.0, 5249000.0, 5211000.0, 5219000.0, 5277000.0, 5264000.0, 21500000.0] # Already in cm from core baselines
   Np:  1.4351802862903064e+33 #20.*12.01/1.0079*1e7*constants.Avogadro
-  detector_efficiency: 0.82
+  detector_efficiency: 0.822
   veto: 1.0
 
   acc_rate: 0.8
@@ -148,19 +149,26 @@ juno_inputs:
   atm_rate: 0.16
   rea300 rate: 1
 
+  me_rho_scale: 0.15
   eff_unc: 0.01
 
   acc_rate_unc: 0.01
+
   geo_rate_unc: 0.3
   geo_b2b_unc: 0.05
+
   lihe_rate_unc: 0.2
   lihe_b2b_unc: 0.1
+
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
+
   aneu_rate_unc: 0.5
   aneu_b2b_unc: 0.5
+
   atm_rate_unc: 0.5
   atm_b2b_unc: 0.5
+
   rea300_rate_unc: 0.02
   rea300_b2b_unc: 0.05
 #
@@ -196,3 +204,5 @@ tao_inputs:
   lihe_b2b_unc: 0.1
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
+  ene_scale: 0.005
+  fv:

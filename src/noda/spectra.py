@@ -244,20 +244,30 @@ def CreateSpectra(ndays=10,
       ensp['fneu'].GetScaled(args.fneu_rate*ndays/args.duty_cycle)
 
   #
-  # bg_keys2 = ['acc_noenecrop', 'fneu_noenecrop', 'lihe_noenecrop', 'aneu_noenecrop', 'geo_noenecrop', 'geoth_noenecrop', 'geou_noenecrop']
-  # for key2, label in zip(bg_keys2, bg_labels):
-  #   ensp[key2] = GetSpectrumFromROOT(args.input_data_file, label)
-  #   ensp[key2].GetScaled(ndays*12/11)
-  #   ensp[key2].Trim(args.ene_crop2)
+  bg_keys2 = ['acc_noenecrop', 'fneu_noenecrop', 'lihe_noenecrop', 'aneu_noenecrop', 'geo_noenecrop', 'geoth_noenecrop', 'geou_noenecrop', 'atm_noenecrop', 'rea300_noenecrop']
+  for key2, label in zip(bg_keys2, bg_labels):
+    ensp[key2] = GetSpectrumFromROOT(args.input_data_file, label)
+    ensp[key2].GetScaled(ndays*12/11)
+    ensp[key2].Trim(args.ene_crop2)
 
 
   #del cm['acc'], cm['geo'], cm['lihe'], cm['fneu'], cm['aneu']
 
   if detector == "juno":
       ensp['bckg'] = ensp['acc'] + ensp['fneu'] + ensp['lihe'] + ensp['aneu'] + ensp['geo'] + ensp['atm'] + ensp['rea300']
+      ensp['bckg_noenecrop'] = ensp['acc_noenecrop'] + ensp['fneu_noenecrop'] + ensp['lihe_noenecrop'] + ensp['aneu_noenecrop'] + ensp['geo_noenecrop'] + ensp['atm_noenecrop'] + ensp['rea300_noenecrop']
       extra_spectra=[ensp['acc'], ensp['geo'], ensp['lihe'], ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']]
       leg_labels = ['Reactor', 'Accidentals', 'Geo-neutrino', 'Li9/He8','Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km']
       colors=['darkred', 'green', 'navy', 'orange', 'magenta', 'lightblue', 'yellow', 'brown']
+        #
+      ensp['rtot_noenecrop'] = ensp['rdet_noenecrop'] + ensp['bckg_noenecrop']
+      events['rbckg_noenecrop'] = ensp['bckg_noenecrop'].GetIntegral()
+      events['rtot_noenecrop'] = ensp['rtot_noenecrop'].GetIntegral()
+      events['acc_noenecrop'] = ensp['acc_noenecrop'].GetIntegral()
+      events['fneu_noenecrop'] = ensp['fneu_noenecrop'].GetIntegral()
+      events['lihe_noenecrop'] = ensp['lihe_noenecrop'].GetIntegral()
+      events['aneu_noenecrop'] = ensp['aneu_noenecrop'].GetIntegral()
+      events['geo_noenecrop'] = ensp['geo_noenecrop'].GetIntegral()
 
   if detector == "tao":
       ensp['bckg'] = ensp['acc'] + ensp['fneu'] + ensp['lihe']
@@ -267,7 +277,7 @@ def CreateSpectra(ndays=10,
 
   ensp['rtot'] = ensp['rdet'] + ensp['bckg']
 
-
+  events['rbckg'] = ensp['bckg'].GetIntegral()
   events['rtot'] = ensp['rtot'].GetIntegral()
   events['acc'] = ensp['acc'].GetIntegral()
   events['fneu'] = ensp['fneu'].GetIntegral()
@@ -289,14 +299,7 @@ def CreateSpectra(ndays=10,
                   ymin=1e-3,log_scale=False)
                   #ymin=0.0, ymax=14900, yinterval=2500, log_scale=False)
 
-  #
-  # ensp['rtot_noenecrop'] = ensp['rdet_noenecrop'] + ensp['acc_noenecrop'] + ensp['fneu_noenecrop'] + ensp['lihe_noenecrop'] + ensp['aneu_noenecrop'] + ensp['geo_noenecrop']
-  # events['rtot_noenecrop'] = ensp['rtot_noenecrop'].GetIntegral()
-  # events['acc_noenecrop'] = ensp['acc_noenecrop'].GetIntegral()
-  # events['fneu_noenecrop'] = ensp['fneu_noenecrop'].GetIntegral()
-  # events['lihe_noenecrop'] = ensp['lihe_noenecrop'].GetIntegral()
-  # events['aneu_noenecrop'] = ensp['aneu_noenecrop'].GetIntegral()
-  # events['geo_noenecrop'] = ensp['geo_noenecrop'].GetIntegral()
+
 
 
 
@@ -308,25 +311,28 @@ def CreateSpectra(ndays=10,
   print("   Reac x IBD:    {:.2f} events".format(events['ribd']))
   print("   Oscillated:    {:.2f} events".format(events['rosc']))
   print("   Detected:      {:.2f} events".format(events['rdet']))
- #print("   Det NoEneC:    {:.2f} events".format(events['rdet_noenecrop']))
   print("   IBD+BG:        {:.2f} events".format(events["rtot"]))
- # print("   IBD+BG NoEneC: {:.2f} events".format(events["rtot_noenecrop"]))
 
   print("   Backgrounds")
+  print("   Total:        {:.2f} events".format(events["rbckg"]))
   print("      accidentals:    {:.2f} events".format(events["acc"]))
   print("      Li-9/He-8:      {:.2f} events".format(events["lihe"]))
   print("      fast n:         {:.2f} events".format(events["fneu"]))
 
   if detector == "juno":
+
     print("      (alpha,n):      {:.2f} events".format(events["aneu"]))
     print("      geo-nu:         {:.2f} events".format(events["geo"]))
     print("      atmospheric:         {:.2f} events".format(events["atm"]))
     print("      global reactors:         {:.2f} events".format(events["rea300"]))
-  # print("      accidentals NoEneC:    {:.2f} events".format(events["acc_noenecrop"]))
-  # print("      geo-nu NoEneC:         {:.2f} events".format(events["geo_noenecrop"]))
-  # print("      Li-9/He-8 NoEneC:      {:.2f} events".format(events["lihe_noenecrop"]))
-  # print("      fast n NoEneC:         {:.2f} events".format(events["fneu_noenecrop"]))
-  # print("      (alpha,n) NoEneC:      {:.2f} events".format(events["aneu_noenecrop"]))
+    print("   Det NoEneC:    {:.2f} events".format(events['rdet_noenecrop']))
+    print("   IBD+BG NoEneC: {:.2f} events".format(events["rtot_noenecrop"]))
+    print("   BG NoEneC: {:.2f} events".format(events["rbckg_noenecrop"]))
+    print("      accidentals NoEneC:    {:.2f} events".format(events["acc_noenecrop"]))
+    print("      geo-nu NoEneC:         {:.2f} events".format(events["geo_noenecrop"]))
+    print("      Li-9/He-8 NoEneC:      {:.2f} events".format(events["lihe_noenecrop"]))
+    print("      fast n NoEneC:         {:.2f} events".format(events["fneu_noenecrop"]))
+    print("      (alpha,n) NoEneC:      {:.2f} events".format(events["aneu_noenecrop"]))
 
   del events
 

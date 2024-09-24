@@ -166,7 +166,6 @@ def main(argv=None):
     #   del cm[key]
     #   continue
 
-
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args_juno.stat_method_opt == 'bayesian':
       # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom_juno =ensp_nom_juno, baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, SEED=i, args=args_juno) for i in range (args_juno.bayes_seed_beg, args_juno.bayes_seed_beg+args_juno.bayes_nprocesses))
@@ -176,6 +175,7 @@ def main(argv=None):
        bayes_res.get_results(args=args_juno)
 
  #For frequentist, function inside scan.py
+
   else:
       if(args_juno.grid_scan):
           #Form grid for the gridscan

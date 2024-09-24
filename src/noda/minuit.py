@@ -162,20 +162,26 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         return chi2
         #For drawing
     def get_spectrum(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False):
-        s = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_tao)
+        s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_juno)
         s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
+        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['J22rc0_positronScintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
-        print(s.bin_cont)
-        return s
+
+        s_tao = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_tao)
+        s_tao = s_tao.GetWithPositronEnergy() #shift to positron energy
+        s_tao = s_tao.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
+        s_tao = s_tao.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
+        s_tao = s_tao.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
+
+        return s + s_tao
 
    #fitting stuff
     #print(chi2(sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]))
-    # def combined_chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-    #     return chi2(sin2_12, sin2_12, dm2_21, dm2_31) + chi2_tao(sin2_12, sin2_13, dm2_21, dm2_31)
-    #
-    # def combined_chi2_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-    #     return chi2opp(sin2_12, sin2_12, dm2_21, dm2_31) + chi2opp_tao(sin2_12, sin2_13, dm2_21, dm2_31)
+    def combined_chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31) + chi2_tao(sin2_12, sin2_13, dm2_21, dm2_31)
+
+    def combined_chi2_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
+        return chi2opp(sin2_12, sin2_13, dm2_21, dm2_31) + chi2opp_tao(sin2_12, sin2_13, dm2_21, dm2_31)
 
     m = Minuit(chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.limits['sin2_12'] = (nuosc.op_nom["sin2_th12"] - nuosc.op_nom["sin2_th12"]*0.1, nuosc.op_nom["sin2_th12"] + nuosc.op_nom["sin2_th12"]*0.1)
@@ -187,28 +193,34 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     m.hesse() #get errors
     m.minos() #get minos errors
 
-    m_tao = Minuit(chi2_tao, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
+    m_comb = Minuit(combined_chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
+    m_comb.migrad()
+    #m_tao = Minuit(chi2_tao, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.limits['sin2_12'] = (nuosc.op_nom["sin2_th12"] - nuosc.op_nom["sin2_th12"]*0.1, nuosc.op_nom["sin2_th12"] + nuosc.op_nom["sin2_th12"]*0.1)
     #m.limits['dm2_21'] = (nuosc.op_nom["dm2_21"] - nuosc.op_nom["dm2_21"]*0.1, nuosc.op_nom["dm2_21"] + nuosc.op_nom["dm2_21"]*0.1)
     #m.limits['sin2_13'] = (nuosc.op_nom["sin2_th13"] - nuosc.op_nom["sin2_th13"]*3., nuosc.op_nom["sin2_th13"] + nuosc.op_nom["sin2_th13"]*0.3)
     #m.scan(ncall=100)
 
-    m_tao.migrad() #fit
+    #m_tao.migrad() #fit
     # m_tao.hesse() #get errors
     # m_tao.minos() #get minos errors
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO= not args_juno.NMO_opt) #Vals for osc parameters and NMO
-    m1 = Minuit(chi2opp, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
+    #m1 = Minuit(chi2opp, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.scan(ncall=100)
-    m1.migrad() #fit
+    #m1.migrad() #fit
     # m1.hesse() #get errors
     # m1.minos() #get minos errors
 
-    m1_tao = Minuit(chi2opp_tao, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
+    #m1_tao = Minuit(chi2opp_tao, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
     #m.scan(ncall=100)
-    m1_tao.migrad() #fit
+    #m1_tao.migrad() #fit
     # m1_tao.hesse() #get errors
     # m1_tao.minos() #get minos errors
+    m_comb_opp = Minuit(combined_chi2_opp, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
+    m_comb_opp.migrad()
+
+
     unc_new = unc
     unc_new = 'stat+'+unc
     print("Uncertainty: ", unc_new)
@@ -217,28 +229,27 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     print(m)
    # print(m1)
     #print(f"chi2 NO:  chi2 IO: ")
-    dchi2 = abs(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2opp(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
+    chi2_min = combined_chi2(sin2_12=m_comb.values[0], sin2_13=m_comb.values[1], dm2_21=m_comb.values[2], dm2_31=m_comb.values[3])
+    chi2_min_opp = combined_chi2_opp(sin2_12=m_comb_opp.values[0], sin2_13=m_comb_opp.values[1], dm2_21=m_comb_opp.values[2], dm2_31=m_comb_opp.values[3])
+    dchi2 = abs(chi2_min-chi2_min_opp)
+
     #print(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]), chi2opp(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
-    print(f"JUNO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
+    #print(f"JUNO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
-    dchi2_tao = abs(chi2_tao(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2opp_tao(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
+    #dchi2_tao = abs(chi2_tao(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2opp_tao(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
     #print(chi2_tao(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]), chi2opp_tao(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
-    print(f"TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2_tao} and corresponding significance: {np.sqrt(dchi2_tao)}")
+    #print(f"TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2_tao} and corresponding significance: {np.sqrt(dchi2_tao)}")
 
-    print(f"JUNO+TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2+dchi2_tao} and corresponding significance: {np.sqrt(dchi2+dchi2_tao)}")
-
-
-    # print(chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]), chi2opp(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
-    # print(chi2_tao(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]), chi2opp_tao(sin2_12=m1.values[0], sin2_13=m1.values[1], dm2_21=m1.values[2], dm2_31=m1.values[3]))
+    print(f"JUNO+TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
  #plot IO and NO
 
 
 
 #     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
-#     NO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=False)
+    NO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=False)
 #     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO= not args_juno.NMO_opt) #Vals for osc parameters and NMO
-#     IO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=True)
+    IO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=True)
 #     NO_sp_fit= get_spectrum(sin2_12=m_tao.values[0], sin2_13=m_tao.values[1], dm2_21=m_tao.values[2], dm2_31=m_tao.values[3])
 #     IO_sp_fit = get_spectrum(sin2_12=m1_tao.values[0], sin2_13=m1_tao.values[1], dm2_21=m1_tao.values[2], dm2_31=m1_tao.values[3], opp=True)
 #
@@ -251,14 +262,14 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
 # #                   xmin=0, xmax=10,
 # #                   ymin=0, ymax=None, log_scale=False)
 #
-#     NO_sp.Plot(f"{args_juno.plots_folder}/NO_vs_IO.png",
-#             xlabel="Neutrino energy (MeV)",
-#             ylabel=f"Events per 20 keV",
-#             extra_spectra=[IO_sp],
-#             leg_labels=['NO curve', 'IO curve'],
-#             colors=['darkred', 'steelblue'],
-#             xmin=0, xmax=10,
-#             ymin=0, ymax=None, log_scale=False)
+    NO_sp.Plot(f"{args_juno.plots_folder}/NO_vs_IO.png",
+            xlabel="Neutrino energy (MeV)",
+            ylabel=f"Events per 20 keV",
+            extra_spectra=[IO_sp],
+            leg_labels=['NO curve', 'IO curve'],
+            colors=['darkred', 'steelblue'],
+            xmin=0, xmax=10,
+            ymin=0, ymax=None, log_scale=False)
 #
 #     NO_sp_fit.Plot(f"{args_juno.plots_folder}/NO_vs_IO_fit.png",
 #                   xlabel="Neutrino energy (MeV)",
