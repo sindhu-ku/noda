@@ -56,7 +56,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
 
-    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False, tao=False):
+    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0, opp=False, tao=False):
         if tao:
             ensp_nom=ensp_nom_tao
             cm=cm_tao
@@ -76,8 +76,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         s = s.ApplyDetResp(rm, pecrop=args.ene_crop)  # Apply energy resolution
 
         if tao: s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe']
-        else: s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + \
-                ensp_nom['aneu'] + ensp_nom['geo'] + ensp_nom['atm'] + \
+        else: s_tot = s.GetScaledFit(Nrea) + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + \
+                ensp_nom['aneu'] + ensp_nom['geo'].GetScaledFit(Ngeo) + ensp_nom['atm'] + \
                 ensp_nom['rea300']
 
         chi2 = 1e+6
@@ -101,15 +101,21 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
 
    #fitting stuff
     def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=False)
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, tao=False, opp=False)
 
     def combined_chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=False) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=True, opp=False)
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, tao=False, opp=False) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, tao=True, opp=False)
 
     def combined_chi2_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=True) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=True, opp=True)
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, tao=False, opp=True) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, tao=True, opp=True)
 
-    m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
+    def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0):
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, Ngeo, tao=False, opp=False)
+
+    if args_juno.geo_fit:
+        m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Ngeo=1.0)
+    else:
+        m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
 
     m.migrad() #fit
     m.hesse() #get errors
@@ -178,7 +184,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
         if unc_new==args_juno.unc_list[0]:
             fileo = open(filename, "w")
-            fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+            if args_juno.geo_fit: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr\n")
+            else: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
             fileo.close()
         write_results(m, filename, unc_new) #write results into a textfile
    #fancy stuff
@@ -190,7 +197,6 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         print("Plotting chi2 profiles")
         param_list = ["sin2_12", "sin2_13", "dm2_21", "dm2_32"]
         for i in range(len(param_list)): #there is something weird with draw_mnprofile in minuit, so I have to do this from scratch inside plot_profile
-            if (i!=3): continue
             plotname = f"{args_juno.plots_folder}/Chi2_profiles/Minuit/chi2_{args_juno.stat_opt}_{param_list[i]}_{unc_new}.png"
             plot_profile(m, i, param_list[i], plotname)
 

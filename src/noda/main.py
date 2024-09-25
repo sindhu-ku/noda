@@ -63,6 +63,9 @@ def main(argv=None):
   else:
       raise ValueError("only days or year(s) supported")
 
+  if args_juno.geo_fit and args_juno.NMO_fit:
+      raise ValueError("NMO and geo fits at the same time are not supported")
+
   ndays *= args_juno.duty_cycle #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
 
   juno_baselines = args_juno.core_baselines #which reactor baselines and cores
