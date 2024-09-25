@@ -53,95 +53,42 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
     plt.close()
 
 def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao =[], cm_juno ={}, cm_tao={}, args_juno='', args_tao=''):#, dm2_31=0.):
-    # import ROOT
-    # from array import array
-    # output_file = ROOT.TFile("Asimov_NO.root", "RECREATE")
-    # bins = ensp_nom_juno[''].bins
-    # bin_cont = ensp_nom_juno[''].bin_cont
-    #  # Create a TH1D histogram
-    # hist = ROOT.TH1D("Asimov NO", "Asimov NO", len(bins) - 1, array('d', bins))
-    # hist.Sumw2()
-    #  #Fill the histogram with the bin contents
-    # for i in range(len(bin_cont)):
-    #    hist.SetBinContent(i + 1, bin_cont[i])
-    #  # Save the histogram in the ROOT file
-    # hist.Write()
-    # output_file.Close()
-    #print("Scanning ", dm2_31)
-    # def get_hist_from_root(filename, histname):
-    #     root_file = ROOT.TFile.Open(filename)
-    #     histogram = root_file.Get(histname)
-    #     bins = np.array([histogram.GetBinLowEdge(i) for i in range(1, histogram.GetNbinsX() + 2)])
-    #     bin_cont = np.array([histogram.GetBinContent(i) for i in range(1, histogram.GetNbinsX() + 1)])
-    #     root_file.Close()
-    #     return Spectrum(bin_cont=bin_cont, bins=bins)
 
-    # ensp_nom_juno["rdet"] = ensp_nom_juno['rdet'].Rebin_nonuniform(args_juno.bins_nonuniform)
-    # ensp_nom_tao["rdet"] = ensp_nom_tao['rdet'].Rebin_nonuniform(args_juno.bins_nonuniform)
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
-    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
-        s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', args=args_juno)
-        s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['J22rc0_positronScintNL']) #apply non-linearity
-        s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
-        s_tot = s + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + ensp_nom_juno['rea300']
-        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
-        chi2 = 1e+6
-        #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
-        if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_juno[unc], ensp_nom_juno["rtot"], s_tot, ensp_nom_juno["rdet"], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
-        if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_juno[unc], ensp_nom_juno["rtot"], s_tot,ensp_nom_juno["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
-        return chi2
-    #opposite ordering chi2
-    def chi2opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
-        s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=True, args=args_juno)
-        s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['J22rc0_positronScintNL']) #apply non-linearity
-        s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
-        s_tot = s + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + ensp_nom_juno['rea300']
-        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
-        chi2 = 1e+6
-        #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
-        if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_juno[unc],ensp_nom_juno["rtot"], s_tot, ensp_nom_juno["rdet"], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
-        if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_juno[unc], ensp_nom_juno["rtot"], s_tot, ensp_nom_juno["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
-        return chi2
 
-    def chi2_tao(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
-        s = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', args=args_tao)
-        s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
-        s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
-        s_tot = s + ensp_nom_tao['acc'] + ensp_nom_tao['fneu'] + ensp_nom_tao['lihe']
-        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
-        chi2 = 1e+6
-        #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
-        if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao["rtot"], s_tot, ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
-        if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_tao[unc], ensp_nom_tao["rtot"], s_tot, ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
-        return chi2
+    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False, tao=False):
+        if tao:
+            ensp_nom=ensp_nom_tao
+            args= args_tao
+        else:
+            ensp_nom=ensp_nom_juno
+            args=args_juno
 
-    #opposite ordering chi2
-    def chi2opp_tao(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0): #chi2 definition
-        s = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=True, args=args_tao)
-        s = s.GetWithPositronEnergy() #shift to positron energy
-        s = s.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
-        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['J22rc0_positronScintNL']) #apply non-linearity
-        s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
-        s_tot = s + ensp_nom_tao['acc'] + ensp_nom_tao['fneu'] + ensp_nom_tao['lihe']
-        #s = s.Rebin_nonuniform(args_juno.bins_nonuniform)
+        # Get the oscillated spectrum
+        s = ensp_nom['ribd'].GetOscillated(L=args.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
+                                          dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args.core_powers,
+                                          me_rho=args.me_rho, ene_mode='true', opp=opp, args=args)
+        s = s.GetWithPositronEnergy()  # Shift to positron energy
+        if tao: s = s.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
+        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['J22rc0_positronScintNL'])  # Apply non-linearity
+        s = s.ApplyDetResp(rm, pecrop=args.ene_crop)  # Apply energy resolution
+
+        if tao: s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe']
+        else: s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + \
+                ensp_nom['aneu'] + ensp_nom['geo'] + ensp_nom['atm'] + \
+                ensp_nom['rea300']
+
         chi2 = 1e+6
-        #steven = get_hist_from_root("control_histos_NO.root", "h_tot")
-        if args_juno.sin2_th13_opt== "pull":
-            chi2 = Chi2_p(cm_tao[unc], ensp_nom_tao["rtot"], s_tot, ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt, pulls=[sin2_13-nuosc.op_nom['sin2_th13']], pull_unc=[args_juno.sin2_th13_pull_unc*nuosc.op_nom['sin2_th13']])
-        if args_juno.sin2_th13_opt== "free":
-            chi2 = Chi2(cm_tao[unc], ensp_nom_tao["rtot"], s_tot, ensp_nom_tao["rdet"], s, unc, args_juno.stat_method_opt) #calculate chi2 using covariance matrix
+        if args.sin2_th13_opt == "pull":
+            chi2 = Chi2_p(cm_juno[unc], ensp_nom["rtot"], s_tot, ensp_nom["rdet"], s, unc,
+                      args.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13']],
+                      pull_unc=[args.sin2_th13_pull_unc * nuosc.op_nom['sin2_th13']])
+        if args.sin2_th13_opt == "free":
+            chi2 = Chi2(cm_juno[unc], ensp_nom["rtot"], s_tot, ensp_nom["rdet"], s, unc,
+                    args.stat_method_opt)  # Calculate chi2 using covariance matrix
 
         return chi2
+
         #For drawing
     def get_spectrum(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False):
         s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_juno)
@@ -158,20 +105,26 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         return s + s_tao
 
    #fitting stuff
+    def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=False)
+
     def combined_chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31) + chi2_tao(sin2_12, sin2_13, dm2_21, dm2_31)
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=False) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=True, opp=False)
 
     def combined_chi2_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2opp(sin2_12, sin2_13, dm2_21, dm2_31) + chi2opp_tao(sin2_12, sin2_13, dm2_21, dm2_31)
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=True) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=True, opp=True)
 
-
-    m = Minuit(chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"]) #define minuit
+    m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
 
     m.migrad() #fit
     m.hesse() #get errors
     m.minos() #get minos errors
+    print("Measurement of oscillation parameters: ")
+    print("Number of Geo/Rea free:", args_juno.geo_fit)
+    print(m)
 
     if args_juno.NMO_fit:
+        print("Determining NMO: ")
         m_comb = Minuit(combined_chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
         m_comb.migrad()
 
@@ -184,17 +137,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         dchi2 = abs(chi2_min-chi2_min_opp)
         print(f"JUNO+TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
-    unc_new = 'stat+'+unc
-    print("Uncertainty: ", unc_new)
-
-    print("Measurement of oscillation parameters: ")
-    print("Number of Geo/Rea free:", args_juno.geo_fit)
-    print(m)
 
 
  #plot IO and NO
-
-
 
 #     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
     NO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=False)
