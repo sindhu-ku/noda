@@ -125,7 +125,6 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     if(unc != 'stat'): unc_new = 'stat+'+unc
     print("Uncertainty: ", unc_new)
     print("Measurement of oscillation parameters: ")
-    print("Number of Geo/Rea free:", args_juno.geo_fit)
     print(m)
 
     if args_juno.NMO_fit:
