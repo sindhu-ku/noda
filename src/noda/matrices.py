@@ -37,7 +37,7 @@ def GetCM(ensp = {},
   def mat_flu(me_rho_flu):
       ensp['rosc_me_flu'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=me_rho_flu, ene_mode='true', args=args)
       ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy()
-      ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
+      ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rosc_me_flu'], ensp['rvis_me_flu_0']
       return ensp['rvis_me_flu']
 
@@ -54,9 +54,9 @@ def GetCM(ensp = {},
       return ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
 
   def new_NL_curve(pull_num, w):
-      new_nonl =  Spectrum(bins = ensp['J22rc0_positronScintNL'].bins, bin_cont=np.zeros(len(ensp['J22rc0_positronScintNL'].bin_cont)))
+      new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
       for i in range(len(new_nonl.bins)-1):
-        new_nonl.bin_cont[i] = ensp['J22rc0_positronScintNL'].bin_cont[i] + w*(ensp['NL_pull'][pull_num].bin_cont[i] - ensp['J22rc0_positronScintNL'].bin_cont[i])
+        new_nonl.bin_cont[i] = ensp['scintNL'].bin_cont[i] + w*(ensp['NL_pull'][pull_num].bin_cont[i] - ensp['scintNL'].bin_cont[i])
       output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       del new_nonl
       return output
@@ -139,7 +139,7 @@ def GetCM(ensp = {},
       ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true', args=args)
       del ensp['ribd_crel']
       ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy()
-      ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
+      ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rvis_crel_flu_nonl']
       return ensp['rvis_crel_flu']
 

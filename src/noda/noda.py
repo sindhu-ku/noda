@@ -134,6 +134,10 @@ class Spectrum:
     self.bin_cont *= scale_factor
     return self
 
+  def GetScaledFit(self, scale_factor):
+    new_bin_cont = self.bin_cont*scale_factor
+    return Spectrum(bins=self.bins, bin_cont=new_bin_cont)
+
   def Rebin(self, new_bins, mode='simple'):
     if mode == 'simple':
       self.Rebin_simple(new_bins)

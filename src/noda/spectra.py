@@ -171,16 +171,16 @@ def CreateSpectra(ndays=10,
       ensp['noneq_osc_nonl'] = ensp['noneq_osc_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
 
   #   Non-linearity
-  ensp['J22rc0_positronScintNL'] = GetSpectrumFromROOT(args.input_data_file, 'J22rc0_positronScintNL')
+  ensp['scintNL'] = GetSpectrumFromROOT(args.input_data_file, args.nl_hist_name)
   ensp['NL_pull'] = [ GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull0'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull1'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull2'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull3') ]
   print("applying non-linearity")
-  ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
-  ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
-  ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
-  ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['J22rc0_positronScintNL'])
+  ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+  ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+  ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+  ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
@@ -193,7 +193,7 @@ def CreateSpectra(ndays=10,
   #                 xmin=0, xmax=10,
   #                 ymin=0, ymax=None, log_scale=False)
 
-  #ensp['J22rc0_positronScintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
+  #ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
   #                 xlabel="Reconstructed energy (MeV)",
   #                 extra_spectra=ensp['NL_pull'],
   #                 xmin=0, xmax=10,

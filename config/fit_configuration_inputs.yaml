@@ -126,6 +126,7 @@ common_det_inputs:
   noneq_unc: 0.3
   core_flux_unc: 0.008
   ff: 0.0005
+  nl_hist_name: positronScintNL
 
 juno_inputs:
   # core_baselines_1: [52760.0]
