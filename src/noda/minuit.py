@@ -52,7 +52,7 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
     plt.savefig(plotname)
     plt.close()
 
-def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao =[], cm_juno ={}, cm_tao={}, args_juno='', args_tao=''):#, dm2_31=0.):
+def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', rm= [], ene_leak_tao =[], cm_juno ={}, cm_tao={}, args_juno='', args_tao=''):#, dm2_31=0.):
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
 
@@ -60,10 +60,12 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         if tao:
             ensp_nom=ensp_nom_tao
             cm=cm_tao
+            unc=unc_tao
             args= args_tao
         else:
             ensp_nom=ensp_nom_juno
             cm=cm_juno
+            unc=unc_juno
             args=args_juno
 
         # Get the oscillated spectrum
@@ -81,6 +83,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
                 ensp_nom['rea300']
 
         chi2 = 1e+6
+
         if args.sin2_th13_opt == "pull":
             chi2 = Chi2_p(cm[unc], ensp_nom["rtot"], s_tot, ensp_nom["rdet"], s, unc,
                       args.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13']],
@@ -121,9 +124,14 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     m.hesse() #get errors
     m.minos() #get minos errors
 
-    unc_new = unc
-    if(unc != 'stat'): unc_new = 'stat+'+unc
-    print("Uncertainty: ", unc_new)
+    unc_new_juno = unc_juno
+    if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
+    print("Uncertainty JUNO: ", unc_new_juno)
+
+    unc_new_tao = unc_tao
+    if(unc_tao != 'stat'): unc_new_tao = 'stat+'+unc_tao
+    print("Uncertainty TAO: ", unc_new_tao)
+
     print("Measurement of oscillation parameters: ")
     print(m)
 
@@ -138,6 +146,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
 
         chi2_min = combined_chi2(sin2_12=m_comb.values[0], sin2_13=m_comb.values[1], dm2_21=m_comb.values[2], dm2_31=m_comb.values[3])
         chi2_min_opp = combined_chi2_opp(sin2_12=m_comb_opp.values[0], sin2_13=m_comb_opp.values[1], dm2_21=m_comb_opp.values[2], dm2_31=m_comb_opp.values[3])
+        print(chi2(sin2_12=m_comb_opp.values[0], sin2_13=m_comb_opp.values[1], dm2_21=m_comb_opp.values[2], dm2_31=m_comb_opp.values[3], Nrea=1.0, Ngeo=1.0, tao=True, opp=True))
         dchi2 = abs(chi2_min-chi2_min_opp)
         print(f"JUNO+TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 

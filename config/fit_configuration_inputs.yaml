@@ -49,7 +49,7 @@ fit_options:
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: true # Force calculation of covariance matrices
-  PLOT_CM: false # Plot covariance matrices
+  PLOT_CM: true # Plot covariance matrices
 
 
   input_data_file: data/JUNOInputs2022_05_08.root #data file
@@ -73,20 +73,7 @@ fit_options:
   grid_points: 21
 
   shape_unc: TAO
-  # Uncertainty list
-  unc_list:
-     - stat
-    #   - stat+eff
-    #   - stat+r2
-    #   - stat+crel
-    #   - stat+snf
-    #   - stat+noneq
-    #   - stat+b2b_DYB
-    #   - stat+abc
-    #   - stat+nl
-    #   - stat+bg
-    #   - stat+me
-    # - stat+eff+r2+crel+snf+noneq+b2b_TAO+abc+nl+bg+me
+
 
   bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
@@ -174,7 +161,21 @@ juno_inputs:
 
   rea300_rate_unc: 0.02
   rea300_b2b_unc: 0.05
-#
+#  # Uncertainty list
+  unc_list_juno:
+    # - stat
+    #   - stat+eff
+    #   - stat+r2
+    #   - stat+crel
+    #   - stat+snf
+    #   - stat+noneq
+    #   - stat+b2b_DYB
+    #   - stat+abc
+    #   - stat+nl
+    #   - stat+bg
+    #   - stat+me
+     - stat+eff+r2+crel+snf+noneq+abc+nl+bg+me
+
 tao_inputs:
 
   FORCE_CALC_ENE_LEAK: true
@@ -208,6 +209,18 @@ tao_inputs:
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
 
-  det_norm: 0.1
-  ene_scale: 0.005
-  fv:
+  ene_scale_unc: 0.005
+  fv_unc:
+
+      # Uncertainty list
+  unc_list_tao:
+    # - stat
+    #   - stat+eff
+    #   - stat+r2
+    #   - stat+crel
+    #   - stat+snf
+    #   - stat+noneq
+    #   - stat+bg
+    #   - stat+ene_scale
+    #   - stat+fv
+     - stat+eff+r2+crel+snf+noneq+bg+ene_scale

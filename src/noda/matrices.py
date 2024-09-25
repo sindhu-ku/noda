@@ -5,14 +5,14 @@ import csv
 from datetime import datetime
 
 def GetCM(ensp = {},
-      core_baselines=[],
-      core_powers=[],
       resp_matrix=[],
       ndays=10,
+      unc_list=[],
+      detector="juno",
       args=''):
 
  #take the longest string in the unc list to calculate CMs
-  unc_max = max(args.unc_list, key=len)
+  unc_max = max(unc_list, key=len)
   if '+' in unc_max:
       unc = unc_max.split('+')
   else:
@@ -26,6 +26,7 @@ def GetCM(ensp = {},
     'b2b_TAO': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "TAOUncertainty"),
     'snf': lambda: ensp['snf_final'].GetRateCovMatrix(args.snf_unc),
     'noneq': lambda: ensp['noneq_final'].GetRateCovMatrix(args.noneq_unc),
+    'ene_scale': lambda: ensp['rdet'].GetRateCovMatrix(args.ene_scale_unc),
     'me': lambda: get_ME_CM(),
     'nl': lambda: get_NL_CM(),
     'abc': lambda: get_abc_CM(),
@@ -35,7 +36,7 @@ def GetCM(ensp = {},
 
 
   def mat_flu(me_rho_flu):
-      ensp['rosc_me_flu'] = ensp['ribd'].GetOscillated(L=core_baselines, core_powers=core_powers, me_rho=me_rho_flu, ene_mode='true', args=args)
+      ensp['rosc_me_flu'] = ensp['ribd'].GetOscillated(L=args.core_baselines, core_powers=args.core_powers, me_rho=me_rho_flu, ene_mode='true', args=args)
       ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy()
       ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rosc_me_flu'], ensp['rvis_me_flu_0']
@@ -123,9 +124,9 @@ def GetCM(ensp = {},
 
   def get_core_flu(i):
       if i%1000 == 0: print (f"{i}/{args.sample_size_core}")
-      deviations = np.random.normal(loc=1., scale=args.core_flux_unc, size=len(core_powers))
-      flu_powers = [dev*p for dev, p in zip(deviations, core_powers)]
-      flu_powers2 = np.array([dev*p for dev, p in zip(deviations, core_powers)])
+      deviations = np.random.normal(loc=1., scale=args.core_flux_unc, size=len(args.core_powers))
+      flu_powers = [dev*p for dev, p in zip(deviations, args.core_powers)]
+      flu_powers2 = np.array([dev*p for dev, p in zip(deviations, args.core_powers)])
       flu_powers22 = flu_powers2*6.24e21*60*60*24 # MeV/day
       alpha_arr = np.array(args.alpha)
       efission_arr = np.array(args.efission)
@@ -136,7 +137,7 @@ def GetCM(ensp = {},
       ensp['ribd_crel'] = ensp['ribd'].Copy()
       ensp['ribd_crel'].GetScaled(1./extrafactors)
       ensp['ribd_crel'].GetScaled(extrafactors2)
-      ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true', args=args)
+      ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=args.core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true', args=args)
       del ensp['ribd_crel']
       ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy()
       ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
@@ -156,15 +157,18 @@ def GetCM(ensp = {},
   def get_bckg_CM():
     print("Background CM")
     cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) + ensp['acc'].GetStatCovMatrix()
-    if not args.geo_fit: cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geo'].GetStatCovMatrix()
-    else: cm['geo'] = ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc)
     cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) + ensp['lihe'].GetStatCovMatrix()
-    cm['fneu'] = ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc) + ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) + ensp['fneu'].GetStatCovMatrix()
-    cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) + ensp['aneu'].GetStatCovMatrix()
-    cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) + ensp['atm'].GetStatCovMatrix()
-    cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) + ensp['rea300'].GetStatCovMatrix()
+    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) + ensp['fneu'].GetStatCovMatrix()
+    if detector != "tao": cm['fneu'] += ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc)
+    if detector != "tao":
+        if not args.geo_fit: cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geo'].GetStatCovMatrix()
+        else: cm['geo'] = ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc)
+        cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) + ensp['aneu'].GetStatCovMatrix()
+        cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) + ensp['atm'].GetStatCovMatrix()
+        cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) + ensp['rea300'].GetStatCovMatrix()
 
-    return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300']
+    if detector != "tao": return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300']
+    else: return cm['acc'] + cm['lihe'] + cm['fneu']
 
 
  # Initialize the cm dictionary
@@ -177,7 +181,7 @@ def GetCM(ensp = {},
       else:
           raise ValueError(f"unc {u} not found! Cannot calculate!")
 
-  SaveObject(cm, f"{args.data_matrix_folder}/cm_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
+  SaveObject(cm, f"{args.data_matrix_folder}/cm_{detector}_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   for key in cm.keys():
-      cm[key].Dump(f"{args.data_matrix_folder}/csv/cov_mat_{key}.csv")
+      cm[key].Dump(f"{args.data_matrix_folder}/csv/cov_mat_{detector}_{key}.csv")
   return cm

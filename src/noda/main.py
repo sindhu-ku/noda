@@ -122,45 +122,81 @@ def main(argv=None):
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
 
-  if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-      print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      cm = LoadObject(f"{args_juno.data_matrix_folder}/cm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+      print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      cm_juno = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
   else:
-      cm = {}
-      print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      cm = mat.GetCM(ensp = ensp_nom_juno,
-            core_baselines=juno_baselines,
-            core_powers=juno_powers,
+      cm_juno = {}
+      print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      cm_juno = mat.GetCM(ensp = ensp_nom_juno,
             resp_matrix=resp_matrix,
             ndays=ndays,
+            unc_list=args_juno.unc_list_juno,
+            detector="juno",
             args=args_juno)
+
+
+  if args_juno.NMO_fit:
+      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+          print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          cm_tao = LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      else:
+          cm_tao = {}
+          print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          cm_tao = mat.GetCM(ensp = ensp_nom_tao,
+            resp_matrix=resp_matrix,
+            ndays=ndays,
+            unc_list=args_tao.unc_list_tao,
+            detector="tao",
+            args=args_tao)
+
   if args_juno.PLOT_CM:
     if not os.path.exists(f"{args_juno.cov_matrix_plots_folder}"):
       os.makedirs(f"{args_juno.cov_matrix_plots_folder}")
-    for key, cov_mat in cm.items():
-      cov_mat.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_{key}.png")
+    for key, cov_mat in cm_juno.items():
+      cov_mat.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_juno_{key}.png")
+    if args_juno.NMO_fit:
+        for key, cov_mat in cm_tao.items():
+            cov_mat.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_tao_{key}.png")
 
   end_cm_time = datetime.now()
   print("Covariance matrices production: ", end_cm_time - start_cm_time)
   start_scan_time = datetime.now()
 
-  unc_list_new = []
+  unc_list_new_juno = []
+  unc_list_new_tao = []
   #TODO: This is mainly for CNP when stat matrix is included by default, can be done better
   print("Uncertainty list for ", args_juno.stat_method_opt)
-  for unc in args_juno.unc_list:
+  for unc in args_juno.unc_list_juno:
     unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
-    print(unc)
-    unc_list_new.append(unc)
+    print("JUNO unc", unc)
+    unc_list_new_juno.append(unc)
 
-  for full_unc in unc_list_new:
+  for unc in args_tao.unc_list_tao:
+    unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
+    print("TAO unc", unc)
+    unc_list_new_tao.append(unc)
+
+  for full_unc in unc_list_new_juno:
     single_unc_list = full_unc.split("+")
-    cm[full_unc] = cm[single_unc_list[0]]
+    cm_juno[full_unc] = cm_juno[single_unc_list[0]]
     for u in single_unc_list[1:]:
-      cm[full_unc] += cm[u]
+      cm_juno[full_unc] += cm_juno[u]
 
-  for key in unc_list_new:
-    if not key in cm.keys():
+  for full_unc in unc_list_new_tao:
+    single_unc_list = full_unc.split("+")
+    cm_tao[full_unc] = cm_tao[single_unc_list[0]]
+    for u in single_unc_list[1:]:
+      cm_tao[full_unc] += cm_tao[u]
+
+  for key in unc_list_new_juno:
+    if not key in cm_juno.keys():
+      print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
+      continue
+
+  for key in unc_list_new_tao:
+    if not key in cm_tao.keys():
       print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
       continue
     #
@@ -190,8 +226,9 @@ def main(argv=None):
                       baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno)
           scan_res.get_results(args=args_juno)
       else:
-          Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm, cm_tao=cm, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new)
-          #for unc in unc_list_new: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm, cm_tao=cm, args_juno=args_juno, args_tao=args_tao)
+          #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
+          print(unc_list_new_juno[0],unc_list_new_tao[0] )
+          minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao=unc_list_new_tao[0], rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)
