@@ -26,7 +26,7 @@ setup(
         'arviz',
         'corner',
         'iminuit',
-        'uproot'
+        'uproot',
     ],
-    python_requires='>=3.9',
+    python_requires='>=3.10',
 )

@@ -5,10 +5,10 @@ fit_options:
 
 
   stat_opt: 6years # time period for sensitivity studies
-  sin2_th13_opt: pull # Sin2_theta13 option
+  sin2_th13_opt: free # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2022 # PDG option
+  PDG_opt: PDG2020 # PDG option
   NMO_opt: true   # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
@@ -17,14 +17,18 @@ fit_options:
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
   plot_minuit_profiles: false
+  plot_spectra: true
   print_minuit_correlation: false
   write_results: false
+  NMO_fit: true
+
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
   bayes_events: 400
   bayes_nwalkers: 30
   bayes_nprocesses: 16
+
   # Energy crop range for fit
   ene_crop:
     - 0.8
@@ -34,6 +38,13 @@ fit_options:
   ene_crop2:
     - 0.8
     - 12.0
+
+  bins_nonuniform:
+    - [0.8, 0.94, 1]
+    - [0.94, 7.44, 325]
+    - [7.44, 7.8, 9]
+    - [7.8, 8.2, 4]
+    - [8.2, 9, 1]
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: true # Force calculation of covariance matrices
@@ -85,58 +96,115 @@ fit_options:
 
 
 # Juno Inputs
-juno_inputs:
-  core_baselines_1: [52760.0]
-  core_powers_1: [4.6]
-  core_powers_12: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
-  core_baselines_12: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 52320.0, 52200.0, 215000.0, 265000.0]
-  core_powers_10: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
-  core_baselines_10: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 215000.0, 265000.0]
-  core_powers_9: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
-  core_baselines_9: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
+common_det_inputs:
+  me_rho: 2.45
+  duty_cycle: 0.91666667
   alpha: [0.58, 0.07, 0.30, 0.05]
   efission: [202.36, 205.99, 211.12, 214.26]
-  Pth: [1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 2.4800256e+27, 2.4800256e+27, 9.3809664e+27] # MeV per day
-  L: [5275000.0, 5284000.0, 5242000.0, 5251000.0, 5212000.0, 5221000.0, 5276000.0, 5263000.0, 21500000.0] # Already in cm
-  Np: 1.4351802862903064e+33
-  detector_efficiency: 0.82
-  me_rho: 2.45
-  me_rho_scale: 0.15
-
-
-
   U235_scale: 0.58
   U238_scale: 0.07
   Pu239_scale: 0.30
   Pu241_scale: 0.05
-  a: 0.02614
-  b: 0.0064
-  c: 0.012
+  # a: 0.02614
+  # b: 0.0064
+  # c: 0.012
   # old abc
-  # a: 0.0261
-  # b: 0.0082
-  # c: 0.0123
+  a: 0.0261
+  b: 0.0082
+  c: 0.0123
 
-  a_err: 0.0002
-  b_err: 0.0001
-  c_err: 0.0004
+  # a_err: 0.0002
+  # b_err: 0.0001
+  # c_err: 0.0004
+  a_err: 0.00005
+  b_err: 0.00003
+  c_err: 0.0001
+  #b2b_unc: 0.0134
 
   r2_unc: 0.02
-  eff_unc: 0.01
-  b2b_unc: 0.0134
   snf_unc: 0.3
   noneq_unc: 0.3
   core_flux_unc: 0.008
+  ff: 0.0005
+  nl_hist_name: positronScintNL
+
+juno_inputs:
+  # core_baselines_1: [52760.0]
+  # core_powers_1: [4.6]
+  # core_powers_12: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
+  # core_baselines_12: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 52320.0, 52200.0, 215000.0, 265000.0]
+  # core_powers_10: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
+  # core_baselines_10: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 215000.0, 265000.0]
+  core_powers: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
+  core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
+  Pth: [1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 2.4800256e+27, 2.4800256e+27, 9.3809664e+27]  #Pth*6.24e21*60*60*24**6.24e21 # MeV per s
+  L: [5274000.0, 5282000.0, 5241000.0, 5249000.0, 5211000.0, 5219000.0, 5277000.0, 5264000.0, 21500000.0] # Already in cm from core baselines
+  Np:  1.4351802862903064e+33 #20.*12.01/1.0079*1e7*constants.Avogadro
+  detector_efficiency: 0.82
+  veto: 1.0
+
+  acc_rate: 0.8
+  geo_rate: 1.2
+  lihe_rate: 0.8
+  fneu_rate: 0.1
+  aneu_rate: 0.05
+  atm_rate: 0.16
+  rea300 rate: 1
+
+  me_rho_scale: 0.15
+  eff_unc: 0.01
+
   acc_rate_unc: 0.01
+
   geo_rate_unc: 0.3
   geo_b2b_unc: 0.05
+
+  lihe_rate_unc: 0.2
+  lihe_b2b_unc: 0.1
+
+  fneu_rate_unc: 1.0
+  fneu_b2b_unc: 0.2
+
+  aneu_rate_unc: 0.5
+  aneu_b2b_unc: 0.5
+
+  atm_rate_unc: 0.5
+  atm_b2b_unc: 0.5
+
+  rea300_rate_unc: 0.02
+  rea300_b2b_unc: 0.05
+#
+tao_inputs:
+
+  FORCE_CALC_ENE_LEAK: true
+
+  core_powers: [4.6, 4.6]
+  core_baselines: [44.0, 217.0]
+  Pth: [2.4800256e+27, 2.4800256e+27]
+  L: [4400.0, 21700.0] # Already in cm
+  #Np: 7.1756099e+28
+  Np: 2.00917077999192e+29
+  detector_efficiency: 0.17
+  veto: 0.904
+
+  acc_rate: 190
+  lihe_rate: 54
+  fneu_rate: 86
+
+  acc_scale: 237.5
+  lihe_scale: 67.5
+  fneu_scale: 860.0
+
+  fneu_A: 27.2
+  fneu_B: -1.0
+  fneu_C: 2.0
+
+  eff_unc: 0.1
+
+  acc_rate_unc: 0.01
   lihe_rate_unc: 0.2
   lihe_b2b_unc: 0.1
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
-  aneu_rate_unc: 0.5
-  aneu_b2b_unc: 0.5
-  atm_rate_unc: 0.5
-  atm_b2b_unc: 0.5
-  rea300_rate_unc: 0.02
-  rea300_b2b_unc: 0.05
+  ene_scale: 0.005
+  fv:

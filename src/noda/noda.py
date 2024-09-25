@@ -13,7 +13,9 @@ from matplotlib import cm
 from datetime import datetime
 import gc
 from joblib import Parallel, delayed
-
+import uproot
+import ROOT
+from scipy.integrate import quad
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -35,9 +37,9 @@ class Spectrum:
     self.bins = bins
     self.xlabel = xlabel
     self.ylabel = ylabel
+
     for i, x in enumerate(self.bin_cont):  # make negative bins equal to one
-      if x<0:
-        self.bin_cont[i] = 0
+      if x<0: self.bin_cont[i] = 0
 
   def __add__(self, other):
 # Should we check weather the bins are the same in two spectra? May be slow.
@@ -132,6 +134,10 @@ class Spectrum:
     self.bin_cont *= scale_factor
     return self
 
+  def GetScaledFit(self, scale_factor):
+    new_bin_cont = self.bin_cont*scale_factor
+    return Spectrum(bins=self.bins, bin_cont=new_bin_cont)
+
   def Rebin(self, new_bins, mode='simple'):
     if mode == 'simple':
       self.Rebin_simple(new_bins)
@@ -161,6 +167,7 @@ class Spectrum:
     self.bin_cont = s_new.bin_cont
     self.bins = s_new.bins
     del s_new
+
   def Rebin_spline(self, new_bins, keep_norm=True):   # Better for binning with much more bins
     s_new = Spectrum(np.zeros(len(new_bins)-1), new_bins, xlabel=self.xlabel, ylabel=self.ylabel)
     #x = [(b1+b2)/2. for b1,b2 in zip(self.bins[:-1],self.bins[1:])]  # center of bins
@@ -177,6 +184,28 @@ class Spectrum:
     self.bin_cont = s_new.bin_cont
     self.bins = s_new.bins
     del s_new
+
+  def Rebin_nonuniform(self, bins_nonuniform):
+    new_bins = []
+    for start, end, num_bins in bins_nonuniform:
+      bin_edges = np.linspace(start, end, num_bins + 1)
+      new_bins.extend(bin_edges[:-1])  # Exclude the last bin edge for overlap
+    new_bins.append(bins_nonuniform[-1][1])  # Append the last bin edge
+
+    new_bin_cont = np.zeros(len(new_bins) - 1)
+
+    for i in range(len(new_bins) - 1):
+      bin_start, bin_end = new_bins[i], new_bins[i+1]
+      bin_mask = (self.bins[:-1] < bin_end) & (self.bins[1:] > bin_start)
+      for j, in_bin in enumerate(bin_mask):
+        if in_bin:
+          overlap_start = max(bin_start, self.bins[j])
+          overlap_end = min(bin_end, self.bins[j+1])
+          overlap_fraction = (overlap_end - overlap_start) / (self.bins[j+1] - self.bins[j])
+          new_bin_cont[i] += self.bin_cont[j] * overlap_fraction
+
+    return Spectrum(bin_cont=new_bin_cont, bins=np.array(new_bins), xlabel=self.xlabel, ylabel=self.ylabel)
+
 
   def GetOscillated(self, L, points_per_bin=1,
                 core_powers=None,
@@ -265,7 +294,7 @@ class Spectrum:
     Enu = self.bins
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
-
+  #
   def GetWithPositronEnergy(self):
     # #print("entering pos E")
     Enu = self.bins
@@ -276,9 +305,25 @@ class Spectrum:
     Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
     #print ("Any Mdiff is < 0", (Mdiff<0.).any())
     Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
+    #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
 
     Evis = Epos + 0.511
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+
+  # def GetWithPositronEnergy(self):
+  #   # Constants
+  #   Enu = self.bins  # Antineutrino energy bins
+  #   Epos = np.zeros_like(Enu)
+  #   file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
+  #   Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
+  #   for i, energy in enumerate(Enu):
+  #       Epos_temp =0.
+  #       for cos_theta in range(-1, 1, 100):  # Random angle for each energy
+  #           Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
+  #       Epos[i] = -1e2*Epos_temp/100.
+  #   # Visible energy includes the positron mass contribution
+  #   Evis = Epos + 0.511  # Adding the rest mass of the positron
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins
@@ -439,7 +484,6 @@ class Spectrum:
  #   return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
   def GetVariedB2BCovMatrixFromROOT(self, fname, hname):
-    import uproot
     rf = uproot.open(fname)
     hist = rf[hname]
     edges = hist.axis().edges()
@@ -467,7 +511,7 @@ class Spectrum:
   def Plot(self, fname, **kwargs):
     self.Print(fname, **kwargs)
 
-  def Print(self, fname, xlabel=None, ylabel=None, leg_labels=None, colors=None, extra_spectra=[], xmin=None, xmax=None, log_scale=False, ymin=None, ymax=None):
+  def Print(self, fname, xlabel=None, ylabel=None, leg_labels=None, colors=None, extra_spectra=[], xmin=None, xmax=None, log_scale=False, ymin=None, ymax=None, yinterval=None):
     if xlabel != None: self.xlabel = xlabel
     if ylabel != None: self.ylabel = ylabel
     if leg_labels == None:
@@ -478,14 +522,16 @@ class Spectrum:
       colors = ['darkred'] + ['lightsteelblue']*len(extra_spectra)
     elif type(colors) == 'str':
       colors = [colors] + ['lightsteelblue']*len(extra_spectra)
+    plt.figure(figsize=(10,6))
     plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=1, color=colors[0], label=leg_labels[0], log=log_scale)
     for i,s in enumerate(extra_spectra):
       plt.hist(s.bins[:-1], weights=s.bin_cont, bins=s.bins, fill=False, histtype='step', linewidth=1, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
     plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=1, color=colors[0])
-    if xmin!=None: plt.xlim(left=xmin)
-    if xmax!=None: plt.xlim(right=xmax)
-    if ymin!=None: plt.ylim(bottom=ymin)
-    if ymax!=None: plt.ylim(top=ymax)
+    if xmin is not None: plt.xlim(left=xmin)
+    if xmax is not None: plt.xlim(right=xmax)
+    if ymin is not None: plt.ylim(bottom=ymin)
+    if ymax is not None: plt.ylim(top=ymax)
+    if yinterval: plt.yticks(np.arange(ymin, ymax, yinterval))
     plt.xlabel(self.xlabel)
     plt.ylabel(self.ylabel)
     if all(leg_labels): plt.legend()
@@ -562,37 +608,6 @@ class CovMatrix:
     rank = np.linalg.matrix_rank(self.data)
     size = self.data.shape[0]
     return rank == size
-
-  def Chi2(self, s1, s2, unc=' ', stat_meth=' '):
-    diff = s1.bin_cont - s2.bin_cont
-    chi2 = 0.
-    if stat_meth == "NorP":
-      chi2 = diff.T @ self.data_inv @ diff
-    else:
-        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
-        if unc == "stat":
-            chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
-        else:
-            chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff
-    return chi2
-
-
-  def Chi2_p(self, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
-    penalty = 0.
-    for p, u in zip(pulls, pull_unc):
-        penalty += (p/u)**2
-    diff = s1.bin_cont - s2.bin_cont
-    chi2 = 0.
-    if stat_meth == "NorP":
-      chi2 = diff.T @ self.data_inv @ diff + penalty
-    else:
-        cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
-        if unc == "stat":
-            chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
-        else:
-            chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + self.data) @ diff + penalty
-    return chi2
-
 
   def SetXlabel(self, label):
     self.xlabel = label
@@ -754,13 +769,88 @@ def CalcRespMatrix_abc_flu(a, b, c, unc, ebins, pebins, escale=1., eshift=0., no
   gc.collect()
   return spectra
 
+def Rebin2D(data, xedges, yedges, new_xedges, new_yedges):
+  rebinned_data = np.zeros((len(new_xedges) - 1, len(new_yedges) - 1))
+  for i in range(len(new_xedges) - 1):
+    for j in range(len(new_yedges) - 1):
+      mask_x = (xedges[:-1] >= new_xedges[i]) & (xedges[:-1] < new_xedges[i + 1])
+      mask_y = (yedges[:-1] >= new_yedges[j]) & (yedges[:-1] < new_yedges[j + 1])
+      rebinned_data[i, j] = data[mask_x][:, mask_y].sum()
+  return rebinned_data
+
+def CalcEnergyLeak(rootfile, histname, ebins, pebins):
+  with uproot.open(rootfile) as file:
+    hist = file[histname].to_numpy()
+  data, ebins_ori, pebins_ori = hist
+
+  ebin_width_ori = np.diff(ebins_ori)
+  pebin_width_ori = np.diff(pebins_ori)
+  ebin_width = np.diff(ebins)
+  pebin_width = np.diff(pebins)
+
+  if (ebin_width_ori[0] < ebin_width[0]) or (pebin_width_ori[0] < pebin_width[0]):
+    data = Rebin2D(data, ebins_ori, pebins_ori, ebins, pebins)
+
+  respMat = RespMatrix(data, ebins, pebins)
+  row_sums = respMat.data.sum(axis=1, keepdims=True)
+  row_sums[row_sums == 0] = 1
+
+  respMat.data = respMat.data / row_sums  # Normalize to probabilities
+  respMat.data = np.nan_to_num(respMat.data, nan=0.0)
+
+  return respMat
+
+def MakeTAOFastNSpectrum(bins, A, B, C):
+  bin_cont = np.zeros(len(bins) - 1)
+  for i in range(len(bin_cont)):
+    E_j = bins[i]
+    E_j1 = bins[i + 1]
+    bin_cont[i] = spectrum_integral(E_j, E_j1, A, B, C)
+  print(np.sum(np.array(bin_cont)))
+  fastn = Spectrum(bin_cont=bin_cont, bins=bins).GetScaled(1./np.sum(np.array(bin_cont)))
+  return fastn
+
+def spectrum_integral(E_j, E_j1, A, B, C):
+  def integrand(E):
+    return A * np.exp(B * E) + C
+  integral, _ = quad(integrand, E_j, E_j1)
+  return integral
+
 def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0):
-  import uproot
   rf = uproot.open(fname)
   hist = rf[hname]
   bin_cont = hist.values()*scale
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
+
+def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' '):
+  diff = tot_obs.bin_cont - tot_exp.bin_cont
+  chi2 = 0.0
+  if stat_meth == "NorP":
+    norp_stat_cm = rea_obs.GetStatCovMatrix()
+    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff
+    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff
+  else:
+    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
+    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
+    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff
+  return chi2
+
+def Chi2_p(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
+  penalty = 0.
+  for p, u in zip(pulls, pull_unc):
+    penalty += (p/u)**2
+  diff = tot_obs.bin_cont - tot_exp.bin_cont
+  chi2 = 0.0
+  if stat_meth == "NorP":
+    norp_stat_cm = rea_obs.GetStatCovMatrix()
+    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff + penalty
+    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff + penalty
+  else:
+    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
+    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
+    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff + penalty
+  return chi2
 
 # def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
 #   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,

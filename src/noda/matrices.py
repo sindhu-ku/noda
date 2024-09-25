@@ -19,7 +19,7 @@ def GetCM(ensp = {},
       unc = [unc_max]
   # Define a dictionary mapping the strings to their corresponding function calls
   unc_map = {
-    'stat': lambda: ensp['rtot'].GetStatCovMatrix(),
+    'stat': lambda: ensp['rdet'].GetStatCovMatrix(),
     'r2': lambda: ensp['rdet'].GetRateCovMatrix(args.r2_unc),
     'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc),
     'b2b_DYB': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "DYBUncertainty"),
@@ -131,8 +131,8 @@ def GetCM(ensp = {},
       efission_arr = np.array(args.efission)
       Pth_arr = np.array(args.Pth)
       L_arr = np.array(args.L)
-      extrafactors = args.detector_efficiency*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
-      extrafactors2 = args.detector_efficiency*args.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22/(L_arr*L_arr))
+      extrafactors = args.detector_efficiency*args.veto*args.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr/(L_arr*L_arr))
+      extrafactors2 = args.detector_efficiency*args.veto*args.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22/(L_arr*L_arr))
       ensp['ribd_crel'] = ensp['ribd'].Copy()
       ensp['ribd_crel'].GetScaled(1./extrafactors)
       ensp['ribd_crel'].GetScaled(extrafactors2)
@@ -155,15 +155,14 @@ def GetCM(ensp = {},
 
   def get_bckg_CM():
     print("Background CM")
-    cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) #+ ensp['acc'].GetStatCovMatrix()
-    cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) #+ ensp['geo'].GetStatCovMatrix()
-    cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) #+ ensp['lihe'].GetStatCovMatrix()
-    cm['fneu'] = ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc) + ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) #+ ensp['fneu'].GetStatCovMatrix()
-    cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) #+ ensp['aneu'].GetStatCovMatrix()
-    cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) #+ ensp['atm'].GetStatCovMatrix()
-    cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) #+ ensp['rea300'].GetStatCovMatrix()
+    cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) + ensp['acc'].GetStatCovMatrix()
+    cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geo'].GetStatCovMatrix()
+    cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) + ensp['lihe'].GetStatCovMatrix()
+    cm['fneu'] = ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc) + ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) + ensp['fneu'].GetStatCovMatrix()
+    cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) + ensp['aneu'].GetStatCovMatrix()
+    cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) + ensp['atm'].GetStatCovMatrix()
+    cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) + ensp['rea300'].GetStatCovMatrix()
 
-    del ensp['rtot_noenecrop'], ensp['rdet_noenecrop'], ensp['acc_noenecrop'], ensp['fneu_noenecrop'], ensp['lihe_noenecrop'], ensp['aneu_noenecrop'], ensp['geo_noenecrop'], ensp['geou_noenecrop'], ensp['geoth_noenecrop']
     return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300']
 
 
