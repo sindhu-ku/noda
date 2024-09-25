@@ -189,7 +189,6 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         print("Plotting chi2 profiles")
         param_list = ["sin2_12", "sin2_13", "dm2_21", "dm2_32"]
         for i in range(len(param_list)): #there is something weird with draw_mnprofile in minuit, so I have to do this from scratch inside plot_profile
-            if (i!=3): continue
             plotname = f"{args_juno.plots_folder}/Chi2_profiles/Minuit/chi2_{args_juno.stat_opt}_{param_list[i]}_{unc_new}.png"
             plot_profile(m, i, param_list[i], plotname)
 
