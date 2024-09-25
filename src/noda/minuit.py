@@ -97,14 +97,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         s = s.GetWithPositronEnergy() #shift to positron energy
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL']) #apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
-
-        s_tao = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_tao)
-        s_tao = s_tao.GetWithPositronEnergy() #shift to positron energy
-        s_tao = s_tao.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
-        s_tao = s_tao.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_tao['scintNL']) #apply non-linearity
-        s_tao = s_tao.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
-
-        return s + s_tao
+        return s
 
    #fitting stuff
     def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
@@ -121,7 +114,12 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     m.migrad() #fit
     m.hesse() #get errors
     m.minos() #get minos errors
+
+    unc_new = unc
+    if(unc != 'stat'): unc_new = 'stat+'+unc
+    print("Uncertainty: ", unc_new)
     print("Measurement of oscillation parameters: ")
+    print("Number of Geo/Rea free:", args_juno.geo_fit)
     print(m)
 
     if args_juno.NMO_fit:
@@ -178,11 +176,11 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
     #writing results
     if args_juno.write_results:
         filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
-        if unc==args_juno.unc_list[0]:
+        if unc_new==args_juno.unc_list[0]:
             fileo = open(filename, "w")
             fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
             fileo.close()
-        write_results(m, filename, unc) #write results into a textfile
+        write_results(m, filename, unc_new) #write results into a textfile
    #fancy stuff
     if(args_juno.plot_minuit_matrix or args_juno.plot_minuit_profiles): #make plots folders
         if not os.path.exists(f"{args_juno.plots_folder}/Chi2_profiles"): os.mkdir(f"{args_juno.plots_folder}/Chi2_profiles")
