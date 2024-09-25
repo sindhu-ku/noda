@@ -229,6 +229,7 @@ def CreateSpectra(ndays=10,
   print ("Backgrounds")
   bg_labels = ['AccBkgHistogramAD', 'FnBkgHistogramAD', 'Li9BkgHistogramAD', 'AlphaNBkgHistogramAD', 'GeoNuHistogramAD', 'GeoNuTh232', 'GeoNuU238', 'AtmosphericNeutrinoModelGENIE2', 'OtherReactorSpectrum_L300km']
   bg_keys = ['acc', 'fneu', 'lihe', 'aneu', 'geo', 'geoth', 'geou', 'atm', 'rea300']
+
   for key, label in zip(bg_keys, bg_labels):
     ensp[key] = GetSpectrumFromROOT(args.input_data_file, label)
     ensp[key].GetScaled(ndays/args.duty_cycle)

@@ -4,7 +4,7 @@ config: ''
 fit_options:
 
 
-  stat_opt: 7.1years # time period for sensitivity studies
+  stat_opt: 6years # time period for sensitivity studies
   sin2_th13_opt: pull # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
@@ -20,6 +20,7 @@ fit_options:
   plot_spectra: true
   print_minuit_correlation: false
   write_results: false
+  NMO_fit: true
 
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
@@ -108,9 +109,9 @@ common_det_inputs:
   b: 0.0064
   c: 0.012
   # old abc
-  #a: 0.0261
-  #b: 0.0082
-  #c: 0.0123
+  # a: 0.0261
+  # b: 0.0082
+  # c: 0.0123
 
   # a_err: 0.0002
   # b_err: 0.0001

@@ -291,35 +291,35 @@ class Spectrum:
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
   #
-  # def GetWithPositronEnergy(self):
-  #   # #print("entering pos E")
-  #   Enu = self.bins
-  #   Mn = 939.56536 #MeV
-  #   Mp = 938.27203 #MeV
-  #   Me = 0.51099893 #MeV
-  #   Deltanp = Mn - Mp
-  #   Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
-  #   #print ("Any Mdiff is < 0", (Mdiff<0.).any())
-  #   Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
-  #   #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
-  #
-  #   Evis = Epos + 0.511
-  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
-
   def GetWithPositronEnergy(self):
-    # Constants
-    Enu = self.bins  # Antineutrino energy bins
-    Epos = np.zeros_like(Enu)
-    file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
-    Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
-    for i, energy in enumerate(Enu):
-        Epos_temp =0.
-        for cos_theta in range(-1, 1, 100):  # Random angle for each energy
-            Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
-        Epos[i] = -1e2*Epos_temp/100.
-    # Visible energy includes the positron mass contribution
-    Evis = Epos + 0.511  # Adding the rest mass of the positron
+    # #print("entering pos E")
+    Enu = self.bins
+    Mn = 939.56536 #MeV
+    Mp = 938.27203 #MeV
+    Me = 0.51099893 #MeV
+    Deltanp = Mn - Mp
+    Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
+    #print ("Any Mdiff is < 0", (Mdiff<0.).any())
+    Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
+    #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
+
+    Evis = Epos + 0.511
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+
+  # def GetWithPositronEnergy(self):
+  #   # Constants
+  #   Enu = self.bins  # Antineutrino energy bins
+  #   Epos = np.zeros_like(Enu)
+  #   file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
+  #   Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
+  #   for i, energy in enumerate(Enu):
+  #       Epos_temp =0.
+  #       for cos_theta in range(-1, 1, 100):  # Random angle for each energy
+  #           Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
+  #       Epos[i] = -1e2*Epos_temp/100.
+  #   # Visible energy includes the positron mass contribution
+  #   Evis = Epos + 0.511  # Adding the rest mass of the positron
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins
@@ -819,31 +819,31 @@ def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0)
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
 
-def Chi2(cm, s1, s2, unc=' ', stat_meth=' '):
-  diff = s1.bin_cont - s2.bin_cont
+def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' '):
+  diff = tot_obs.bin_cont - tot_exp.bin_cont
   chi2 = 0.0
   if stat_meth == "NorP":
-    norp_stat_cm = s1.GetStatCovMatrix()
+    norp_stat_cm = rea_obs.GetStatCovMatrix()
     if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff
     else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff
   else:
-    cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
     if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
     else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff
   return chi2
 
-def Chi2_p(cm, s1, s2, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
+def Chi2_p(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
   penalty = 0.
   for p, u in zip(pulls, pull_unc):
     penalty += (p/u)**2
-  diff = s1.bin_cont - s2.bin_cont
+  diff = tot_obs.bin_cont - tot_exp.bin_cont
   chi2 = 0.0
   if stat_meth == "NorP":
-    norp_stat_cm = s1.GetStatCovMatrix()
+    norp_stat_cm = rea_obs.GetStatCovMatrix()
     if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff + penalty
     else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff + penalty
   else:
-    cnp_stat_cm = s1.GetCNPStatCovMatrix(s2)
+    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
     if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
     else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff + penalty
   return chi2
