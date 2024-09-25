@@ -187,8 +187,8 @@ def main(argv=None):
                       baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno)
           scan_res.get_results(args=args_juno)
       else:
-          #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm, cm_tao=cm, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new)
-          for unc in unc_list_new: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm, cm_tao=cm, args_juno=args_juno, args_tao=args_tao)
+          Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm, cm_tao=cm, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new)
+          #for unc in unc_list_new: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm, cm_tao=cm, args_juno=args_juno, args_tao=args_tao)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)
