@@ -19,7 +19,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
-  write_results: false
+  write_results: true
   geo_fit: false
   NMO_fit: true
 
@@ -116,6 +116,10 @@ common_det_inputs:
   ff: 0.0005
   nl_hist_name: J22rc0_positronScintNL
 
+  unc_corr_ind: r2+snf+noneq
+
+  unc_corr_dep: crel+nl
+
 juno_inputs:
   # core_baselines_1: [52760.0]
   # core_powers_1: [4.6]
@@ -163,7 +167,7 @@ juno_inputs:
   rea300_b2b_unc: 0.05
 #  # Uncertainty list
   unc_list_juno:
-    # - stat
+     - stat+bg+eff+abc+me
     #   - stat+eff
     #   - stat+r2
     #   - stat+crel
@@ -174,7 +178,7 @@ juno_inputs:
     #   - stat+nl
     #   - stat+bg
     #   - stat+me
-     - stat+eff+r2+crel+snf+noneq+abc+nl+bg+me
+    # - stat+eff+r2+crel+snf+noneq+abc+nl+bg+me
 
 tao_inputs:
 
@@ -214,7 +218,7 @@ tao_inputs:
 
       # Uncertainty list
   unc_list_tao:
-    # - stat
+     - stat+bg+eff+ene_scale
     #   - stat+eff
     #   - stat+r2
     #   - stat+crel
@@ -223,4 +227,4 @@ tao_inputs:
     #   - stat+bg
     #   - stat+ene_scale
     #   - stat+fv
-     - stat+eff+r2+crel+snf+noneq+bg+ene_scale
+    # - stat+eff+r2+crel+snf+noneq+bg+ene_scale

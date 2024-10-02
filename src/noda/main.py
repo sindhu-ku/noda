@@ -136,20 +136,57 @@ def main(argv=None):
             detector="juno",
             args=args_juno)
 
+  cm_tao = {}
+  cm_corr = {}
 
   if args_juno.NMO_fit:
       if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
           print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
           cm_tao = LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
       else:
-          cm_tao = {}
           print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
           cm_tao = mat.GetCM(ensp = ensp_nom_tao,
             resp_matrix=resp_matrix,
             ndays=ndays,
             unc_list=args_tao.unc_list_tao,
+            ene_leak_tao=ene_leak_tao,
             detector="tao",
             args=args_tao)
+
+      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+          print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          cm_corr = LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      else:
+          print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          if args_juno.unc_corr_ind:
+              cm_corr_tao = mat.GetCM(ensp = ensp_nom_tao,
+                            resp_matrix=resp_matrix,
+                            ndays=ndays,
+                            unc_list=[args_juno.unc_corr_ind],
+                            ene_leak_tao=ene_leak_tao,
+                            detector="tao",
+                            args=args_tao)
+              cm_corr_juno = mat.GetCM(ensp = ensp_nom_juno,
+                            resp_matrix=resp_matrix,
+                            ndays=ndays,
+                            unc_list=[args_juno.unc_corr_ind],
+                            ene_leak_tao=ene_leak_tao,
+                            detector="juno",
+                            args=args_juno)
+
+              unc_list = args_juno.unc_corr_ind.split('+')
+              for new_unc in unc_list:
+                  cm_corr[new_unc] = cm_corr_juno[new_unc].Extend(cm_corr_tao[new_unc])
+
+          if args_juno.unc_corr_dep:
+              cm_corr_dep = mat.GetCorrCM(ensp_juno = ensp_nom_juno,
+                            ensp_tao = ensp_nom_tao,
+                            resp_matrix=resp_matrix,
+                            ndays=ndays,
+                            unc_list=[args_juno.unc_corr_dep],
+                            ene_leak_tao=ene_leak_tao,
+                            args_juno=args_juno,
+                            args_tao=args_tao)
 
   if args_juno.PLOT_CM:
     if not os.path.exists(f"{args_juno.cov_matrix_plots_folder}"):
@@ -190,6 +227,18 @@ def main(argv=None):
     for u in single_unc_list[1:]:
       cm_tao[full_unc] += cm_tao[u]
 
+    unc_corr='stat'
+    cm_corr[unc_corr] = CovMatrix(data=np.zeros((args_juno.bins-1,args_juno.bins-1)), bins=[0]*(args_juno.bins-1))
+    if args_juno.unc_corr_ind and args_juno.unc_corr_dep:
+        unc_corr = args_juno.unc_corr_ind+args_juno.unc_corr_dep
+        corr_ind_list = args_juno.unc_corr_ind.split("+")
+        corr_dep_list = args_juno.unc_corr_dep.split("+")
+        cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] = cm_corr[corr_ind_list[0]]
+        for u in corr_ind_list[1:]:
+            cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += cm_corr[u]
+        for u in corr_dep_list:
+            cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += cm_corr_dep[u]
+
   for key in unc_list_new_juno:
     if not key in cm_juno.keys():
       print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
@@ -199,7 +248,7 @@ def main(argv=None):
     if not key in cm_tao.keys():
       print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
       continue
-    #
+
     # if not cm[key].IsInvertible():
     #   print(" ### WARNING: Covariance matrix for '{}' is not invertible and can not be used to calculate Chi2".format(key))
     #   del cm[key]
@@ -227,8 +276,8 @@ def main(argv=None):
           scan_res.get_results(args=args_juno)
       else:
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
-          print(unc_list_new_juno[0],unc_list_new_tao[0] )
-          minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao=unc_list_new_tao[0], rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao)
+          minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao=unc_list_new_tao[0], unc_corr=unc_corr,
+                            rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)

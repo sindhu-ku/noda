@@ -597,6 +597,15 @@ class CovMatrix:
   def Add(self, cm):  # to be removed
     return CovMatrix(self.data + cm.data, bins=self.bins, axis_label=self.axis_label)
 
+  def Extend(self, other):
+    A = self.data.shape[0]
+    B = other.data.shape[0]
+    extended_data = np.zeros((A + B, A + B))
+    extended_data[:A, :A] = self.data
+    extended_data[A:, A:] = other.data
+    new_bins = np.concatenate([self.bins, other.bins])
+    return CovMatrix(data=extended_data, bins=new_bins)
+
   def Scale(self, scale_factor):
     sf2 = scale_factor*scale_factor
     sf2_inv = 1./sf2
@@ -823,23 +832,10 @@ def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0)
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
 
-def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' '):
-  diff = tot_obs.bin_cont - tot_exp.bin_cont
-  chi2 = 0.0
-  if stat_meth == "NorP":
-    norp_stat_cm = rea_obs.GetStatCovMatrix()
-    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff
-    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff
-  else:
-    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
-    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
-    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff
-  return chi2
-
-def Chi2_p(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
+def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.
-  for p, u in zip(pulls, pull_unc):
-    penalty += (p/u)**2
+  if pulls and pull_unc:
+      for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
   diff = tot_obs.bin_cont - tot_exp.bin_cont
   chi2 = 0.0
   if stat_meth == "NorP":
@@ -851,6 +847,44 @@ def Chi2_p(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls
     if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
     else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff + penalty
   return chi2
+
+def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
+  penalty = 0.0
+  if pulls and pull_unc:
+      for p, u in zip(pulls, pull_unc): penalty += (p / u) ** 2
+
+  diff1 = tot_obs1.bin_cont - tot_exp1.bin_cont
+  diff2 = tot_obs2.bin_cont - tot_exp2.bin_cont
+
+  diff_total = np.concatenate((diff1, diff2))
+
+  if stat_meth == "NorP":
+      stat_cm1 = rea_obs1.GetStatCovMatrix()
+      stat_cm2 = rea_obs2.GetStatCovMatrix()
+  else:
+      stat_cm1 = rea_obs1.GetCNPStatCovMatrix(rea_exp1)
+      stat_cm2 = rea_obs2.GetCNPStatCovMatrix(rea_exp2)
+
+  stat_cm1_mod = stat_cm1.Extend(CovMatrix(data=np.zeros((len(tot_obs1.bins)-1, len(tot_obs1.bins)-1)), bins=tot_obs1.bins))
+  cm_stat_tao_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
+  stat_cm2_mod = cm_stat_tao_z.Extend(stat_cm2)
+
+  cm1_mod = cm1.Extend(CovMatrix(data=np.zeros((len(tot_obs1.bins)-1, len(tot_obs1.bins)-1)), bins=tot_obs1.bins))
+  cm_tao_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
+  cm2_mod = cm_tao_z.Extend(cm2)
+
+  if unc == "stat":
+      total_cov_matrix = stat_cm1_mod.data + stat_cm2_mod.data
+
+  else:
+      total_cov_matrix = stat_cm1_mod.data +  stat_cm2_mod.data + cm1_mod.data + cm2_mod.data + corr_cm.data
+
+  total_cov_matrix_inv = np.linalg.inv(total_cov_matrix)
+
+  chi2 = diff_total.T @ total_cov_matrix_inv @ diff_total + penalty
+
+  return chi2
+
 
 # def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
 #   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,

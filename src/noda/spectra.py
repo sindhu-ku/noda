@@ -13,7 +13,7 @@ def CreateSpectra(ndays=10,
                detector = "juno",
                resp_matrix=None,
                ene_leak_tao=None,
-               args=""):
+               args=None):
 
 
   opt = {'detector': detector, 'efficiency': args.detector_efficiency, 'ndays': ndays, 'core_baselines': args.core_baselines, 'core_powers': args.core_powers}
