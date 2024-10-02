@@ -150,7 +150,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     if args_juno.NMO_fit:
         print("Determining NMO: ")
         m_comb = Minuit(combined_chi2, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
-        m_comb.migrad()
+        # m_comb.migrad()
+        # m_comb.hesse() #get errors
+        # m_comb.minos() #get minos errors
 
         nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO= not args_juno.NMO_opt) #Vals for osc parameters and NMO
         m_comb_opp = Minuit(combined_chi2_opp, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
@@ -158,7 +160,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
         chi2_min = combined_chi2(sin2_12=m_comb.values[0], sin2_13=m_comb.values[1], dm2_21=m_comb.values[2], dm2_31=m_comb.values[3])
         chi2_min_opp = combined_chi2_opp(sin2_12=m_comb_opp.values[0], sin2_13=m_comb_opp.values[1], dm2_21=m_comb_opp.values[2], dm2_31=m_comb_opp.values[3])
-        dchi2 = abs(chi2_min-chi2_min_opp)
+        dchi2 = abs(chi2_min-chi2_min_opp)[0][0]
         print(f"JUNO+TAO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
 
@@ -201,11 +203,11 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     #writing results
     if args_juno.write_results:
         if args_juno.NMO_fit:
-            filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
-            fileo = open(filename, "w")
-            fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
-            fileo.close()
-            write_results(m_comb, filename, 'stat+all')
+            # filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
+            # fileo = open(filename, "w")
+            # fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+            # fileo.close()
+            # write_results(m_comb, filename, 'stat+all')
             filename_nmo = f"{args_juno.main_data_folder}/fit_results_NMO_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
             filenmo = open(filename_nmo, "w")
             filenmo.write("unc_juno unc_tao unc_corr chi2_no chi2_io dchi2 sigma\n")

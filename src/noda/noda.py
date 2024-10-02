@@ -499,6 +499,17 @@ class Spectrum:
       #print(f"     Doing rebinning for b2b uncertainties")
     return self.GetVariedB2BCovMatrix(sigmas)
 
+  def WritetoROOT(self, histname, outfile):
+    output_file = ROOT.TFile(outfile, "RECREATE")
+    bins = self.bins
+    bin_cont = self.bin_cont
+    hist = ROOT.TH1D(histname, histname, len(bins) - 1, array('d', bins))
+    hist.Sumw2()
+    for i in range(len(bin_cont)):
+        hist.SetBinContent(i + 1, bin_cont[i])
+        hist.Write()
+    output_file.Close()
+
   def SetXlabel(self, label):
     self.xlabel = label
 
@@ -881,7 +892,9 @@ def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea
 
   total_cov_matrix_inv = np.linalg.inv(total_cov_matrix)
 
-  chi2 = diff_total.T @ total_cov_matrix_inv @ diff_total + penalty
+  diff_total = diff_total.reshape(-1, 1)
+  chi2 = np.linalg.solve(total_cov_matrix, diff_total).T @ diff_total + penalty
+  #chi2 = diff_total.T @ total_cov_matrix_inv @ diff_total + penalty
 
   return chi2
 

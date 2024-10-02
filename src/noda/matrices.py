@@ -213,8 +213,7 @@ def GetCorrCM(ensp_juno = {},
 
   def new_NL_curve(pull_num, w, ensp_juno, ensp_tao):
       new_nonl =  Spectrum(bins = ensp_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_juno['scintNL'].bin_cont)))
-      for i in range(len(new_nonl.bins)-1):
-        new_nonl.bin_cont[i] = ensp_juno['scintNL'].bin_cont[i] + w*(ensp_juno['NL_pull'][pull_num].bin_cont[i] - ensp_juno['scintNL'].bin_cont[i])
+      new_nonl.bin_cont = ensp_juno['scintNL'].bin_cont + w*(ensp_juno['NL_pull'][pull_num].bin_cont - ensp_juno['scintNL'].bin_cont)
       output_juno = ensp_juno['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       output_tao = ensp_tao['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       del new_nonl
@@ -243,10 +242,9 @@ def GetCorrCM(ensp_juno = {},
           print("     constructing cov. matrix")
           cm_juno['nl'+f'_{i}'] = ensp_juno['rdet'].GetCovMatrixFromRandSample(ensp_juno['rdet_nl_flu'+f'_{i}'])
           cm_tao['nl'+f'_{i}'] = ensp_tao['rdet'].GetCovMatrixFromRandSample(ensp_tao['rdet_nl_flu'+f'_{i}'])
-      end_time_nl = datetime.now()
-      for i in range(4):
           del ensp_juno['rdet_nl_flu'+f'_{i}']
           del ensp_tao['rdet_nl_flu'+f'_{i}']
+      end_time_nl = datetime.now()
       print ("NL flu time", end_time_nl - start_time_nl)
       print("   Summing nl matrices")
       cm_juno['nl'] = cm_juno['nl_0']+cm_juno['nl_1']+cm_juno['nl_2']+cm_juno['nl_3']
