@@ -200,20 +200,27 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 #                   ymin=0, ymax=None, log_scale=False)
     #writing results
     if args_juno.write_results:
-        filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
-        if unc_new_juno==args_juno.unc_list_juno[0]:
-            fileo = open(filename, "w")
-            if args_juno.geo_fit: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr\n")
-            else: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
-            fileo.close()
-        write_results(m, filename, unc_new_juno) #write results into a textfile
         if args_juno.NMO_fit:
+            filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
+            fileo = open(filename, "w")
+            fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+            fileo.close()
+            write_results(m_comb, filename, 'stat+all')
             filename_nmo = f"{args_juno.main_data_folder}/fit_results_NMO_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
             filenmo = open(filename_nmo, "w")
             filenmo.write("unc_juno unc_tao unc_corr chi2_no chi2_io dchi2 sigma\n")
             filenmo.write(args_juno.unc_list_juno[0]+' '+args_tao.unc_list_tao[0]+' '+args_juno.unc_corr_ind+args_juno.unc_corr_dep+' '+str(chi2_min)+' '\
                           +str(chi2_min_opp)+' '+str(dchi2)+' '+str(np.sqrt(dchi2))+'\n')
             filenmo.close()
+        else:
+            filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
+            if unc_new_juno==args_juno.unc_list_juno[0]:
+                fileo = open(filename, "w")
+                if args_juno.geo_fit: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr\n")
+                else: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+                fileo.close()
+            write_results(m, filename, unc_new_juno) #write results into a textfile
+
    #fancy stuff
     if(args_juno.plot_minuit_matrix or args_juno.plot_minuit_profiles): #make plots folders
         if not os.path.exists(f"{args_juno.plots_folder}/Chi2_profiles"): os.mkdir(f"{args_juno.plots_folder}/Chi2_profiles")
