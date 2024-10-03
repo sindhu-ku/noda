@@ -145,6 +145,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         unc_new_tao = unc_tao
         if(unc_tao != 'stat'): unc_new_tao = 'stat+'+unc_tao
         print("Uncertainty TAO: ", unc_new_tao)
+        print("Correlated uncertainties: ", unc_corr)
 
     print("Measurement of oscillation parameters: ")
     print(m)
@@ -170,9 +171,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
  #plot IO and NO
 
 #     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
-    NO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=False)
+    #NO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=False)
 #     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO= not args_juno.NMO_opt) #Vals for osc parameters and NMO
-    IO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=True)
+    #IO_sp = get_spectrum(sin2_12=nuosc.op_nom["sin2_th12"], sin2_13=nuosc.op_nom["sin2_th13"], dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], opp=True)
 #     NO_sp_fit= get_spectrum(sin2_12=m_tao.values[0], sin2_13=m_tao.values[1], dm2_21=m_tao.values[2], dm2_31=m_tao.values[3])
 #     IO_sp_fit = get_spectrum(sin2_12=m1_tao.values[0], sin2_13=m1_tao.values[1], dm2_21=m1_tao.values[2], dm2_31=m1_tao.values[3], opp=True)
 #
@@ -185,14 +186,14 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 # #                   xmin=0, xmax=10,
 # #                   ymin=0, ymax=None, log_scale=False)
 #
-    NO_sp.Plot(f"{args_juno.plots_folder}/NO_vs_IO.png",
-            xlabel="Neutrino energy (MeV)",
-            ylabel=f"Events per 20 keV",
-            extra_spectra=[IO_sp],
-            leg_labels=['NO curve', 'IO curve'],
-            colors=['darkred', 'steelblue'],
-            xmin=0, xmax=10,
-            ymin=0, ymax=None, log_scale=False)
+    #NO_sp.Plot(f"{args_juno.plots_folder}/NO_vs_IO.png",
+           # xlabel="Neutrino energy (MeV)",
+           # ylabel=f"Events per 20 keV",
+           # extra_spectra=[IO_sp],
+           # leg_labels=['NO curve', 'IO curve'],
+           # colors=['darkred', 'steelblue'],
+           # xmin=0, xmax=10,
+           # ymin=0, ymax=None, log_scale=False)
 #
 #     NO_sp_fit.Plot(f"{args_juno.plots_folder}/NO_vs_IO_fit.png",
 #                   xlabel="Neutrino energy (MeV)",
@@ -213,8 +214,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             filename_nmo = f"{args_juno.main_data_folder}/fit_results_NMO_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
             filenmo = open(filename_nmo, "w")
             filenmo.write("unc_juno unc_tao unc_corr chi2_no chi2_io dchi2 sigma\n")
-            filenmo.write(args_juno.unc_list_juno[0]+' '+args_tao.unc_list_tao[0]+' '+args_juno.unc_corr_ind+args_juno.unc_corr_dep+' '+str(chi2_min)+' '\
-                          +str(chi2_min_opp)+' '+str(dchi2)+' '+str(np.sqrt(dchi2))+'\n')
+            filenmo.write(args_juno.unc_list_juno[0]+' '+args_tao.unc_list_tao[0]+' '+args_juno.unc_corr_ind+args_juno.unc_corr_dep+' '+str(chi2_min[0][0])+' '\
+                          +str(chi2_min_opp[0][0])+' '+str(dchi2)+' '+str(np.sqrt(dchi2))+'\n')
             filenmo.close()
         else:
             filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"

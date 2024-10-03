@@ -78,8 +78,8 @@ def main(argv=None):
   if not os.path.exists(f"{args_juno.data_matrix_folder}"):
       os.mkdir(f"{args_juno.data_matrix_folder}")
 
-  if not os.path.exists(f"{args_juno.data_matrix_folder}/csv"):
-      os.mkdir(f"{args_juno.data_matrix_folder}/csv")
+  if not os.path.exists(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}"):
+      os.mkdir(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}")
 
   print(" # Run configuration:")
   print("   Statistics:   {} days".format(ndays) )
@@ -147,7 +147,7 @@ def main(argv=None):
             detector="juno",
             args=args_juno)
 
-      cm_juno[u].Dump(f"{args_juno.data_matrix_folder}/csv/cov_mat_juno_{u}.csv")
+      cm_juno[u].Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_juno_{u}.csv")
       if args_juno.PLOT_CM: cm_juno[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_juno_{u}.png")
       del cm_juno[u]
 
@@ -173,7 +173,7 @@ def main(argv=None):
                  ene_leak_tao=ene_leak_tao,
                  detector="tao",
                  args=args_tao)
-          cm_tao[u].Dump(f"{args_tao.data_matrix_folder}/csv/cov_mat_juno_{u}.csv")
+          cm_tao[u].Dump(f"{args_tao.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_juno_{u}.csv")
           if args_juno.PLOT_CM: cm_tao[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_tao_{u}.png")
           del cm_tao[u]
 
@@ -198,7 +198,7 @@ def main(argv=None):
                             ene_leak_tao=ene_leak_tao,
                             args_juno=args_juno,
                             args_tao=args_tao)
-              cm_corr_dep[u].Dump(f"{args_tao.data_matrix_folder}/csv/cov_mat_corr_{u}.csv")
+              cm_corr_dep[u].Dump(f"{args_tao.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_corr_{u}.csv")
               if args_juno.PLOT_CM:
                   cm_temp = CovMatrix(data=cm_corr_dep[u].data, bins=ebins+ebins_temp)
                   cm_temp.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_corr_{u}.png")
@@ -223,12 +223,12 @@ def main(argv=None):
   #TODO: This is mainly for CNP when stat matrix is included by default, can be done better
   for unc in args_juno.unc_list_juno:
     unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
-    unc_list_new_juno.append(unc.replace(args_juno.unc_corr_dep, ''))
+    unc_list_new_juno.append(unc.replace(args_juno.unc_corr_ind+'+', ''))
 
   for full_unc in unc_list_new_juno:
     single_unc_list = full_unc.split("+")
     cm_juno[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
-    for u in single_unc_list[1:]:
+    for u in single_unc_list:
       cm_juno[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
       #cm_juno[u]
 
@@ -237,13 +237,13 @@ def main(argv=None):
       for unc in args_tao.unc_list_tao:
           unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
           if args_juno.NMO_fit:
-              unc_list_new_tao.append(unc.replace(args_juno.unc_corr_dep, ''))
+              unc_list_new_tao.append(unc.replace(args_juno.unc_corr_ind+'+', ''))
           else:
               unc_list_new_tao.append(unc)
       for full_unc in unc_list_new_tao:
           single_unc_list = full_unc.split("+")
           cm_tao[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
-          for u in single_unc_list[1:]:
+          for u in single_unc_list:
               cm_tao[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
               #cm_tao[u]
 
@@ -286,7 +286,7 @@ def main(argv=None):
       else:
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
           if args_juno.NMO_fit:
-              minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_dep, ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_dep, ''),
+              minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''),
                                unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
           else:
               minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
