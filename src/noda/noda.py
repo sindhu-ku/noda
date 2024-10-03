@@ -16,6 +16,7 @@ from joblib import Parallel, delayed
 import uproot
 import ROOT
 from scipy.integrate import quad
+from array import array
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 

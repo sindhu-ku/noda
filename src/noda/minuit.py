@@ -125,7 +125,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, NMO_fit=True, opp=True)
 
     def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, Ngeo, MO_fit=False, opp=False)
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, Ngeo, NMO_fit=False, opp=False)
 
     if args_juno.geo_fit:
         m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Ngeo=1.0)
@@ -136,13 +136,15 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     m.hesse() #get errors
     m.minos() #get minos errors
 
+    #print(m.errors[5])
     unc_new_juno = unc_juno
     if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
     print("Uncertainty JUNO: ", unc_new_juno)
 
-    unc_new_tao = unc_tao
-    if(unc_tao != 'stat'): unc_new_tao = 'stat+'+unc_tao
-    print("Uncertainty TAO: ", unc_new_tao)
+    if args_juno.NMO_fit:
+        unc_new_tao = unc_tao
+        if(unc_tao != 'stat'): unc_new_tao = 'stat+'+unc_tao
+        print("Uncertainty TAO: ", unc_new_tao)
 
     print("Measurement of oscillation parameters: ")
     print(m)

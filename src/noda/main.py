@@ -71,7 +71,9 @@ def main(argv=None):
   juno_baselines = args_juno.core_baselines #which reactor baselines and cores
   juno_powers = args_juno.core_powers
   ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins) #energy distributions/pdf binning
-
+  min_temp = args_juno.max_ene + ((args_juno.max_ene- args_juno.min_ene)/args_juno.bins-1)
+  max_temp = min_temp + (args_juno.max_ene- args_juno.min_ene)
+  ebins_temp = np.linspace(min_temp,max_temp, args_juno.bins)
   #create matrix directory
   if not os.path.exists(f"{args_juno.data_matrix_folder}"):
       os.mkdir(f"{args_juno.data_matrix_folder}")
@@ -109,8 +111,9 @@ def main(argv=None):
                                     detector="juno",
                                     resp_matrix=resp_matrix,
                                     args=args_juno)
-
-  ensp_nom_tao  = spec.CreateSpectra(ndays=ndays,
+  #ensp_nom_juno['rdet'].WritetoROOT("NO", "output_NO_geo_PDG_2020.root")
+  if args_juno.NMO_fit:
+      ensp_nom_tao  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
                                     detector="tao",
                                     resp_matrix=resp_matrix,
@@ -122,80 +125,94 @@ def main(argv=None):
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
 
-  if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-      print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      cm_juno = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-
+  unc_max_juno = max(args_juno.unc_list_juno, key=len)
+  if '+' in unc_max_juno:
+      unc_list_juno = unc_max_juno.split('+')
   else:
-      cm_juno = {}
-      print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_juno_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      cm_juno = mat.GetCM(ensp = ensp_nom_juno,
+      unc_list_juno = [unc_max_juno]
+
+  cm_juno = {}
+
+  for u in unc_list_juno:
+      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+          print(" # Loading covariance matriix", f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+
+      else:
+          print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          cm_juno[u] = mat.GetCM(ensp = ensp_nom_juno,
             resp_matrix=resp_matrix,
             ndays=ndays,
-            unc_list=args_juno.unc_list_juno,
+            unc=u,
             detector="juno",
             args=args_juno)
 
-  cm_tao = {}
-  cm_corr = {}
+      cm_juno[u].Dump(f"{args_juno.data_matrix_folder}/csv/cov_mat_juno_{u}.csv")
+      if args_juno.PLOT_CM: cm_juno[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_juno_{u}.png")
+      del cm_juno[u]
 
   if args_juno.NMO_fit:
-      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-          print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-          cm_tao = LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      unc_max_tao = max(args_tao.unc_list_tao, key=len)
+      if '+' in unc_max_tao:
+          unc_list_tao = unc_max_tao.split('+')
       else:
-          print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-          cm_tao = mat.GetCM(ensp = ensp_nom_tao,
-            resp_matrix=resp_matrix,
-            ndays=ndays,
-            unc_list=args_tao.unc_list_tao,
-            ene_leak_tao=ene_leak_tao,
-            detector="tao",
-            args=args_tao)
+          unc_list_tao = [unc_max_tao]
 
-      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-          print(" # Loading covariance matrices", f"{args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-          cm_corr = LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      else:
-          print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-          if args_juno.unc_corr_ind:
-              cm_corr_tao = mat.GetCM(ensp = ensp_nom_tao,
-                            resp_matrix=resp_matrix,
-                            ndays=ndays,
-                            unc_list=[args_juno.unc_corr_ind],
-                            ene_leak_tao=ene_leak_tao,
-                            detector="tao",
-                            args=args_tao)
-              cm_corr_juno = mat.GetCM(ensp = ensp_nom_juno,
-                            resp_matrix=resp_matrix,
-                            ndays=ndays,
-                            unc_list=[args_juno.unc_corr_ind],
-                            ene_leak_tao=ene_leak_tao,
-                            detector="juno",
-                            args=args_juno)
+      cm_tao = {}
 
-              unc_list = args_juno.unc_corr_ind.split('+')
-              for new_unc in unc_list:
-                  cm_corr[new_unc] = cm_corr_juno[new_unc].Extend(cm_corr_tao[new_unc])
+      for u in unc_list_tao:
+          if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+              print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              cm_tao[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          else:
+              print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              cm_tao[u] = mat.GetCM(ensp = ensp_nom_tao,
+                 resp_matrix=resp_matrix,
+                 ndays=ndays,
+                 unc=u,
+                 ene_leak_tao=ene_leak_tao,
+                 detector="tao",
+                 args=args_tao)
+          cm_tao[u].Dump(f"{args_tao.data_matrix_folder}/csv/cov_mat_juno_{u}.csv")
+          if args_juno.PLOT_CM: cm_tao[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_tao_{u}.png")
+          del cm_tao[u]
 
-          if args_juno.unc_corr_dep:
-              cm_corr_dep = mat.GetCorrCM(ensp_juno = ensp_nom_juno,
+      if args_juno.unc_corr_dep:
+          cm_corr_dep = {}
+          if '+' in args_juno.unc_corr_dep:
+              unc_list_corr_dep = args_juno.unc_corr_dep.split('+')
+          else:
+              unc_list_corr_dep = [args_juno.unc_corr_dep]
+
+          for u in unc_list_corr_dep:
+              if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+                  print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+                  cm_corr_dep[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              else:
+                  print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+                  cm_corr_dep[u] = mat.GetCorrCM(ensp_juno = ensp_nom_juno,
                             ensp_tao = ensp_nom_tao,
                             resp_matrix=resp_matrix,
                             ndays=ndays,
-                            unc_list=[args_juno.unc_corr_dep],
+                            unc=u,
                             ene_leak_tao=ene_leak_tao,
                             args_juno=args_juno,
                             args_tao=args_tao)
+              cm_corr_dep[u].Dump(f"{args_tao.data_matrix_folder}/csv/cov_mat_corr_{u}.csv")
+              if args_juno.PLOT_CM:
+                  cm_temp = CovMatrix(data=cm_corr_dep[u].data, bins=ebins+ebins_temp)
+                  cm_temp.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_corr_{u}.png")
+              del cm_corr_dep[u]
 
-  if args_juno.PLOT_CM:
-    if not os.path.exists(f"{args_juno.cov_matrix_plots_folder}"):
-      os.makedirs(f"{args_juno.cov_matrix_plots_folder}")
-    for key, cov_mat in cm_juno.items():
-      cov_mat.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_juno_{key}.png")
-    if args_juno.NMO_fit:
-        for key, cov_mat in cm_tao.items():
-            cov_mat.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_tao_{key}.png")
+      cm_corr = {}
+
+      if args_juno.unc_corr_ind:
+          unc_list_corr_ind = args_juno.unc_corr_ind.split('+')
+          for new_unc in unc_list_corr_ind:
+              cm_corr[new_unc] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{new_unc}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")\
+                                .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{new_unc}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
+              #cm_juno[new_unc].Extend(cm_tao[new_unc])
+
 
   end_cm_time = datetime.now()
   print("Covariance matrices production: ", end_cm_time - start_cm_time)
@@ -204,55 +221,47 @@ def main(argv=None):
   unc_list_new_juno = []
   unc_list_new_tao = []
   #TODO: This is mainly for CNP when stat matrix is included by default, can be done better
-  print("Uncertainty list for ", args_juno.stat_method_opt)
   for unc in args_juno.unc_list_juno:
     unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
-    print("JUNO unc", unc)
-    unc_list_new_juno.append(unc)
-
-  for unc in args_tao.unc_list_tao:
-    unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
-    print("TAO unc", unc)
-    unc_list_new_tao.append(unc)
+    unc_list_new_juno.append(unc.replace(args_juno.unc_corr_dep, ''))
 
   for full_unc in unc_list_new_juno:
     single_unc_list = full_unc.split("+")
-    cm_juno[full_unc] = cm_juno[single_unc_list[0]]
+    cm_juno[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
     for u in single_unc_list[1:]:
-      cm_juno[full_unc] += cm_juno[u]
+      cm_juno[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      #cm_juno[u]
 
-  for full_unc in unc_list_new_tao:
-    single_unc_list = full_unc.split("+")
-    cm_tao[full_unc] = cm_tao[single_unc_list[0]]
-    for u in single_unc_list[1:]:
-      cm_tao[full_unc] += cm_tao[u]
 
-    unc_corr='stat'
-    cm_corr[unc_corr] = CovMatrix(data=np.zeros((args_juno.bins-1,args_juno.bins-1)), bins=[0]*(args_juno.bins-1))
-    if args_juno.unc_corr_ind and args_juno.unc_corr_dep:
-        unc_corr = args_juno.unc_corr_ind+args_juno.unc_corr_dep
-        corr_ind_list = args_juno.unc_corr_ind.split("+")
-        corr_dep_list = args_juno.unc_corr_dep.split("+")
-        cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] = cm_corr[corr_ind_list[0]]
-        for u in corr_ind_list[1:]:
-            cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += cm_corr[u]
-        for u in corr_dep_list:
-            cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += cm_corr_dep[u]
+  if args_juno.NMO_fit:
+      for unc in args_tao.unc_list_tao:
+          unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
+          if args_juno.NMO_fit:
+              unc_list_new_tao.append(unc.replace(args_juno.unc_corr_dep, ''))
+          else:
+              unc_list_new_tao.append(unc)
+      for full_unc in unc_list_new_tao:
+          single_unc_list = full_unc.split("+")
+          cm_tao[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
+          for u in single_unc_list[1:]:
+              cm_tao[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              #cm_tao[u]
 
-  for key in unc_list_new_juno:
-    if not key in cm_juno.keys():
-      print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
-      continue
+      for key in unc_list_new_tao:
+          if not key in cm_tao.keys():
+              print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
+              continue
 
-  for key in unc_list_new_tao:
-    if not key in cm_tao.keys():
-      print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
-      continue
-
-    # if not cm[key].IsInvertible():
-    #   print(" ### WARNING: Covariance matrix for '{}' is not invertible and can not be used to calculate Chi2".format(key))
-    #   del cm[key]
-    #   continue
+      if args_juno.unc_corr_ind and args_juno.unc_corr_dep:
+          unc_corr = args_juno.unc_corr_ind+args_juno.unc_corr_dep
+          corr_ind_list = args_juno.unc_corr_ind.split("+")
+          corr_dep_list = args_juno.unc_corr_dep.split("+")
+          cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] = cm_corr[corr_ind_list[0]]
+          for u in corr_ind_list[1:]:
+              cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += cm_corr[u]
+          for u in corr_dep_list:
+               cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+               #cm_corr_dep[u]
 
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args_juno.stat_method_opt == 'bayesian':
@@ -276,8 +285,11 @@ def main(argv=None):
           scan_res.get_results(args=args_juno)
       else:
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
-          minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao=unc_list_new_tao[0], unc_corr=unc_corr,
-                            rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
+          if args_juno.NMO_fit:
+              minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_dep, ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_dep, ''),
+                               unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
+          else:
+              minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)

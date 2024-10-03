@@ -7,17 +7,17 @@ from datetime import datetime
 def GetCM(ensp = {},
       resp_matrix=[],
       ndays=10,
-      unc_list=[],
+      unc='',
       detector="juno",
       ene_leak_tao=[],
       args=None):
 
- #take the longest string in the unc list to calculate CMs
-  unc_max = max(unc_list, key=len)
-  if '+' in unc_max:
-      unc = unc_max.split('+')
-  else:
-      unc = [unc_max]
+ # #take the longest string in the unc list to calculate CMs
+ #  unc_max = max(unc_list, key=len)
+ #  if '+' in unc_max:
+ #      unc = unc_max.split('+')
+ #  else:
+ #      unc = [unc_max]
   # Define a dictionary mapping the strings to their corresponding function calls
   unc_map = {
     'stat': lambda: ensp['rdet'].GetStatCovMatrix(),
@@ -54,7 +54,9 @@ def GetCM(ensp = {},
       #ensp['rdet'].Plot(f"{args.plots_folder}/rdet_me_flu.pdf", extra_spectra=ensp['rdet_me_flu'], ylabel="Events per bin")
       time_end_me = datetime.now()
       print ("ME flu time", time_end_me - time_start_me)
-      return ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
+      cm = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
+      del ensp['rdet_me_flu']
+      return cm
 
   def new_NL_curve(pull_num, w):
       new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
@@ -121,7 +123,9 @@ def GetCM(ensp = {},
       end_time_resp = datetime.now()
       del ensp['rvis']
       print("RM flu time", end_time_resp - start_time_resp)
-      return ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
+      cm = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
+      del ensp['rdet_abc_flu']
+      return cm
 
 
   def get_core_flu(i):
@@ -158,7 +162,6 @@ def GetCM(ensp = {},
       return ensp["rdet"].GetCovMatrixFromRandSample(ensp["rdet_crel_flu"])
 
   def get_bckg_CM():
-    print("Background CM")
     cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) + ensp['acc'].GetStatCovMatrix()
     cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) + ensp['lihe'].GetStatCovMatrix()
     cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) + ensp['fneu'].GetStatCovMatrix()
@@ -174,37 +177,34 @@ def GetCM(ensp = {},
     else: return cm['acc'] + cm['lihe'] + cm['fneu']
 
 
- # Initialize the cm dictionary
+ # # Initialize the cm dictionary
   cm = {}
 
 # Iterate over the unc list and use the map to call the appropriate function
-  for u in unc:
-      if u in unc_map:
-          cm[u] = unc_map[u]()
-      else:
-          raise ValueError(f"unc {u} not found! Cannot calculate!")
-
-  SaveObject(cm, f"{args.data_matrix_folder}/cm_{detector}_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
-  for key in cm.keys():
-      cm[key].Dump(f"{args.data_matrix_folder}/csv/cov_mat_{detector}_{key}.csv")
-  return cm
+  #for u in unc:
+  if unc in unc_map:
+      cm[unc] = unc_map[unc]()
+      SaveObject(cm[unc], f"{args.data_matrix_folder}/cm_{detector}_{unc}_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
+      return cm[unc]
+  else:
+      raise ValueError(f"unc {unc} not found! Cannot calculate!")
 
 def GetCorrCM(ensp_juno = {},
       ensp_tao = {},
       resp_matrix=[],
       ndays=10,
-      unc_list=[],
+      unc='',
       ene_leak_tao=[],
       args_juno=None,
       args_tao=None):
   cm_juno = {}
   cm_tao = {}
  #take the longest string in the unc list to calculate CMs
-  unc_max = max(unc_list, key=len)
-  if '+' in unc_max:
-      unc = unc_max.split('+')
-  else:
-      unc = [unc_max]
+  # unc_max = max(unc_list, key=len)
+  # if '+' in unc_max:
+  #     unc = unc_max.split('+')
+  # else:
+  #     unc = [unc_max]
   # Define a dictionary mapping the strings to their corresponding function calls
   unc_map = {
     'nl': lambda: get_NL_CM(),
@@ -242,13 +242,17 @@ def GetCorrCM(ensp_juno = {},
           print("     constructing cov. matrix")
           cm_juno['nl'+f'_{i}'] = ensp_juno['rdet'].GetCovMatrixFromRandSample(ensp_juno['rdet_nl_flu'+f'_{i}'])
           cm_tao['nl'+f'_{i}'] = ensp_tao['rdet'].GetCovMatrixFromRandSample(ensp_tao['rdet_nl_flu'+f'_{i}'])
+          SaveObject(cm_juno['nl'+f'_{i}'], f"{args_juno.data_matrix_folder}/cm_correlated_juno_nl_{i}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          SaveObject(cm_tao['nl'+f'_{i}'], f"{args_juno.data_matrix_folder}/cm_correlated_tao_nl_{i}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
           del ensp_juno['rdet_nl_flu'+f'_{i}']
           del ensp_tao['rdet_nl_flu'+f'_{i}']
+
       end_time_nl = datetime.now()
       print ("NL flu time", end_time_nl - start_time_nl)
       print("   Summing nl matrices")
-      cm_juno['nl'] = cm_juno['nl_0']+cm_juno['nl_1']+cm_juno['nl_2']+cm_juno['nl_3']
-      cm_tao['nl'] = cm_tao['nl_0']+cm_tao['nl_1']+cm_tao['nl_2']+cm_tao['nl_3']
+      cm_juno['nl'] =  cm_juno['nl_0']+cm_juno['nl_1']+cm_juno['nl_2']+cm_juno['nl_3']
+
+      cm_tao['nl'] =  cm_tao['nl_0']+cm_tao['nl_1']+cm_tao['nl_2']+cm_tao['nl_3']
       cm_comb = cm_juno['nl'].Extend(cm_tao['nl'])
       return cm_comb
 
@@ -314,18 +318,17 @@ def GetCorrCM(ensp_juno = {},
       cm_juno['crel'] = ensp_juno["rdet"].GetCovMatrixFromRandSample(ensp_juno["rdet_crel_flu"])
       cm_tao['crel'] = ensp_tao["rdet"].GetCovMatrixFromRandSample(ensp_tao["rdet_crel_flu"])
       cm_comb = cm_juno['crel'].Extend(cm_tao['crel'])
+      del ensp_juno["rdet_crel_flu"]
+      del ensp_tao["rdet_crel_flu"]
       return cm_comb
 
  # Initialize the cm dictionary
   cm = {}
 # Iterate over the unc list and use the map to call the appropriate function
-  for u in unc:
-      if u in unc_map:
-          cm[u] = unc_map[u]()
-      else:
-          raise ValueError(f"unc {u} not found! Cannot calculate!")
-
-  SaveObject(cm, f"{args_juno.data_matrix_folder}/cm_correlated_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-  for key in cm.keys():
-      cm[key].Dump(f"{args_juno.data_matrix_folder}/csv/cov_mat_correlated_{key}.csv")
-  return cm
+  #for u in unc:
+  if unc in unc_map:
+      cm[unc] = unc_map[unc]()
+      SaveObject(cm[unc], f"{args_juno.data_matrix_folder}/cm_correlated_{unc}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      return cm[unc]
+  else:
+      raise ValueError(f"unc {unc} not found! Cannot calculate!")
