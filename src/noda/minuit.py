@@ -128,7 +128,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     def combined_chi2_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
         return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, NMO_fit=True, opp=True)
 
-    def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1.0):
+    def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0):
         return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Ngeo, Nrea, NMO_fit=False, opp=False)
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
@@ -147,7 +147,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     #m_opp.migrad()
     #
     #print(abs(chi2_pmop(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2_pmop_opp(sin2_12=m_opp.values[0], sin2_13=m_opp.values[1], dm2_21=m_opp.values[2], dm2_31=m_opp.values[3])))
-    #print(m.errors[4])
+    #print(m.errors[5])
     unc_new_juno = unc_juno
     if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
     print("Uncertainty JUNO: ", unc_new_juno)
