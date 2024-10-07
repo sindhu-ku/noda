@@ -95,7 +95,7 @@ def main(argv=None):
     resp_matrix.Save(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
   if args_juno.FORCE_CALC_RM:
-    resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv/resp_matrix.csv")
+    resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/resp_matrix.csv")
 
   if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_tao.FORCE_CALC_ENE_LEAK:
     ene_leak_tao = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
@@ -104,7 +104,7 @@ def main(argv=None):
     ene_leak_tao.Save(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
   if args_tao.FORCE_CALC_ENE_LEAK:
-    ene_leak_tao.Dump(f"{args_juno.data_matrix_folder}/csv/ene_leak_tao_matrix.csv")
+    ene_leak_tao.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/ene_leak_tao_matrix.csv")
   #Create reactor spectra and get backgrounds spectra, function inside spectra.py
   ensp_nom_juno  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
@@ -251,8 +251,9 @@ def main(argv=None):
           if not key in cm_tao.keys():
               print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
               continue
-
-      if args_juno.unc_corr_ind and args_juno.unc_corr_dep:
+      if args_juno.unc_corr_ind == args_juno.unc_corr_dep == 'stat':
+          unc_corr = 'stat'
+      else:
           unc_corr = args_juno.unc_corr_ind+args_juno.unc_corr_dep
           corr_ind_list = args_juno.unc_corr_ind.split("+")
           corr_dep_list = args_juno.unc_corr_dep.split("+")
