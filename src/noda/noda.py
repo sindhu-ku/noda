@@ -508,7 +508,7 @@ class Spectrum:
     hist.Sumw2()
     for i in range(len(bin_cont)):
         hist.SetBinContent(i + 1, bin_cont[i])
-        hist.Write()
+    hist.Write()
     output_file.Close()
 
   def SetXlabel(self, label):

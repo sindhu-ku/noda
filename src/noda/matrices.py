@@ -165,10 +165,10 @@ def GetCM(ensp = {},
     cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) + ensp['acc'].GetStatCovMatrix()
     cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) + ensp['lihe'].GetStatCovMatrix()
     cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) + ensp['fneu'].GetStatCovMatrix()
-    if detector != "tao": cm['fneu'] += ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc)
     if detector != "tao":
+        cm['fneu'] += ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc)
         if not args.geo_fit: cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geo'].GetStatCovMatrix()
-        else: cm['geo'] = ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc)
+        else: cm['geo'] = ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geo'].GetStatCovMatrix()
         cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) + ensp['aneu'].GetStatCovMatrix()
         cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) + ensp['atm'].GetStatCovMatrix()
         cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) + ensp['rea300'].GetStatCovMatrix()
