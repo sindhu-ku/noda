@@ -68,7 +68,7 @@ def CreateSpectra(ndays=10,
   #xlin = np.linspace(1.5, 15., 2700)
   xlin_c = 0.5*(xlin[:-1]+xlin[1:])
   ylin = s_bump_lin(xlin_c)
-  with open(f'{args.data_matrix_folder}/csv/s_bump_lin.csv', 'w') as f:
+  with open(f'{args.data_matrix_folder}/csv_{args.stat_opt}/s_bump_lin.csv', 'w') as f:
     writer = csv.writer(f, delimiter=' ')
     writer.writerows(zip(xlin_c,ylin))
   f.close()
@@ -343,7 +343,7 @@ def CreateSpectra(ndays=10,
   print(" # Dumping data")
   for key in ensp.keys():
       if type(ensp[key]) != list:
-          ensp[key].Dump(f"{args.data_matrix_folder}/csv/ensp_{detector}_{key}.csv")
+          ensp[key].Dump(f"{args.data_matrix_folder}/csv_{args.stat_opt}/ensp_{detector}_{key}.csv")
 
 
   #ensp["rtot_toy"] = GetSpectrumFromROOT(f"../fake_data/toy{args.ntoy}/fake_data_{args.ntoy}.root", "data_0")

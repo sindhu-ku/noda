@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import sys, os
 from .noda import *
-import csv
 from datetime import datetime
 
 def GetCM(ensp = {},
@@ -85,13 +84,14 @@ def GetCM(ensp = {},
           del ensp['rvis_nl_flu'+f'_{i}']
           print("     constructing cov. matrix")
           cm['nl'+f'_{i}'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_nl_flu'+f'_{i}'])
+          del ensp['rdet_nl_flu'+f'_{i}']
       end_time_nl = datetime.now()
       del ensp['rvis_nonl'], ensp['NL_pull']
-      for i in range(4):
-          del ensp['rdet_nl_flu'+f'_{i}']
       print ("NL flu time", end_time_nl - start_time_nl)
       print("   Summing nl matrices")
-      return cm['nl_0']+cm['nl_1']+cm['nl_2']+cm['nl_3']
+      cm_temp = cm['nl_0']+cm['nl_1']+cm['nl_2']+cm['nl_3']
+      del cm['nl_0'], cm['nl_1'], cm['nl_2'], cm['nl_3']
+      return cm_temp
   #ensp['rdet'].Plot(f"{args.plots_folder}/det_nl_flu.png",
   #             xlabel="Reconstructed energy (MeV)",
   #             ylabel=f"Events",
@@ -123,9 +123,9 @@ def GetCM(ensp = {},
       end_time_resp = datetime.now()
       del ensp['rvis']
       print("RM flu time", end_time_resp - start_time_resp)
-      cm = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
+      cm_temp = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
       del ensp['rdet_abc_flu']
-      return cm
+      return cm_temp
 
 
   def get_core_flu(i):
@@ -159,7 +159,9 @@ def GetCM(ensp = {},
       del ensp['rvis_crel_flu']
       end_time_core = datetime.now()
       print("Core flu time", end_time_core - start_time_core)
-      return ensp["rdet"].GetCovMatrixFromRandSample(ensp["rdet_crel_flu"])
+      cm_temp  = ensp["rdet"].GetCovMatrixFromRandSample(ensp["rdet_crel_flu"])
+      del ensp['rdet_crel_flu']
+      return cm_temp
 
   def get_bckg_CM():
     cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) + ensp['acc'].GetStatCovMatrix()
