@@ -209,20 +209,22 @@ def CreateSpectra(ndays=10,
   del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
-  #ensp['rvis_nonl'].Plot(f"{args.plots_folder}/vis_spectra.pdf",
-  #                 xlabel="Visual energy (MeV)",
-  #                 ylabel=f"Events per {binw:0.1f} keV",
-  #                 extra_spectra=[ensp['rvis']],
-  #                 leg_labels=['Before NL', 'After NL'],
-  #                 colors=['darkred', 'green'],
-  #                 xmin=0, xmax=10,
-  #                 ymin=0, ymax=None, log_scale=False)
 
-  #ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity.pdf",
-  #                 xlabel="Reconstructed energy (MeV)",
-  #                 extra_spectra=ensp['NL_pull'],
-  #                 xmin=0, xmax=10,
-  #                 ymin=0.9, ymax=1.1, log_scale=False)
+  if args.plot_spectra:
+      ensp['rvis_nonl'].Plot(f"{args.plots_folder}/vis_spectra.png",
+                        xlabel="Visual energy (MeV)",
+                        ylabel=f"Events per {binw:0.1f} keV",
+                        extra_spectra=[ensp['rvis']],
+                        leg_labels=['Before NL', 'After NL'],
+                        colors=['darkred', 'green'],
+                        xmin=0, xmax=10,
+                        ymin=0, ymax=None, log_scale=False)
+
+      ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity_old.png",
+                  xlabel="Reconstructed energy (MeV)",
+                  extra_spectra=ensp['NL_pull'],
+                  xmin=0, xmax=10,
+                  ymin=0.9, ymax=1.1, log_scale=False)
 
 
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
