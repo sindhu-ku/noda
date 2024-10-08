@@ -4,11 +4,11 @@ config: ''
 fit_options:
 
 
-  stat_opt: 7.1years # time period for sensitivity studies
-  sin2_th13_opt: pull # Sin2_theta13 option
+  stat_opt: 10years # time period for sensitivity studies
+  sin2_th13_opt: free # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2022 # PDG option
+  PDG_opt: PDG2020 # PDG option
   NMO_opt: true   # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
@@ -17,11 +17,13 @@ fit_options:
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
   plot_minuit_profiles: false
-  plot_spectra: true
+  plot_spectra: false
   print_minuit_correlation: false
-  write_results: true
-  geo_fit: false
-  NMO_fit: true
+  write_results: false
+  geo_ana: false
+  geo_fit: true
+  geo_uthfree: true
+  NMO_fit: false
 
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
@@ -53,12 +55,13 @@ fit_options:
 
 
   input_data_file: data/JUNOInputs2022_05_08.root #data file
+  geo_file: data/geo_raw_Nov2723.root
   reactor_model: Huber-Mueller
 
-  main_data_folder: NMO_data_test
+  main_data_folder: geo_test
   cov_matrix_plots_folder: CMplots #folder to store CM plots
   plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: NMO_data_test #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: geo_test #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: ../Data_test/Bayesian/npz_files
   bayes_plots_folder: ../Data_test/Bayesian/Plots
 
@@ -85,6 +88,7 @@ fit_options:
 
 # Juno Inputs
 common_det_inputs:
+  Th_U_ratio: 0.298
   me_rho: 2.45
   duty_cycle: 0.91666667
   alpha: [0.58, 0.07, 0.30, 0.05]
@@ -114,7 +118,7 @@ common_det_inputs:
   noneq_unc: 0.3
   core_flux_unc: 0.008
   ff: 0.0005
-  nl_hist_name: J22rc0_positronScintNL
+  nl_hist_name: positronScintNL
 
   unc_corr_ind: r2+snf+noneq
 
@@ -167,8 +171,8 @@ juno_inputs:
   rea300_b2b_unc: 0.05
 #  # Uncertainty list
   unc_list_juno:
-    #- stat+bg+b2b_DYB
-     - stat+bg+eff+r2+snf+noneq+abc+me
+    - stat+bg+b2b_DYB
+    # - stat+bg+eff+r2+snf+noneq+abc+me
     #   - stat+eff
     #   - stat+r2
     #   - stat+crel

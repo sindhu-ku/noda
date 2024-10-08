@@ -55,7 +55,7 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
 def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_corr='', rm= [], ene_leak_tao =[], cm_juno ={}, cm_tao={}, cm_corr='', args_juno='', args_tao=''):#, dm2_31=0.):
 
 
-    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1.0, Nrea=1.0,  NMO_fit=False, opp=False):
+    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1.0, Nrea=1.0, NU=1.0, NTh=1.0, NMO_fit=False, opp=False):
         # Get the oscillated spectrum
         s_juno = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
                                           dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers,
@@ -64,10 +64,14 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
         s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])  # Apply non-linearity
         s_juno = s_juno.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
-        s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
+        if args_juno.geo_uthfree:
+            s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
+                ensp_nom_juno['aneu'] + ensp_nom_juno['geou'].GetScaledFit(NU) + ensp_nom_juno['geoth'].GetScaledFit(NTh) + ensp_nom_juno['atm'] + \
+                ensp_nom_juno['rea300']
+        else:
+            s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
                 ensp_nom_juno['aneu'] + ensp_nom_juno['geo'].GetScaledFit(Ngeo) + ensp_nom_juno['atm'] + \
                 ensp_nom_juno['rea300']
-
         chi2 = 1e+6
         if NMO_fit:
             s_tao = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
@@ -79,7 +83,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             s_tao = s_tao.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
             s_tot_tao = s_tao + ensp_nom_tao['acc'] + ensp_nom_tao['fneu'] + ensp_nom_tao['lihe']
 
-            if unc_juno == 'stat' and unc_tao== 'stat' and unc_corr=='stat': 
+            if unc_juno == 'stat' and unc_tao== 'stat' and unc_corr=='stat':
                 unc='stat'
                 cm_corr[unc_corr] = []
             else:
@@ -118,23 +122,27 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
    #fitting stuff
     def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, NMO_fit=False, opp=False)
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=1.0, Ngeo=1.0, NU=1.0, NTh=1.0, NMO_fit=False, opp=False)
 
     def chi2_pmop_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, NMO_fit=False, opp=True)
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=1.0, Ngeo=1.0, NU=1.0, NTh=1.0, NMO_fit=False, opp=True)
 
     def combined_chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, NMO_fit=True, opp=False)
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=1.0, Ngeo=1.0, NU=1.0, NTh=1.0, NMO_fit=True, opp=False)
     def combined_chi2_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=1.0, Ngeo=1.0, NMO_fit=True, opp=True)
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=1.0, Ngeo=1.0, NU=1.0, NTh =1.0, NMO_fit=True, opp=True)
 
-    def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1.0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Ngeo, Nrea, NMO_fit=False, opp=False)
+    def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0):
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=Ngeo, Nrea=Nrea, NU=1.0, NTh=1.0, NMO_fit=False, opp=False)
+
+    def chi2_UTh(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, NU=1.0, NTh=1.0, ):
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=Nrea, NU=NU, NTh=NTh, Ngeo=1.0, NMO_fit=False, opp=False)
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
 
     if args_juno.geo_fit:
-        m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Ngeo=1.0, Nrea=1.0)
+        if args_juno.geo_uthfree: m = Minuit(chi2_UTh, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], NU=1.0, NTh=1.0, Nrea=1.0)
+        else: m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Ngeo=1.0, Nrea=1.0)
     else:
         m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
 
@@ -147,7 +155,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     #m_opp.migrad()
     #
     #print(abs(chi2_pmop(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2_pmop_opp(sin2_12=m_opp.values[0], sin2_13=m_opp.values[1], dm2_21=m_opp.values[2], dm2_31=m_opp.values[3])))
-    #print(m.errors[4])
+    # print(m.values[5], m.errors[5])
+    # print(m.values[6], m.errors[6])
     unc_new_juno = unc_juno
     if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
     print("Uncertainty JUNO: ", unc_new_juno)

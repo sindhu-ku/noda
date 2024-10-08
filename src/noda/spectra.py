@@ -38,18 +38,24 @@ def CreateSpectra(ndays=10,
                  GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_U238', scale=args.U238_scale) + \
                  GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_Pu239', scale=args.Pu239_scale) + \
                  GetSpectrumFromROOT(args.input_data_file, 'HuberMuellerFlux_Pu241', scale=args.Pu241_scale)
+  ensp['rfis0_geou'] = GetSpectrumFromROOT(args.geo_file, 'geoU')
+  ensp['rfis0_geoth'] = GetSpectrumFromROOT(args.geo_file, 'geoTh')
   # IBD xsection
   ensp['sibd'] = GetSpectrumFromROOT(args.input_data_file, 'IBDXsec_VogelBeacom_DYB')
   s_ibd = sp.interpolate.interp1d(ensp['sibd'].GetBinCenters(), ensp['sibd'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp['sibd'].bin_cont[0], ensp['sibd'].bin_cont[-1]))
   #why s_ibd rebinned separately?
   del ensp['sibd']
   ensp['rfis0'].WeightWithFunction(s_ibd)
+  ensp['rfis0_geou'].WeightWithFunction(s_ibd)
+  ensp['rfis0_geoth'].WeightWithFunction(s_ibd)
   del s_ibd
-  ensp['rfis0'].Rebin(ebins, mode='spline-not-keep-norm') #I don't understand rebinning and scaling here
+  ensp['rfis0'].Rebin(ebins, mode='spline-not-keep-norm')
+  ensp['rfis0_geou'].Rebin(ebins, mode='spline-not-keep-norm')
+  ensp['rfis0_geoth'].Rebin(ebins, mode='spline-not-keep-norm')
   bin_width = ensp['rfis0'].GetBinWidth()
   ensp['rfis0'].GetScaled(bin_width)
-
-
+  ensp['rfis0_geou'].GetScaled(bin_width)
+  ensp['rfis0_geoth'].GetScaled(bin_width)
   #  DYB Bump
   #  Previous spectrum (Oct2020) + extra bins + interpolation lin + getweightedwithfunction
   ensp['bump_corr'] = GetSpectrumFromROOT(args.input_data_file, 'DYBFluxBump_ratio')
@@ -97,6 +103,9 @@ def CreateSpectra(ndays=10,
   ensp['snf0'].Rebin(ebins, mode='spline-not-keep-norm')
   ensp['snf'] = ensp['snf0'].GetWeightedWithSpectrum(ensp['rfis'])
   del ensp['snf0']
+
+  ensp['rfis0_geou'].GetScaled(ndays*args.geo_rate/((1+args.Th_U_ratio)*args.duty_cycle*ensp['rfis0_geou'].GetIntegral()))
+  ensp['rfis0_geoth'].GetScaled(ndays*args.geo_rate*args.Th_U_ratio/((1+args.Th_U_ratio)*args.duty_cycle*ensp['rfis0_geoth'].GetIntegral()))
 
   ensp['noneq0'] = GetSpectrumFromROOT(args.input_data_file, 'NonEq_FluxRatio')
   ensp['noneq0'].Rebin(ebins, mode='spline-not-keep-norm')
@@ -157,6 +166,9 @@ def CreateSpectra(ndays=10,
   ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy()
   ensp['rvis_nonl_temp'] = ensp['ribd'].GetWithPositronEnergy()
 
+  ensp['rvis_geou'] = ensp['rfis0_geou'].GetWithPositronEnergy()
+  ensp['rvis_geoth'] = ensp['rfis0_geoth'].GetWithPositronEnergy()
+
   ensp['snf_osc_nonl'] = ensp['snf_osc'].GetWithPositronEnergy()
   del ensp['snf_osc']
   ensp['noneq_osc_nonl'] = ensp['noneq_osc'].GetWithPositronEnergy()
@@ -178,6 +190,10 @@ def CreateSpectra(ndays=10,
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull3') ]
   print("applying non-linearity")
   ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+
+  ensp['rvis_geou_nonl'] = ensp['rvis_geou'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+  ensp['rvis_geoth_nonl'] = ensp['rvis_geoth'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+
   ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
@@ -201,6 +217,12 @@ def CreateSpectra(ndays=10,
 
 
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+
+  ensp['geou_ana'] = ensp['rvis_geou_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+  ensp['geoth_ana'] = ensp['rvis_geoth_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+
+  ensp['geo_ana'] = ensp['geou_ana'] + ensp['geoth_ana']
+
   ensp['snf_final'] = ensp['snf_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   ensp['noneq_final'] = ensp['noneq_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
@@ -227,7 +249,7 @@ def CreateSpectra(ndays=10,
  #     ensp['b2b_tao'].Rebin(ebins, mode='spline-not-keep-norm')
   #   backgrounds
   print ("Backgrounds")
-  bg_labels = ['AccBkgHistogramAD', 'FnBkgHistogramAD', 'Li9BkgHistogramAD', 'AlphaNBkgHistogramAD', 'GeoNuHistogramAD', 'GeoNuTh232', 'GeoNuU238', 'AtmosphericNeutrinoModelGENIE2', 'OtherReactorSpectrum_L300km']
+  bg_labels = ['AccBkgHistogramAD', 'FnBkgHistogramAD', 'Li9BkgHistogramAD', 'AlphaNBkgHistogramAD',  'GeoNuHistogramAD', 'GeoNuTh232', 'GeoNuU238', 'AtmosphericNeutrinoModelGENIE2', 'OtherReactorSpectrum_L300km']
   bg_keys = ['acc', 'fneu', 'lihe', 'aneu', 'geo', 'geoth', 'geou', 'atm', 'rea300']
 
   for key, label in zip(bg_keys, bg_labels):
@@ -245,20 +267,27 @@ def CreateSpectra(ndays=10,
       ensp['fneu'].GetScaled(args.fneu_rate*ndays/args.duty_cycle)
 
   #
+
   bg_keys2 = ['acc_noenecrop', 'fneu_noenecrop', 'lihe_noenecrop', 'aneu_noenecrop', 'geo_noenecrop', 'geoth_noenecrop', 'geou_noenecrop', 'atm_noenecrop', 'rea300_noenecrop']
+
   for key2, label in zip(bg_keys2, bg_labels):
     ensp[key2] = GetSpectrumFromROOT(args.input_data_file, label)
     ensp[key2].GetScaled(ndays*12/11)
     ensp[key2].Trim(args.ene_crop2)
 
-
   #del cm['acc'], cm['geo'], cm['lihe'], cm['fneu'], cm['aneu']
 
+  if args.geo_ana:
+      ensp['geo'] = ensp['geo_ana']
+      ensp['geou'] = ensp['geou_ana']
+      ensp['geoth'] = ensp['geoth_ana']
+
   if detector == "juno":
+      if args.geo_uthfree: ensp['geo'] = ensp['geou'] + ensp['geoth']
       ensp['bckg'] = ensp['acc'] + ensp['fneu'] + ensp['lihe'] + ensp['aneu'] + ensp['geo'] + ensp['atm'] + ensp['rea300']
       ensp['bckg_noenecrop'] = ensp['acc_noenecrop'] + ensp['fneu_noenecrop'] + ensp['lihe_noenecrop'] + ensp['aneu_noenecrop'] + ensp['geo_noenecrop'] + ensp['atm_noenecrop'] + ensp['rea300_noenecrop']
       extra_spectra=[ensp['acc'], ensp['geo'], ensp['lihe'], ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']]
-      leg_labels = ['Reactor', 'Accidentals', 'Geo-neutrino', 'Li9/He8','Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km']
+      leg_labels = ['Reactor', 'Accidentals', 'Geoneutrinos', 'Li9/He8','Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km']
       colors=['darkred', 'green', 'navy', 'orange', 'magenta', 'lightblue', 'yellow', 'brown']
         #
       ensp['rtot_noenecrop'] = ensp['rdet_noenecrop'] + ensp['bckg_noenecrop']
