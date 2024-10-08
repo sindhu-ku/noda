@@ -184,10 +184,19 @@ def CreateSpectra(ndays=10,
 
   #   Non-linearity
   ensp['scintNL'] = GetSpectrumFromROOT(args.input_data_file, args.nl_hist_name)
+
   ensp['NL_pull'] = [ GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull0'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull1'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull2'),
                       GetSpectrumFromROOT(args.input_data_file, 'positronScintNLpull3') ]
+
+  if args.nl_hist_name == "J22rc0_positronScintNL":
+      ensp['old_scintNL'] = GetSpectrumFromROOT(args.input_data_file, "positronScintNL")
+      ratio = ensp['scintNL'].bin_cont/ensp['old_scintNL'].bin_cont
+      for i in range(len(ensp['NL_pull'])):
+          new_bin_cont = ensp['NL_pull'][i].bin_cont*ratio
+          ensp['NL_pull'][i] = Spectrum(bins=ensp['NL_pull'][i].bins, bin_cont=new_bin_cont)
+
   print("applying non-linearity")
   ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
 
@@ -232,22 +241,7 @@ def CreateSpectra(ndays=10,
 
   events['rdet'] = ensp['rdet'].GetIntegral()
   events['rdet_noenecrop'] = ensp["rdet_noenecrop"].GetIntegral()
-  #file_ibd = open("IBD_spec_noosc.txt", "a")
-  #for i in range(0, len(ensp['rdet_temp'].bin_cont)):
-  ##    file_ibd.write(str(ensp['rdet_temp'].bins[i])+' '+str(ensp['rdet_temp'].bin_cont[i])+'\n')
-  #file_ibd.close()
-  #file_osc = open("IBD_spec_osc_IH.txt", "a")
-  #for i in range(0, len(ensp['rdet'].bin_cont)):
-  #    file_osc.write(str(ensp['rdet'].bins[i])+' '+str(ensp['rdet'].bin_cont[i])+'\n')
-  #file_osc.close()
- # print("B2B TAO spectrum")
- # ensp['b2b_tao'] = GetSpectrumFromROOT(args.input_data_file, "TAOUncertainty")
- # if(ensp['b2b_tao'].bins[1] - ensp['b2b_tao'].bins[0] != ebins[1]-ebins[0]):
- #     print("different bins, rebinning B2B_TAO")
- #     new_bins = int(1 + ((ensp['b2b_tao'].bins[1] - ensp['b2b_tao'].bins[0])*(len(ensp['b2b_tao'].bins) -1)/(ebins[1]-ebins[0])))
- #     print("new bins: ", new_bins)
- #     ensp['b2b_tao'].Rebin(ebins, mode='spline-not-keep-norm')
-  #   backgrounds
+
   print ("Backgrounds")
   bg_labels = ['AccBkgHistogramAD', 'FnBkgHistogramAD', 'Li9BkgHistogramAD', 'AlphaNBkgHistogramAD',  'GeoNuHistogramAD', 'GeoNuTh232', 'GeoNuU238', 'AtmosphericNeutrinoModelGENIE2', 'OtherReactorSpectrum_L300km']
   bg_keys = ['acc', 'fneu', 'lihe', 'aneu', 'geo', 'geoth', 'geou', 'atm', 'rea300']
@@ -277,7 +271,7 @@ def CreateSpectra(ndays=10,
 
   #del cm['acc'], cm['geo'], cm['lihe'], cm['fneu'], cm['aneu']
 
-  if args.geo_ana:
+  if args.geo_ana_spectra:
       ensp['geo'] = ensp['geo_ana']
       ensp['geou'] = ensp['geou_ana']
       ensp['geoth'] = ensp['geoth_ana']
