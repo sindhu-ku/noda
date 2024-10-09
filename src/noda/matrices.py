@@ -84,8 +84,8 @@ def GetCM(ensp = {},
           ensp['rdet_nl_flu'+f'_{i}'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_nl_flu'+f'_{i}']]
           del ensp['rvis_nl_flu'+f'_{i}']
           print("     constructing cov. matrix")
-          if args.geo_fit: cm['nl'+f'_{i}'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_nl_flu'+f'_{i}'])
-          else: cm['nl'+f'_{i}'] = (ensp['rdet']+ensp['geo']).GetCovMatrixFromRandSample(ensp['rdet_nl_flu'+f'_{i}'])
+          if args.geo_fit: cm['nl'+f'_{i}'] =(ensp['rdet']+ensp['geo']).GetCovMatrixFromRandSample(ensp['rdet_nl_flu'+f'_{i}'])
+          else: cm['nl'+f'_{i}'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_nl_flu'+f'_{i}'])
           del ensp['rdet_nl_flu'+f'_{i}']
       end_time_nl = datetime.now()
       del ensp['rvis_nonl'], ensp['NL_pull']
