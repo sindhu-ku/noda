@@ -83,6 +83,7 @@ def main(argv=None):
 
   print(" # Run configuration:")
   print("   Statistics:   {} days".format(ndays) )
+  print("   NMO opt NO: {}".format(args_juno.NMO_opt))
 
   #   Energy resolution
   a, b, c = args_juno.a, args_juno.b, args_juno.c

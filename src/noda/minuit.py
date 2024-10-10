@@ -155,7 +155,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     #m_opp.migrad()
     #
     #print(abs(chi2_pmop(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2_pmop_opp(sin2_12=m_opp.values[0], sin2_13=m_opp.values[1], dm2_21=m_opp.values[2], dm2_31=m_opp.values[3])))
-    # print(m.values[5], m.errors[5])
+    #print(m.values[5], m.errors[5])
     # print(m.values[6], m.errors[6])
     unc_new_juno = unc_juno
     if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
@@ -253,10 +253,11 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     if(args_juno.plot_minuit_profiles): #create chi2 profiles
         print("Plotting chi2 profiles")
-        param_list = ["sin2_12", "sin2_13", "dm2_21", "dm2_32"]
-        for i in range(len(param_list)): #there is something weird with draw_mnprofile in minuit, so I have to do this from scratch inside plot_profile
-            plotname = f"{args_juno.plots_folder}/Chi2_profiles/Minuit/chi2_{args_juno.stat_opt}_{param_list[i]}_{unc_new}.png"
-            plot_profile(m, i, param_list[i], plotname)
+        #param_list = ["sin2_12", "sin2_13", "dm2_21", "dm2_32"]
+        param_list = ["NU","NTh"]
+        for i in range(5, 7): #there is something weird with draw_mnprofile in minuit, so I have to do this from scratch inside plot_profile
+            plotname = f"{args_juno.plots_folder}/Chi2_profiles/Minuit/chi2_{args_juno.stat_opt}_{param_list[i-5]}_{unc_juno}.png"
+            plot_profile(m, i, param_list[i-5], plotname)
 
     if(args_juno.print_minuit_correlation):
         print("Correlation co-efficient between parameters")
