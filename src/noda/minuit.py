@@ -9,7 +9,7 @@ from datetime import datetime
 from iminuit import Minuit
 import matplotlib.pyplot as plt
 
-def write_results(m, filename, unc): #writes out fit results m for a given filename and uncertainty
+def write_results(m, filename, unc, dchi2, sigma): #writes out fit results m for a given filename and uncertainty
     values = []
     for i in range(len(m.values)):
         values.append(m.values[i]) #central values
@@ -19,8 +19,11 @@ def write_results(m, filename, unc): #writes out fit results m for a given filen
     fileo = open(filename, "a")
     fileo.write(unc+" ")
     fileo.write(" ".join(map(str, values)))
-    fileo.write("\n")
+    fileo.write(" "+str(dchi2)+" "+str(sigma)+"\n")
     fileo.close()
+
+    #fileo.write("\n")
+    #fileo.close()
     print(f"Results written to {filename}")
 
 def round_errors(param, neg_err, pos_err): #rounds errors for different parameters differently. Used inside plot_profile. But rounding is only for the plot title so as to look pretty
@@ -142,7 +145,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     if args_juno.geo_fit:
         if args_juno.geo_uthfree: m = Minuit(chi2_UTh, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], NU=1.0, NTh=1.0, Nrea=1.0)
-        else: m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Ngeo=1.0, Nrea=1.0)
+        else: m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Ngeo=1.0)
     else:
         m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
 
@@ -150,12 +153,13 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     m.hesse() #get errors
     m.minos() #get minos errors
 
-    #nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO= not args_juno.NMO_opt) #Vals for osc parameters and NMO
-    #m_opp = Minuit(chi2_pmop_opp, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
-    #m_opp.migrad()
-    #
-    #print(abs(chi2_pmop(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2_pmop_opp(sin2_12=m_opp.values[0], sin2_13=m_opp.values[1], dm2_21=m_opp.values[2], dm2_31=m_opp.values[3])))
-    # print(m.values[5], m.errors[5])
+    nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO= not args_juno.NMO_opt) #Vals for osc parameters and NMO
+    m_opp = Minuit(chi2_pmop_opp, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
+    m_opp.migrad()
+    
+    dchi2 = abs(chi2_pmop(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3]) - chi2_pmop_opp(sin2_12=m_opp.values[0], sin2_13=m_opp.values[1], dm2_21=m_opp.values[2], dm2_31=m_opp.values[3]))
+    sigma = np.sqrt(dchi2)
+    #print(m.values[5], m.errors[5])
     # print(m.values[6], m.errors[6])
     unc_new_juno = unc_juno
     if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
@@ -242,9 +246,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             if unc_new_juno==args_juno.unc_list_juno[0]:
                 fileo = open(filename, "w")
                 if args_juno.geo_fit: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr\n")
-                else: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+                else: fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr dchi2 sigma\n")
                 fileo.close()
-            write_results(m, filename, unc_new_juno) #write results into a textfile
+            write_results(m, filename, unc_new_juno, dchi2, sigma) #write results into a textfile
 
    #fancy stuff
     if(args_juno.plot_minuit_matrix or args_juno.plot_minuit_profiles): #make plots folders
