@@ -56,7 +56,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
 
-    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False, tao=False):
+    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1, NgeoU=1,NgeoTh=1, opp=False, tao=False):
+#    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1, opp=False, tao=False):   
         if tao:
             ensp_nom=ensp_nom_tao
             cm=cm_tao
@@ -74,10 +75,17 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         if tao: s = s.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
         s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom['scintNL'])  # Apply non-linearity
         s = s.ApplyDetResp(rm, pecrop=args.ene_crop)  # Apply energy resolution
+ 
+        
+
+    
 
         if tao: s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe']
-        else: s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + \
-                ensp_nom['aneu'] + ensp_nom['geo'] + ensp_nom['atm'] + \
+    #    else: s_tot = s + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + \
+                #ensp_nom['aneu'] + ensp_nom['geo'].GetScaledFit(Ngeo) + ensp_nom['atm'] + \
+                #ensp_nom['rea300']
+        else: s_tot = s.GetScaledFit(Nrea) + ensp_nom['acc'] + ensp_nom['fneu'] + ensp_nom['lihe'] + \
+                ensp_nom['aneu'] + ensp_nom['geou'].GetScaledFit(NgeoU) +ensp_nom['geoth'].GetScaledFit(NgeoTh) + ensp_nom['atm'] + \
                 ensp_nom['rea300']
 
         chi2 = 1e+6
@@ -100,21 +108,24 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         return s
 
    #fitting stuff
-    def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
-        return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=False)
-
+    def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0,Nrea=1, NgeoU=1, NgeoTh=1):
+        return chi2(sin2_12, sin2_13, dm2_21, dm2_31,Nrea, NgeoU,NgeoTh, tao=False, opp=False)
+    #def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=0):
+        #return chi2(sin2_12, sin2_13, dm2_21, dm2_31, Ngeo, tao=False, opp=False)
     def combined_chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
         return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=False) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=True, opp=False)
 
     def combined_chi2_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
         return chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=False, opp=True) + chi2(sin2_12, sin2_13, dm2_21, dm2_31, tao=True, opp=True)
 
-    m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
-
+    m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea = 1, NgeoU = 1, NgeoTh=1)
+#    m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Ngeo = 1)
     m.migrad() #fit
     m.hesse() #get errors
     m.minos() #get minos errors
-
+    print(f"Nrea: {m.values[4]} ± {m.errors[4]}")
+    print(f"NgeoU: {m.values[5]} ± {m.errors[5]}")
+    print(f"NgeoTh: {m.values[6]} ± {m.errors[6]}")
     unc_new = unc
     if(unc != 'stat'): unc_new = 'stat+'+unc
     print("Uncertainty: ", unc_new)
@@ -177,7 +188,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc='', rm= [], ene_leak_tao 
         filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
         if unc_new==args_juno.unc_list[0]:
             fileo = open(filename, "w")
-            fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr\n")
+            fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr geo geo_err geo_merr geo_perr\n")
+         #fileo.write("unc sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31\
+#_merr dm2_31_perr geo geo_err geo_merr geo_perr\n")
             fileo.close()
         write_results(m, filename, unc_new) #write results into a textfile
    #fancy stuff
