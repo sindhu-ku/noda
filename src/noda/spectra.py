@@ -237,14 +237,15 @@ def CreateSpectra(ndays=10,
     if(ensp[key].bins[1] - ensp[key].bins[0] != ebins[1]-ebins[0]):
         print("different bins, rebinning ", key)
         ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
-
+#  ensp['geou'].GetScaled(1.2)
+ # ensp['geoth'].GetScaled(1.2)
+  
   if detector == "tao":
       ensp['acc'].GetScaled(args.acc_scale)
       ensp['lihe'].GetScaled(args.lihe_scale)
       ensp['fneu'] = MakeTAOFastNSpectrum(bins=ebins, A=args.fneu_A, B=args.fneu_B, C=args.fneu_C)
       ensp['fneu'].GetScaled(args.fneu_rate*ndays/args.duty_cycle)
-
-  #
+                       
   bg_keys2 = ['acc_noenecrop', 'fneu_noenecrop', 'lihe_noenecrop', 'aneu_noenecrop', 'geo_noenecrop', 'geoth_noenecrop', 'geou_noenecrop', 'atm_noenecrop', 'rea300_noenecrop']
   for key2, label in zip(bg_keys2, bg_labels):
     ensp[key2] = GetSpectrumFromROOT(args.input_data_file, label)
@@ -255,10 +256,10 @@ def CreateSpectra(ndays=10,
   #del cm['acc'], cm['geo'], cm['lihe'], cm['fneu'], cm['aneu']
 
   if detector == "juno":
-      ensp['bckg'] = ensp['acc'] + ensp['fneu'] + ensp['lihe'] + ensp['aneu'] + ensp['geo'] + ensp['atm'] + ensp['rea300']
+      ensp['bckg'] = ensp['acc'] + ensp['fneu'] + ensp['lihe'] + ensp['aneu'] + ensp['geou'] + ensp['geoth'] +  ensp['atm'] + ensp['rea300']
       ensp['bckg_noenecrop'] = ensp['acc_noenecrop'] + ensp['fneu_noenecrop'] + ensp['lihe_noenecrop'] + ensp['aneu_noenecrop'] + ensp['geo_noenecrop'] + ensp['atm_noenecrop'] + ensp['rea300_noenecrop']
-      extra_spectra=[ensp['acc'], ensp['geo'], ensp['lihe'], ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']]
-      leg_labels = ['Reactor', 'Accidentals', 'Geo-neutrino', 'Li9/He8','Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km']
+      extra_spectra=[ensp['acc'], ensp['geou'],ensp['geoth'], ensp['lihe'], ensp['fneu'], ensp['aneu'], ensp['atm'], ensp['rea300']]
+      leg_labels = ['Reactor', 'Accidentals', 'Geo-neutrinoU','Geo-neutrinoTh', 'Li9/He8','Fast neutrons', '(alpha, n)', 'Atmospheric', 'Reactors > 300 km']
       colors=['darkred', 'green', 'navy', 'orange', 'magenta', 'lightblue', 'yellow', 'brown']
         #
       ensp['rtot_noenecrop'] = ensp['rdet_noenecrop'] + ensp['bckg_noenecrop']
@@ -284,7 +285,9 @@ def CreateSpectra(ndays=10,
   events['fneu'] = ensp['fneu'].GetIntegral()
   events['lihe'] = ensp['lihe'].GetIntegral()
   events['aneu'] = ensp['aneu'].GetIntegral()
+#  events['geou'] = ensp['geou'].GetIntegral()
   events['geo'] = ensp['geo'].GetIntegral()
+ # events['geoth'] = ensp['geoth'].GetIntegral()
   events['atm'] = ensp['atm'].GetIntegral()
   events['rea300'] = ensp['rea300'].GetIntegral()
 
