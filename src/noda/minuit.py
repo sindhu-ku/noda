@@ -177,19 +177,10 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0):
        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=Ngeo, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=1.0, opp=False) #eff=float(args_juno.detector_efficiency), me_rho=args_juno.me_rho, a1=0.0, a2=0.0, a3=0.0, a4=0.0)
 
-    def chi2_geo_OPfixed(Nrea=1.0, Ngeo=1.0):
-        return chi2(sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Ngeo=Ngeo, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=1.0, opp=False)
-
     def chi2_mantle(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Nmantle=1.0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=1.0, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=Nmantle, opp=False)
     def chi2_nomantle(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=1.0, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=0.0, opp=False)
-
-    def chi2_mantle_OPfixed(Nrea=1.0, Nmantle=1.0):
-        return chi2(sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Ngeo=1.0, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=Nmantle, opp=False)
-
-    def chi2_nomantle_OPfixed(Nrea=1.0):
-        return chi2(sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Ngeo=1.0, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=0.0, opp=False)
 
     def chi2_UTh(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, NU=1.0, NTh=1.0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=Nrea, NU=NU, NTh=NTh,Nmantle=1.0, Ngeo=1.0, opp=False)
@@ -199,6 +190,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     if args_juno.fit_type == "geo" :
         print(f"Th/U free: {args_juno.geo_fit_type == 'UThfree'}")
         print(f"Mantle fit: {args_juno.geo_fit_type == 'mantle'}")
+        print(f"OPfixed: {args_juno.geo_OPfixed}")
     if args_juno.fit_type == "NMO" :
         print(f"TAO inclusion: {args_juno.include_TAO}")
 
@@ -207,21 +199,24 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     print("Uncertainty JUNO: ", unc_new_juno)
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
-
-    if args_juno.fit_type == "geo" :
+    osc_params = ['sin2_12', 'sin2_13', 'dm2_21', 'dm2_31']
+    if args_juno.fit_type == "geo":
         if args_juno.geo_fit_type == 'UThfree':
             m = Minuit(chi2_UTh, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], NU=1.0, NTh=1.0, Nrea=1.0)
         elif args_juno.geo_fit_type == 'mantle':
             m = Minuit(chi2_mantle, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Nmantle=1.0)
             m0 = Minuit(chi2_nomantle, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0)
-            # m = Minuit(chi2_mantle_OPfixed, Nrea=1.0, Nmantle=1.0)
-            # m0 = Minuit(chi2_nomantle_OPfixed, Nrea=1.0)
+            if args_juno.geo_OPfixed:
+                for param in osc_params:
+                    m.fixed[param]=True
             m0.migrad()
         else:
             m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Ngeo=1.0)
-            #m = Minuit(chi2_geo_OPfixed,Nrea=1.0, Ngeo=1.0)
-           #else: m = Minuit(chi2_geo, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Ngeo=1.0, a1=0.0, a2=0.0, a3=0.0, a4=0.0)
-    elif args_juno.fit_type == "NMO" :
+        if args_juno.geo_OPfixed:
+            for param in osc_params:
+                m.fixed[param] =True
+
+    elif args_juno.fit_type == "NMO":
         if args_juno.include_TAO:
             unc_new_tao = unc_tao
             if(unc_tao != 'stat'): unc_new_tao = 'stat+'+unc_tao
@@ -309,8 +304,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         print("Plotting chi2 profiles")
         param_list = m.parameters
         for i in range(len(m.parameters)): #there is something weird with draw_mnprofile in minuit, so I have to do this from scratch inside plot_profile
-            plotname = f"{args_juno.plots_folder}/Chi2_profiles/Minuit/chi2_{args_juno.stat_opt}_{param_list[i-5]}_{unc_juno}.png"
-            plot_profile(m, i, param_list, plotname)
+            plotname = f"{args_juno.plots_folder}/Chi2_profiles/Minuit/chi2_{args_juno.stat_opt}_{param_list[i]}_{unc_juno}.png"
+            plot_profile(m, i, param_list[i], plotname)
 
     if(args_juno.print_minuit_correlation):
         print("Correlation co-efficient between parameters")

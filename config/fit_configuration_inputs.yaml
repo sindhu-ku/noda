@@ -8,7 +8,7 @@ fit_options:
   sin2_th13_opt: free # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2022 # PDG option
+  PDG_opt: PDG2020 # PDG option
   NMO_opt: true  # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
@@ -19,13 +19,14 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
-  calc_minuit_errors: false
+  calc_minuit_errors: true
   write_results: false
   geo_spectra: ana
   fit_type: geo #NMO, geo or PMOP (default)
-  geo_fit_type: mantle #UThfree, mantle or total (default)
+  geo_fit_type: total #UThfree, mantle or total (default)
   mantle_model: GC
   include_TAO: true #for NMO
+  geo_OPfixed: false
 
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
@@ -132,7 +133,7 @@ common_det_inputs:
   noneq_unc: 0.3
   core_flux_unc: 0.008
   ff: 0.0005
-  nl_hist_name: J22rc0_positronScintNL
+  nl_hist_name: positronScintNL
 
   unc_corr_ind: r2+snf+noneq
 
