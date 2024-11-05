@@ -300,12 +300,13 @@ def CreateSpectra(ndays=10,
       # ensp['geoth'] = ensp['geoth_mc']
       ensp['geo'] = GetSpectrumFromROOT(args.geo_MC_file, "geonu_noosc") #"hist_geo")
       ensp['geo'].GetScaled(ndays*args.geo_rate/(ensp['geo'].GetIntegral()*args.duty_cycle))
-      nbins = int((9.0-3.4)/0.01)
-      ensp['geo']  = ensp['geo'] + Spectrum(bins = np.arange(3.4, 9.0, nbins), bin_cont = [0]*nbins)
-      ensp['geo'].Rebin(ebins, mode='spline-not-keep-norm')
-      ensp['geo'].GetWithPositronEnergy()
-      ensp['geo'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-      ensp['geo'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+      ensp['geo'].Trim(args.ene_crop)
+      # nbins = int((9.0-3.4)/0.01)
+      # ensp['geo']  = ensp['geo'] + Spectrum(bins = np.arange(3.4, 9.0, nbins), bin_cont = [0]*nbins)
+      # ensp['geo'].Rebin(ebins, mode='spline-not-keep-norm')
+      # ensp['geo'].GetWithPositronEnergy()
+      # ensp['geo'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      # ensp['geo'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
 
   if args.geo_spectra == 'ana' and args.plot_spectra:
