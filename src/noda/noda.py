@@ -501,7 +501,7 @@ class Spectrum:
     return self.GetVariedB2BCovMatrix(sigmas)
 
   def WritetoROOT(self, histname, outfile):
-    output_file = ROOT.TFile(outfile, "RECREATE")
+    output_file = ROOT.TFile(outfile, "update")
     bins = self.bins
     bin_cont = self.bin_cont
     hist = ROOT.TH1D(histname, histname, len(bins) - 1, array('d', bins))
