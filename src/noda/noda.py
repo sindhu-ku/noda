@@ -40,8 +40,7 @@ class Spectrum:
     self.ylabel = ylabel
 
     for i, x in enumerate(self.bin_cont):  # make negative bins equal to one
-      if x<0: self.bin_cont[i] = 0
-
+      if x<0 : self.bin_cont[i] = 0
   def __add__(self, other):
 # Should we check weather the bins are the same in two spectra? May be slow.
 #    if self.bins != other.bins:
@@ -256,7 +255,6 @@ class Spectrum:
     eshift = 0
     if ene_mode == 'vis':
       eshift = -0.511+1.293
-    #print(sin2_th12, sin2_th13, dm2_21, dm2_32)
     for l, share in zip(L, core_shares):
       if osc_formula == nuosc.AntiNueSurvProb:
         P = lambda evis: osc_formula(evis+eshift, l,
@@ -268,17 +266,16 @@ class Spectrum:
                                      sin2_th12=sin2_th12, sin2_th13=sin2_th13,
                                      dm2_21=dm2_21, dm2_ee=dm2_ee,
                                      me_rho=me_rho)
-      val = []
+      val =[]
       for b1, b2, x in zip(self.bins[:-1], self.bins[1:], self.bin_cont):
         if points_per_bin == 1:
           val.append(x*P(0.5*(b1+b2))*share)
         else:
-          v = 0
-          for i in range(points_per_bin):
-            w = (b2-b1)/points_per_bin
-            v += P(b1+(i+0.5)*w)/points_per_bin
+          w = (b2 - b1) / points_per_bin
+          v = sum(P(b1 + (i + 0.5) * w) for i in range(points_per_bin)) / points_per_bin
           val.append(x*v*share)
       spec += Spectrum(val, bins=self.bins, xlabel=self.xlabel)
+
     return spec
 
   def ApplyDetResp(self, respMat, pecrop=None):
@@ -295,36 +292,29 @@ class Spectrum:
     Enu = self.bins
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
-  #
-  def GetWithPositronEnergy(self):
-    # #print("entering pos E")
+
+  def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
     Enu = self.bins
-    Mn = 939.56536 #MeV
-    Mp = 938.27203 #MeV
-    Me = 0.51099893 #MeV
-    Deltanp = Mn - Mp
-    Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
-    #print ("Any Mdiff is < 0", (Mdiff<0.).any())
-    Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
-    #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
+    if inputfile and tf2name:
+        Epos = np.zeros_like(Enu)
+        file = ROOT.TFile(inputfile)
+        func = file.Get(tf2name)
+        for i, energy in enumerate(Enu):
+            Epos_temp=0.
+            for cos_theta in range(-1, 1, 100):
+                Epos_temp += func.Eval(energy, cos_theta)
+            Epos[i] = Epos_temp
+    else:
+        Mn = 939.56536 #MeV
+        Mp = 938.27203 #MeV
+        Me = 0.51099893 #MeV
+        Deltanp = Mn - Mp
+        Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
+        Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
 
     Evis = Epos + 0.511
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
 
-  # def GetWithPositronEnergy(self):
-  #   # Constants
-  #   Enu = self.bins  # Antineutrino energy bins
-  #   Epos = np.zeros_like(Enu)
-  #   file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
-  #   Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
-  #   for i, energy in enumerate(Enu):
-  #       Epos_temp =0.
-  #       for cos_theta in range(-1, 1, 100):  # Random angle for each energy
-  #           Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
-  #       Epos[i] = -1e2*Epos_temp/100.
-  #   # Visible energy includes the positron mass contribution
-  #   Evis = Epos + 0.511  # Adding the rest mass of the positron
-  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins
@@ -895,9 +885,9 @@ def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea
 
   total_cov_matrix_inv = np.linalg.inv(total_cov_matrix)
 
-  diff_total = diff_total.reshape(-1, 1)
-  chi2 = np.linalg.solve(total_cov_matrix, diff_total).T @ diff_total + penalty
-  #chi2 = diff_total.T @ total_cov_matrix_inv @ diff_total + penalty
+  #diff_total = diff_total.reshape(-1, 1)
+  #chi2 = np.linalg.solve(total_cov_matrix, diff_total).T @ diff_total + penalty
+  chi2 = diff_total.T @ total_cov_matrix_inv @ diff_total + penalty
 
   return chi2
 

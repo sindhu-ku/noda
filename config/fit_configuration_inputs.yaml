@@ -4,12 +4,12 @@ config: ''
 fit_options:
 
 
-  stat_opt: 10years # time period for sensitivity studies
+  stat_opt: 6years # time period for sensitivity studies
   sin2_th13_opt: free # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: PDG2020 # PDG option
-  NMO_opt: true   # NMO option, true is normal
+  NMO_opt: true  # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 9.0 # Maximum energy
   bins: 411 # Number of bins
@@ -19,11 +19,14 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
+  calc_minuit_errors: true
   write_results: false
-  geo_ana: false
-  geo_fit: true
-  geo_uthfree: true
-  NMO_fit: false
+  geo_spectra: ana
+  fit_type: geo #NMO, geo or PMOP (default)
+  geo_fit_type: total #UThfree, mantle or total (default)
+  mantle_model: GC
+  include_TAO: true #for NMO
+  geo_OPfixed: false
 
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
@@ -56,12 +59,15 @@ fit_options:
 
   input_data_file: data/JUNOInputs2022_05_08.root #data file
   geo_file: data/geo_raw_Nov2723.root
+  geo_MC_U_file: data/geo_U_promptFV.root
+  geo_MC_Th_file: data/geo_Th_promptFV.root
+  geo_MC_file: data/xc_pdfs_2023-08-25.root
   reactor_model: Huber-Mueller
 
-  main_data_folder: geo_test
+  main_data_folder: Geo_test
   cov_matrix_plots_folder: CMplots #folder to store CM plots
   plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: geo_test #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: Geo_test #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: ../Data_test/Bayesian/npz_files
   bayes_plots_folder: ../Data_test/Bayesian/Plots
 
@@ -80,16 +86,25 @@ fit_options:
 
   bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
-  sample_size_resp: 10000 # Sample size for response matrix fluctuations
+  sample_size_resp: 10 #000 # Sample size for response matrix fluctuations
   sample_size_core: 10000 # Sample size for core powers fluctuations
-  sample_size_nonl: 10000 # Sample size for non-linearity fluctuations
+  sample_size_nonl: 10 #000 # Sample size for non-linearity fluctuations
   sample_size_me: 10000 #00 # Sample size for matter effect fluctuations
 
 
 # Juno Inputs
 common_det_inputs:
   Th_U_ratio: 0.298
-  me_rho: 2.45
+  mantle_Th_U_ratio: 0.298
+  crust_Th_U_ratio: 0.298
+  crust_rate: 1.370
+  crust_rate_unc: 0.1
+  mantle_rate:
+    GD: 0.635
+    GC: 0.259 #0.285  #0.259 #0.285
+    CC: 0.081
+
+  me_rho: 2.45 #2.45
   duty_cycle: 0.91666667
   alpha: [0.58, 0.07, 0.30, 0.05]
   efission: [202.36, 205.99, 211.12, 214.26]
@@ -171,6 +186,7 @@ juno_inputs:
   rea300_b2b_unc: 0.05
 #  # Uncertainty list
   unc_list_juno:
+    #- stat
     - stat+bg+b2b_DYB
     # - stat+bg+eff+r2+snf+noneq+abc+me
     #   - stat+eff

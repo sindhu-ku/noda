@@ -63,15 +63,12 @@ def main(argv=None):
   else:
       raise ValueError("only days or year(s) supported")
 
-  if args_juno.geo_fit and args_juno.NMO_fit:
-      raise ValueError("NMO and geo fits at the same time are not supported")
-
   ndays *= args_juno.duty_cycle #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
 
   juno_baselines = args_juno.core_baselines #which reactor baselines and cores
   juno_powers = args_juno.core_powers
   ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins) #energy distributions/pdf binning
-  min_temp = args_juno.max_ene + ((args_juno.max_ene- args_juno.min_ene)/args_juno.bins-1)
+  min_temp = args_juno.max_ene + ((args_juno.max_ene- args_juno.min_ene)/args_juno.bins-1) #for combined CM calculation
   max_temp = min_temp + (args_juno.max_ene- args_juno.min_ene)
   ebins_temp = np.linspace(min_temp,max_temp, args_juno.bins)
   #create matrix directory
@@ -112,8 +109,11 @@ def main(argv=None):
                                     detector="juno",
                                     resp_matrix=resp_matrix,
                                     args=args_juno)
-  #ensp_nom_juno['rdet'].WritetoROOT("NO", "output_NO_geo_PDG_2020.root")
-  if args_juno.NMO_fit:
+  # ensp_nom_juno['rfis'].WritetoROOT("Enu_noRC", "Sindhu_spectra_Oct25.root")
+  # ensp_nom_juno['ribd'].WritetoROOT("Enu_wRC", "Sindhu_spectra_Oct25.root")
+  #ensp_nom_juno['rdet'].WritetoROOT("rosc_newpos_DYB", "Sindhu_spectra_Oct28.root")
+
+  if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
       ensp_nom_tao  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
                                     detector="tao",
@@ -152,7 +152,7 @@ def main(argv=None):
       if args_juno.PLOT_CM: cm_juno[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_juno_{u}.png")
       del cm_juno[u]
 
-  if args_juno.NMO_fit:
+  if args_juno.fit_type == 'NMO'and args_juno.include_TAO:
       unc_max_tao = max(args_tao.unc_list_tao, key=len)
       if '+' in unc_max_tao:
           unc_list_tao = unc_max_tao.split('+')
@@ -234,10 +234,10 @@ def main(argv=None):
       #cm_juno[u]
 
 
-  if args_juno.NMO_fit:
+  if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
       for unc in args_tao.unc_list_tao:
           unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
-          if args_juno.NMO_fit:
+          if args_juno.fit_type == 'NMO':
               unc_list_new_tao.append(unc.replace(args_juno.unc_corr_ind+'+', ''))
           else:
               unc_list_new_tao.append(unc)
@@ -264,7 +264,6 @@ def main(argv=None):
           for u in corr_dep_list:
                cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
                #cm_corr_dep[u]
-
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args_juno.stat_method_opt == 'bayesian':
       # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom_juno =ensp_nom_juno, baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, SEED=i, args=args_juno) for i in range (args_juno.bayes_seed_beg, args_juno.bayes_seed_beg+args_juno.bayes_nprocesses))
@@ -274,7 +273,6 @@ def main(argv=None):
        bayes_res.get_results(args=args_juno)
 
  #For frequentist, function inside scan.py
-
   else:
       if(args_juno.grid_scan):
           #Form grid for the gridscan
@@ -287,12 +285,11 @@ def main(argv=None):
           scan_res.get_results(args=args_juno)
       else:
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
-          if args_juno.NMO_fit:
+          if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
               minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''),
                                unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
           else:
-              for unc in unc_list_new_juno:
-                minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+              for unc in unc_list_new_juno: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)
