@@ -73,7 +73,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         s_juno = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
                                           dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers,
                                           me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_juno)
-        s_juno = s_juno.GetWithPositronEnergy()  # Shift to positron energy
+        s_juno = s_juno.GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)  # Shift to positron energy
 
         # new_nonl =  Spectrum(bins = ensp_nom_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_nom_juno['scintNL'].bin_cont)))
         # new_nonl.bin_cont = ensp_nom_juno['scintNL'].bin_cont + a1*(ensp_nom_juno['NL_pull'][0].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
@@ -83,10 +83,10 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])  # Apply non-linearity
         s_juno = s_juno.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
 
-        #s_geou = ensp_nom_juno['rfis0_geou'].GetScaledFit(eff/float(args_juno.detector_efficiency)).GetWithPositronEnergy().GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
+        #s_geou = ensp_nom_juno['rfis0_geou'].GetScaledFit(eff/float(args_juno.detector_efficiency)).GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2).GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
         #s_geou = ensp_nom_juno['rvis_geou'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
         #s_geou = s_geou.ApplyDetResp(rm, pecrop=args_juno.ene_crop)
-        #s_geoth = ensp_nom_juno['rfis0_geoth'].GetScaledFit(eff/float(args_juno.detector_efficiency)).GetWithPositronEnergy().GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
+        #s_geoth = ensp_nom_juno['rfis0_geoth'].GetScaledFit(eff/float(args_juno.detector_efficiency)).GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2).GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
         #s_geoth = ensp_nom_juno['rvis_geoth'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
         #s_geoth = s_geoth.ApplyDetResp(rm, pecrop=args_juno.ene_crop)
         #s_geo = s_geou + s_geoth
@@ -126,7 +126,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             s_tao = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
                                           dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers,
                                           me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_tao)
-            s_tao = s_tao.GetWithPositronEnergy()  # Shift to positron energy
+            s_tao = s_tao.GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)  # Shift to positron energy
             s_tao = s_tao.ApplyDetResp(ene_leak_tao, pecrop=args_juno.ene_crop)
             s_tao = s_tao.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])  # Apply non-linearity
             s_tao = s_tao.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
@@ -337,7 +337,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         #For drawing
      #    def get_spectrum(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, opp=False):
      #        s = ensp_nom_juno['ribd'].GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers, me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_juno)
-     #        s = s.GetWithPositronEnergy() #shift to positron energy
+     #        s = s.GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2) #shift to positron energy
      #        s = s.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL']) #apply non-linearity
      #        s = s.ApplyDetResp(rm, pecrop=args_juno.ene_crop) #apply energy resolution
      #        return s

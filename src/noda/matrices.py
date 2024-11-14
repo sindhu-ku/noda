@@ -30,7 +30,7 @@ def GetCM(ensp = {},
 
   def mat_flu(me_rho_flu):
       ensp['rosc_me_flu'] = ensp['ribd'].GetOscillated(L=args.core_baselines, core_powers=args.core_powers, me_rho=me_rho_flu, ene_mode='true', args=args)
-      ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy()
+      ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       if detector == "tao": ensp['rvis_me_flu_0'] = ensp['rvis_me_flu_0'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
       ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rosc_me_flu'], ensp['rvis_me_flu_0']
@@ -52,9 +52,9 @@ def GetCM(ensp = {},
   def new_NL_curve(w):
       new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
       new_nonl.bin_cont = ensp['scintNL'].bin_cont + w[0]*(ensp['NL_pull'][0].bin_cont - ensp['scintNL'].bin_cont) + w[1]*(ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)  + w[2]*(ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont) +  w[3]*(ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont)
-      if args.fit_type =='geo' and args.geo_spectra == 'ana': 
+      if args.fit_type =='geo' and args.geo_spectra == 'ana':
           output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_geou'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_geoth'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
-      else: 
+      else:
           output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       del new_nonl
       return output
@@ -139,7 +139,7 @@ def GetCM(ensp = {},
       ensp['ribd_crel'].GetScaled(extrafactors2)
       ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=args.core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true', args=args)
       del ensp['ribd_crel']
-      ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy()
+      ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       if detector == "tao": ensp['rvis_crel_flu_nonl'] = ensp['rvis_crel_flu_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
       ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rvis_crel_flu_nonl']
@@ -285,7 +285,7 @@ def GetCorrCM(ensp_juno = {},
       ensp_juno['ribd_crel'].GetScaled(extrafactors2_juno)
       ensp_juno['rosc_crel_flu'] = ensp_juno['ribd_crel'].GetOscillated(L=args_juno.core_baselines, core_powers=flu_powers_juno, me_rho=args_juno.me_rho, ene_mode='true', args=args_juno)
       del ensp_juno['ribd_crel']
-      ensp_juno['rvis_crel_flu_nonl'] = ensp_juno['rosc_crel_flu'].GetWithPositronEnergy()
+      ensp_juno['rvis_crel_flu_nonl'] = ensp_juno['rosc_crel_flu'].GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)
       ensp_juno['rvis_crel_flu'] = ensp_juno['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_juno['scintNL'])
 
       ensp_tao['ribd_crel'] = ensp_tao['ribd'].Copy()
@@ -293,7 +293,7 @@ def GetCorrCM(ensp_juno = {},
       ensp_tao['ribd_crel'].GetScaled(extrafactors2_tao)
       ensp_tao['rosc_crel_flu'] = ensp_tao['ribd_crel'].GetOscillated(L=args_tao.core_baselines, core_powers=flu_powers_tao, me_rho=args_tao.me_rho, ene_mode='true', args=args_tao)
       del ensp_tao['ribd_crel']
-      ensp_tao['rvis_crel_flu_nonl'] = ensp_tao['rosc_crel_flu'].GetWithPositronEnergy()
+      ensp_tao['rvis_crel_flu_nonl'] = ensp_tao['rosc_crel_flu'].GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)
       ensp_tao['rvis_crel_flu_nonl'] =  ensp_tao['rvis_crel_flu_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args_tao.ene_crop)
       ensp_tao['rvis_crel_flu'] = ensp_tao['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_tao['scintNL'])
 
