@@ -20,7 +20,8 @@ fit_options:
   plot_spectra: false
   print_minuit_correlation: false
   calc_minuit_errors: false
-  write_results: false
+  write_results: true
+  silent_print: true
   geo_spectra: ana
   fit_type: geo #NMO, geo or PMOP (default)
   geo_fit_type: total #UThfree, mantle or total (default)

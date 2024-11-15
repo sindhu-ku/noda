@@ -9,7 +9,7 @@ from datetime import datetime
 from iminuit import Minuit
 import matplotlib.pyplot as plt
 
-def write_results(m, filename, extra, merrors=True): #writes out fit results m for a given filename and uncertainty
+def write_results(m, filename, extra, merrors=True, silent=False): #writes out fit results m for a given filename and uncertainty
     values = []
     for i in range(len(m.values)):
         values.append(m.values[i]) #central values
@@ -26,7 +26,7 @@ def write_results(m, filename, extra, merrors=True): #writes out fit results m f
 
     #fileo.write("\n")
     #fileo.close()
-    print(f"Results written to {filename}")
+    if not silent: print(f"Results written to {filename}")
 
 def round_errors(param, neg_err, pos_err): #rounds errors for different parameters differently. Used inside plot_profile. But rounding is only for the plot title so as to look pretty
     m_err = neg_err
@@ -189,18 +189,19 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     def chi2_UTh(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, NU=1.0, NTh=1.0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=Nrea, NU=NU, NTh=NTh,Nmantle=1.0, Ngeo=1.0, opp=False)
 
-    print("************Fit configuration************")
-    print(f"Fit type: {args_juno.fit_type}")
-    if args_juno.fit_type == "geo" :
-        print(f"Th/U free: {args_juno.geo_fit_type == 'UThfree'}")
-        print(f"Mantle fit: {args_juno.geo_fit_type == 'mantle'}")
-        print(f"OPfixed: {args_juno.geo_OPfixed}")
-    if args_juno.fit_type == "NMO" :
-        print(f"TAO inclusion: {args_juno.include_TAO}")
+    if not args_juno.silent_print:
+        print("************Fit configuration************")
+        print(f"Fit type: {args_juno.fit_type}")
+        if args_juno.fit_type == "geo" :
+            print(f"Th/U free: {args_juno.geo_fit_type == 'UThfree'}")
+            print(f"Mantle fit: {args_juno.geo_fit_type == 'mantle'}")
+            print(f"OPfixed: {args_juno.geo_OPfixed}")
+        if args_juno.fit_type == "NMO" :
+            print(f"TAO inclusion: {args_juno.include_TAO}")
 
     unc_new_juno = unc_juno
     if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
-    print("Uncertainty JUNO: ", unc_new_juno)
+    if not args_juno.silent_print: print("Uncertainty JUNO: ", unc_new_juno)
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=args_juno.NMO_opt) #Vals for osc parameters and NMO
     osc_params = ['sin2_12', 'sin2_13', 'dm2_21', 'dm2_31']
@@ -240,7 +241,6 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     else:
         m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
-
     m.migrad() #fit
 
     if args_juno.calc_minuit_errors:
@@ -266,10 +266,11 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         dchi2 = abs(chi2_min-chi2_min_opp)
         print(f"NMO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
-    print("************Fit results************")
-    for i in range(len(m.values)):
-        print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
-    #print(m)
+    if not args_juno.silent_print:
+        print("************Fit results************")
+        for i in range(len(m.values)):
+            print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
+        print(m)
 
     if args_juno.write_results:
         merrors=False
@@ -279,27 +280,27 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         if args_juno.fit_type == "NMO" and args_juno.include_TAO: extra_name = '_TAO_'
         filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}{extra_name}{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
         fileo = open(filename, "a")
-        if unc_new_juno==args_juno.unc_list_juno[0]:
-            if args_juno.fit_type == "NMO":
-                fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr unc dchi2 sigma\n")
-            elif args_juno.fit_type == 'geo':
-                if args_juno.geo_fit_type == 'UThfree':
-                    fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr NgeoU NgeoU_err NgeoU_merr NgeoU_perr NgeoTh NgeoTh_err NgeoTh_merr NgeoTh_perr unc\n")
-                elif args_juno.geo_fit_type == 'mantle':
-                    fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Nmantle Nmantle_err Nmantle_merr Nmantle_perr unc dchi2 sigma model crust_rate crust_unc\n")
-                else:
-                    #fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr unc\n")
-                    fileo.write("sin2_12 sin2_12_err sin2_13 sin2_13_err dm2_21 dm2_21_err dm2_31 dm2_31_err Nrea Nrea_err Ngeo Ngeo_err unc\n")
-            else:
-                fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr unc\n")
+        #if unc_new_juno==args_juno.unc_list_juno[0]:
+        #    if args_juno.fit_type == "NMO":
+        #        fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr unc dchi2 sigma\n")
+        #    elif args_juno.fit_type == 'geo':
+        #        if args_juno.geo_fit_type == 'UThfree':
+        #            fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr NgeoU NgeoU_err NgeoU_merr NgeoU_perr NgeoTh NgeoTh_err NgeoTh_merr NgeoTh_perr unc\n")
+        #        elif args_juno.geo_fit_type == 'mantle':
+        #            fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Nmantle Nmantle_err Nmantle_merr Nmantle_perr unc dchi2 sigma model crust_rate crust_unc\n")
+        #        else:
+        #            #fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr unc\n")
+        #            fileo.write("sin2_12 sin2_12_err sin2_13 sin2_13_err dm2_21 dm2_21_err dm2_31 dm2_31_err Nrea Nrea_err Ngeo Ngeo_err unc\n")
+        #    else:
+        #        fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr unc\n")
 
         if args_juno.fit_type == 'geo' and args_juno.geo_fit_type == 'mantle':
             extra.extend([dchi2, np.sqrt(dchi2), args_juno.mantle_model,  args_juno.crust_rate, args_juno.crust_rate_unc])
         if args_juno.fit_type == "NMO":
             extra.extend([dchi2, np.sqrt(dchi2)])
         fileo.close()
-        write_results(m, filename, extra, merrors=merrors) #write results into a textfile
-
+        write_results(m, filename, extra, merrors=merrors, silent=args_juno.silent_print) #write results into a textfile
+        fileo.close()
    #fancy stuff
     if(args_juno.plot_minuit_matrix or args_juno.plot_minuit_profiles): #make plots folders
         if not os.path.exists(f"{args_juno.plots_folder}/Chi2_profiles"): os.mkdir(f"{args_juno.plots_folder}/Chi2_profiles")
@@ -321,7 +322,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         fig, ax = m.draw_mnmatrix(cl=[1,2,3])
         plt.show()
         #plt.savefig(f"{args_juno.plots_folder}/Chi2_profiles/Minuit/matrix_{args_juno.stat_opt}_{unc_juno}.png")
-
+    del m
     # pts1 = m.mncontour("NU", "NTh", cl=0.68, size=10, interpolated=100)
     # pts2 = m.mncontour("NU", "NTh", cl=0.95, size=10, interpolated=100)
     # #pts3 = m.mncontour("NU", "NTh", cl=99.7, size=10, interpolated=100)

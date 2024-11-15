@@ -17,6 +17,7 @@ import uproot
 import ROOT
 from scipy.integrate import quad
 from array import array
+from scipy.linalg import cho_solve, cho_factor
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -838,19 +839,28 @@ def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0)
 
 def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.
+
   if pulls and pull_unc:
       for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
+  
   diff = tot_obs.bin_cont - tot_exp.bin_cont
   chi2 = 0.0
+  
   if stat_meth == "NorP":
-    norp_stat_cm = rea_obs.GetStatCovMatrix()
-    if unc == "stat": chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data) @ diff + penalty
-    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff + penalty
+      stat_cov_matrix = rea_obs.GetStatCovMatrix().data
   else:
-    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
-    if unc == "stat": chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data) @ diff + penalty
-    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff + penalty
+      stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
+  
+  if unc == "stat":
+      cov_matrix = stat_cov_matrix
+  else:
+      cov_matrix = stat_cov_matrix + cm.data
+  
+  c_factor = cho_factor(cov_matrix)
+  chi2_term = cho_solve(c_factor, diff) 
+  chi2 = np.einsum('i,i->', diff, chi2_term) + penalty #diff.T @ solve(cov_matrix, diff) + penalty
   return chi2
+  
 
 def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.0
