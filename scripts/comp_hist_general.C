@@ -138,11 +138,13 @@ void make_canvas (string rootfile1, string rootfile2, string hist1, string hist2
 
 void comp_hist_general(){
 
-   //make_canvas("Sindhu_spectra_Oct28.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rosc", "hreac_wcorr", "Sindhu old", "Yury", false);
+   make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rea_osc_noFT2", "hreac_wcorr", "Sindhu", "Yury Oct 23", false);
+   make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/GeoneutrinoCommonInputs.root", "rea_osc_noFT2", "Reactor_NN_rc+me", "Sindhu", "Cris common inputs", false);
+   //make_canvas("/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "/home/sindhu/Downloads/GeoneutrinoCommonInputs.root", "hreac_wcorr", "Reactor_NN_rc+me", "Yury Oct 23rd", "Cris common inputs", false);
   // make_canvas("Sindhu_spectra_Oct28.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rosc_Enfixed_new2", "hreac_wcorr", "Sindhu Tn fixed", "Yury", false);
    //make_canvas("Sindhu_spectra_Oct28.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rosc_newpos_DYB", "hreac_wcorr", "Sindhu 2D hist", "Yury", false);
   //make_canvas("Sindhu_spectra_Oct28.root", "Sindhu_spectra_Oct28.root", "rosc","rosc_Enfixed_new2", "old analytical", "with Tn fixed", false);
   //make_canvas("Sindhu_spectra_Oct28.root", "Sindhu_spectra_Oct28.root", "rosc", "rosc_newpos_DYB", "old analytical", "Epos from 2D hist", false);
-   make_canvas("Sindhu_spectra_Oct28.root", "Sindhu_spectra_Oct28.root", "rosc_newpos", "rosc_newpos_DYB", "Strumia Vissani", "Vogel Beacom", false);
+   //make_canvas("Sindhu_spectra_Oct28.root", "Sindhu_spectra_Oct28.root", "rosc_newpos", "rosc_newpos_DYB", "Strumia Vissani", "Vogel Beacom", false);
 
 }

@@ -96,29 +96,29 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         #s_juno = Spectrum(bins=s_juno.bins, bin_cont=s_juno.bin_cont*np.array(ratio))
         if args_juno.fit_type == 'geo':
             if args_juno.geo_fit_type == 'UThfree':
-                s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
-                    ensp_nom_juno['aneu'] + ensp_nom_juno['geou'].GetScaledFit(NU) + ensp_nom_juno['geoth'].GetScaledFit(NTh) + ensp_nom_juno['atm'] + \
-                    ensp_nom_juno['rea300']
                 sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geou"]+ensp_nom_juno["geoth"]
-                sp_exp = s_juno+ensp_nom_juno["geou"].GetScaledFit(NU)+ensp_nom_juno["geoth"].GetScaledFit(NTh)
+                sp_exp = s_juno.GetScaledFit(Nrea) + ensp_nom_juno["geou"].GetScaledFit(NU)+ensp_nom_juno["geoth"].GetScaledFit(NTh)
+                s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
+                             ensp_nom_juno['aneu'] + ensp_nom_juno['geou'].GetScaledFit(NU) + ensp_nom_juno['geoth'].GetScaledFit(NTh) + ensp_nom_juno['atm'] + \
+                             ensp_nom_juno['rea300']
             elif args_juno.geo_fit_type == 'mantle':
-                s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
-                ensp_nom_juno['aneu'] + ensp_nom_juno['geocrust'] + ensp_nom_juno['geomantle'].GetScaledFit(Nmantle) + ensp_nom_juno['atm'] + \
-                ensp_nom_juno['rea300']
                 sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geomantle"]
-                sp_exp = s_juno+ensp_nom_juno["geomantle"].GetScaledFit(Nmantle)
-            else:
+                sp_exp = s_juno.GetScaledFit(Nrea) + ensp_nom_juno["geomantle"].GetScaledFit(Nmantle)
                 s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
-                ensp_nom_juno['aneu'] + ensp_nom_juno['geo'].GetScaledFit(Ngeo) + ensp_nom_juno['atm'] + \
-                ensp_nom_juno['rea300']
-                sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geo"]
-                sp_exp = s_juno+ensp_nom_juno["geo"].GetScaledFit(Ngeo)
+                             ensp_nom_juno['aneu'] + ensp_nom_juno['geocrust'] + ensp_nom_juno['geomantle'].GetScaledFit(Nmantle) + ensp_nom_juno['atm'] + \
+                             ensp_nom_juno['rea300']
+            else:
+                sp_obs = ensp_nom_juno["toy"] #ensp_nom_juno["rdet"]+ensp_nom_juno["geo"]
+                sp_exp = s_juno.GetScaledFit(Nrea) + ensp_nom_juno["geo"].GetScaledFit(Ngeo)
+                s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
+                             ensp_nom_juno['aneu'] + ensp_nom_juno['geo'].GetScaledFit(Ngeo) + ensp_nom_juno['atm'] + \
+                             ensp_nom_juno['rea300']
         else:
-            s_tot_juno = s_juno + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
-                ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + \
-                ensp_nom_juno['rea300']
             sp_obs = ensp_nom_juno["rdet"]
             sp_exp = s_juno
+            s_tot_juno = s_juno + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
+                         ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + \
+                         ensp_nom_juno['rea300']
 
         chi2 = 1e+6
 
@@ -265,10 +265,10 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     print("************Fit results************")
     for i in range(len(m.values)):
         print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
-    print(m)
+    #print(m)
 
     if args_juno.write_results:
-        merrors=True
+        merrors=False
         extra = [unc_new_juno]
         extra_name = ''
         if not args_juno.geo_fit_type == 'total': extra_name = f'_args_juno.geo_fit_type_'
@@ -284,7 +284,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                 elif args_juno.geo_fit_type == 'mantle':
                     fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Nmantle Nmantle_err Nmantle_merr Nmantle_perr unc dchi2 sigma model crust_rate crust_unc\n")
                 else:
-                    fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr unc\n")
+                    #fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr Nrea Nrea_err Nrea_merr Nrea_perr Ngeo Ngeo_err Ngeo_merr Ngeo_perr unc\n")
+                    fileo.write("sin2_12 sin2_12_err sin2_13 sin2_13_err dm2_21 dm2_21_err dm2_31 dm2_31_err Nrea Nrea_err Ngeo Ngeo_err unc\n")
             else:
                 fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr unc\n")
 

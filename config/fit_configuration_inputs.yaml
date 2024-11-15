@@ -19,7 +19,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
-  calc_minuit_errors: true
+  calc_minuit_errors: false
   write_results: false
   geo_spectra: ana
   fit_type: geo #NMO, geo or PMOP (default)
@@ -27,7 +27,8 @@ fit_options:
   mantle_model: GC
   include_TAO: true #for NMO
   geo_OPfixed: false
-
+  toymc: true
+  ntoys: 1000
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
@@ -52,8 +53,8 @@ fit_options:
     - [7.8, 8.2, 4]
     - [8.2, 9, 1]
 
-  FORCE_CALC_RM: true # Force calculation of response matrix
-  FORCE_CALC_CM: true # Force calculation of covariance matrices
+  FORCE_CALC_RM: false # Force calculation of response matrix
+  FORCE_CALC_CM: false # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
 
@@ -64,10 +65,10 @@ fit_options:
   geo_MC_file: data/xc_pdfs_2023-08-25.root
   reactor_model: Huber-Mueller
 
-  main_data_folder: Geo_test
+  main_data_folder: Geo_toy
   cov_matrix_plots_folder: CMplots #folder to store CM plots
   plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: Geo_test #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: Geo_toy #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: ../Data_test/Bayesian/npz_files
   bayes_plots_folder: ../Data_test/Bayesian/Plots
 

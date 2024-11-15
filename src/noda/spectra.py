@@ -289,6 +289,7 @@ def CreateSpectra(ndays=10,
       else:
           ensp['geo'] = make_ana_geo_spectra(args.geo_rate, args.Th_U_ratio, 'geo')
 
+
   if args.geo_spectra == 'MC':
       # ensp['geou_mc'] = GetSpectrumFromROOT(args.geo_MC_U_file, 'prompt energy')
       # ensp['geoth_mc'] = GetSpectrumFromROOT(args.geo_MC_Th_file, 'prompt energy')

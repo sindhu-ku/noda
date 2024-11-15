@@ -12,7 +12,7 @@ def GetCM(ensp = {},
       args=None):
 
   unc_map = {
-    'stat': lambda: ensp['rdet'].GetStatCovMatrix(),
+    'stat': lambda: ensp['rdet'].GetStatCovMatrix() if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetStatCovMatrix(),
     'r2': lambda: ensp['rdet'].GetRateCovMatrix(args.r2_unc),
     'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc) if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetRateCovMatrix(args.eff_unc),
     'b2b_DYB': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "DYBUncertainty"),

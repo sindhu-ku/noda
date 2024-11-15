@@ -115,7 +115,7 @@ def main(argv=None):
   # ensp_nom_juno['geo'].WritetoROOT("geo", "Sindhu_Nov11.root")
   # ensp_nom_juno['geou'].WritetoROOT("geoU", "Sindhu_Nov11.root")
   # ensp_nom_juno['geoth'].WritetoROOT("geoTh", "Sindhu_Nov11.root")
-  # ensp_nom_juno['rdet'].WritetoROOT("rea_osc_noRC_noME", "Sindhu_Nov11.root")
+  #ensp_nom_juno['rdet'].WritetoROOT("rea_osc_noFT2", "Sindhu_Nov11.root")
   # ensp_nom_juno['ribd'].WritetoROOT("rea_unosc_noRC_noME", "Sindhu_Nov11.root")
   if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
       ensp_nom_tao  = spec.CreateSpectra(ndays=ndays,
@@ -268,7 +268,28 @@ def main(argv=None):
           for u in corr_dep_list:
                cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
                #cm_corr_dep[u]
-  #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
+
+#   ensp_nom_juno['geo_toy'] = Spectrum(bins=ensp_nom_juno['geo'].bins, bin_cont=[np.random.poisson(bc) for bc in ensp_nom_juno['geo'].bin_cont])
+#   ensp_nom_juno['rdet_toy'] = Spectrum(bins=ensp_nom_juno['rdet'].bins, bin_cont=[np.random.poisson(bc) for bc in ensp_nom_juno['rdet'].bin_cont])
+#
+#   min_value = 1e-20
+#   ensp_nom_juno['geo_toy'].bin_cont = [bc if bc >= min_value else min_value for bc in ensp_nom_juno['geo_toy'].bin_cont]
+#   ensp_nom_juno['rdet_toy'].bin_cont = [bc if bc >= min_value else min_value for bc in ensp_nom_juno['rdet_toy'].bin_cont]
+
+  def generate_toy_spectrum(spectrum, cov_matrix):
+      #cov_matrix.data += np.eye(cov_matrix.data.shape[0]) * 1e-10
+      L = np.linalg.cholesky(cov_matrix.data)
+      y = np.random.normal(0, 1, len(spectrum.bin_cont))
+      S_fluc = np.array(spectrum.bin_cont) + L @ y
+      S_fluc = np.maximum(S_fluc, 0)
+      S_fluc_poisson = np.random.poisson(S_fluc)
+      return S_fluc_poisson
+
+  def run_toy(i):
+      ensp_nom_juno['toy'] = Spectrum(bins=ensp_nom_juno['rdet'].bins, bin_cont=generate_toy_spectrum(ensp_nom_juno['geo'] + ensp_nom_juno['rdet'], cm_juno[unc_list_new_juno[0]]))
+      ensp_nom_juno['rtot'] = ensp_nom_juno['rtot'] - ensp_nom_juno['geo'] - ensp_nom_juno['rdet'] + ensp_nom_juno['toy']
+      minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+    #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args_juno.stat_method_opt == 'bayesian':
       # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom_juno =ensp_nom_juno, baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, SEED=i, args=args_juno) for i in range (args_juno.bayes_seed_beg, args_juno.bayes_seed_beg+args_juno.bayes_nprocesses))
        dm2_31_val = 2.583e-3
@@ -293,7 +314,10 @@ def main(argv=None):
               minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''),
                                unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
           else:
-              for unc in unc_list_new_juno: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+              if args_juno.toymc:
+                  Parallel(n_jobs =-1)(delayed(run_toy)(i=t) for t in range(0,args_juno.ntoys))
+              else:
+                  for unc in unc_list_new_juno: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)

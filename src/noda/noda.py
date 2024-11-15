@@ -844,11 +844,11 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
   chi2 = 0.0
   if stat_meth == "NorP":
     norp_stat_cm = rea_obs.GetStatCovMatrix()
-    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff + penalty
+    if unc == "stat": chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data) @ diff + penalty
     else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff + penalty
   else:
     cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
-    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
+    if unc == "stat": chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data) @ diff + penalty
     else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff + penalty
   return chi2
 
