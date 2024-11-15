@@ -94,6 +94,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         # print(ensp_nom_juno['rdet'].bin_cont*np.array(ratio))
         # print(ensp_nom_juno['rdet'].bin_cont)
         #s_juno = Spectrum(bins=s_juno.bins, bin_cont=s_juno.bin_cont*np.array(ratio))
+
+
         if args_juno.fit_type == 'geo':
             if args_juno.geo_fit_type == 'UThfree':
                 sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geou"]+ensp_nom_juno["geoth"]
@@ -108,11 +110,13 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                              ensp_nom_juno['aneu'] + ensp_nom_juno['geocrust'] + ensp_nom_juno['geomantle'].GetScaledFit(Nmantle) + ensp_nom_juno['atm'] + \
                              ensp_nom_juno['rea300']
             else:
-                sp_obs = ensp_nom_juno["toy"] #ensp_nom_juno["rdet"]+ensp_nom_juno["geo"]
+                sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geo"]
                 sp_exp = s_juno.GetScaledFit(Nrea) + ensp_nom_juno["geo"].GetScaledFit(Ngeo)
                 s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
                              ensp_nom_juno['aneu'] + ensp_nom_juno['geo'].GetScaledFit(Ngeo) + ensp_nom_juno['atm'] + \
                              ensp_nom_juno['rea300']
+            if args_juno.toymc:
+                sp_obs = ensp_nom_juno["toy"]
         else:
             sp_obs = ensp_nom_juno["rdet"]
             sp_exp = s_juno
