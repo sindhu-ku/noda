@@ -29,7 +29,8 @@ fit_options:
   include_TAO: true #for NMO
   geo_OPfixed: false
   toymc: true
-  ntoys: 1000
+  ntoys: 100
+  toy_batch_size: 10
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
