@@ -14,6 +14,7 @@ from .bayesian import bayesian as bayes
 from .bayesian import bayesian_results as bayes_res
 from . import grid_scan_results as scan_res
 from . import minuit as minuit
+import h5py
 
 def main(argv=None):
   if argv is None:
@@ -268,9 +269,8 @@ def main(argv=None):
           for u in corr_dep_list:
                cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
                #cm_corr_dep[u]
-
+  np.random.seed(42)
   def generate_toy_spectrum(spectrum, cov_matrix):
-      #cov_matrix.data += np.eye(cov_matrix.data.shape[0]) * 1e-10
       L = np.linalg.cholesky(cov_matrix.data)
       y = np.random.normal(0, 1, len(spectrum.bin_cont))
       S_fluc = np.array(spectrum.bin_cont) + L @ y
@@ -281,18 +281,37 @@ def main(argv=None):
   def run_toy(i):
       if i%100 == 0: print(f"Toys: {i}/{args_juno.ntoys}")
       ensp_nom_juno['toy'] = Spectrum(bins=ensp_nom_juno['rdet'].bins, bin_cont=generate_toy_spectrum(ensp_nom_juno['geo'] + ensp_nom_juno['rdet'], cm_juno[unc_list_new_juno[0]]))
-      ensp_nom_juno['rtot'] = ensp_nom_juno['rtot'] - ensp_nom_juno['geo'] - ensp_nom_juno['rdet'] + ensp_nom_juno['toy']
-      results = minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
-      return results
+      nan_mask = np.isnan(ensp_nom_juno['toy'].bin_cont)
+      if len(ensp_nom_juno['toy'].bin_cont[nan_mask] !=0): print("WARNING: NaN values found!")
+      ensp_nom_juno['rtot_toy'] = ensp_nom_juno['rtot'] - ensp_nom_juno['geo'] - ensp_nom_juno['rdet'] + ensp_nom_juno['toy']
+      try:
+          results = minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+          return results
+      except Exception as e:
+          print(f"WARNING: Minuit failed")
+          return None 
 
   def save_batch_results(filename, batch_results):
-    fileo = open(filename, "a")
-    for result in batch_results:
-        fileo.write(" ".join(map(str, result)))
-        fileo.write("\n")
-    fileo.close()
-#run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
+    filtered_results = [row for row in batch_results if all(value is not None for value in row)]
+    if not filtered_results:
+        print("WARNING: No valid data to save. Skipping...")
+        return
+    new_data = np.array(filtered_results, dtype='S64')
+    dataset_name ='geo'
+    with h5py.File(filename, "a") as hdf:
+        if dataset_name in hdf:
+            dset = hdf[dataset_name]
+            dset.resize(dset.shape[0] + new_data.shape[0], axis=0)
+            dset[-new_data.shape[0]:] = new_data
+        else:
+            dset = hdf.create_dataset(
+                dataset_name,
+                data=new_data,
+                maxshape=(None, new_data.shape[1]),  # Unlimited rows, fixed columns
+                compression="gzip",
+            )
 
+  #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args_juno.stat_method_opt == 'bayesian':
       # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom_juno =ensp_nom_juno, baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, SEED=i, args=args_juno) for i in range (args_juno.bayes_seed_beg, args_juno.bayes_seed_beg+args_juno.bayes_nprocesses))
        dm2_31_val = 2.583e-3
@@ -314,16 +333,17 @@ def main(argv=None):
       else:
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
           if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
-              minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''),
-                               unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
+              minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
           else:
               if args_juno.toymc:
                   for batch_start in range(0, args_juno.ntoys, args_juno.toy_batch_size):
+                      print(f"Batch {int(batch_start/args_juno.toy_batch_size)}")
+                      batch_start_t = datetime.now()
                       batch_end = min(batch_start + args_juno.toy_batch_size, args_juno.ntoys)
-                      batch_results = Parallel(n_jobs=-1)(delayed(run_toy)(i=t) for t in range(batch_start, batch_end))
-                      filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
+                      batch_results = Parallel(n_jobs=-1, verbose=10)(delayed(run_toy)(i=t) for t in range(batch_start, batch_end))
+                      filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.hdf5"
                       save_batch_results(filename, batch_results)
-                      print(f"Saved toys {batch_start} to {batch_end}")
+                      del batch_results
               else:
                   for unc in unc_list_new_juno: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
          # dm2_31_val = 2.5283e-3

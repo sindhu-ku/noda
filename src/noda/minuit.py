@@ -8,6 +8,7 @@ import gc
 from datetime import datetime
 from iminuit import Minuit
 import matplotlib.pyplot as plt
+import time
 
 def write_results(m, filename, extra, merrors=True, silent=False): #writes out fit results m for a given filename and uncertainty
     values = []
@@ -34,6 +35,7 @@ def get_toy_results(m, extra): #writes out fit results m for a given filename an
         params.append(m.values[i]) #central values
         params.append(m.errors[i]) #hesse errors
     params.extend(extra)
+    del m
     return params
 
 def round_errors(param, neg_err, pos_err): #rounds errors for different parameters differently. Used inside plot_profile. But rounding is only for the plot title so as to look pretty
@@ -66,7 +68,6 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
     plt.close()
 
 def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_corr='', rm= [], ene_leak_tao =[], cm_juno ={}, cm_tao={}, cm_corr='', args_juno='', args_tao=''):#, dm2_31=0.):
-
     def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1.0, Nrea=1.0, NU=1.0, NTh=1.0, Nmantle=1.0, opp=False):#, a1=0.0, a2=0.0, a3=0.0, a4=0.0, eff=float(args_juno.detector_efficiency), me_rho=args_juno.me_rho):
         # Get the oscillated spectrum
         # ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins)
@@ -103,7 +104,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         # print(ensp_nom_juno['rdet'].bin_cont)
         #s_juno = Spectrum(bins=s_juno.bins, bin_cont=s_juno.bin_cont*np.array(ratio))
 
-
+         
+        sp_obs_tot = ensp_nom_juno["rtot"]
         if args_juno.fit_type == 'geo':
             if args_juno.geo_fit_type == 'UThfree':
                 sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geou"]+ensp_nom_juno["geoth"]
@@ -125,6 +127,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                              ensp_nom_juno['rea300']
             if args_juno.toymc:
                 sp_obs = ensp_nom_juno["toy"]
+                sp_obs_tot = ensp_nom_juno["rtot_toy"]
+
         else:
             sp_obs = ensp_nom_juno["rdet"]
             sp_exp = s_juno
@@ -151,24 +155,24 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                 unc='syst'
 
             if args_juno.sin2_th13_opt == "pull":
-                chi2 = Combined_Chi2(cm_juno[unc_juno], cm_tao[unc_tao], cm_corr[unc_corr], ensp_nom_juno["rtot"],
+                chi2 = Combined_Chi2(cm_juno[unc_juno], cm_tao[unc_tao], cm_corr[unc_corr], sp_obs_tot,
                       s_tot_juno, ensp_nom_tao["rtot"], s_tot_tao, ensp_nom_juno["rdet"], s_juno,
                       ensp_nom_tao["rdet"], s_tao,  unc=unc,
                       stat_meth=args_juno.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13']],
                       pull_unc=[args_juno.sin2_th13_pull_unc * nuosc.op_nom['sin2_th13']])
             else:
-                chi2 = Combined_Chi2(cm_juno[unc_juno], cm_tao[unc_tao], cm_corr[unc_corr], ensp_nom_juno["rtot"],
+                chi2 = Combined_Chi2(cm_juno[unc_juno], cm_tao[unc_tao], cm_corr[unc_corr], sp_obs_tot,
                       s_tot_juno, ensp_nom_tao["rtot"], s_tot_tao, ensp_nom_juno["rdet"], s_juno,
                       ensp_nom_tao["rdet"], s_tao,  unc=unc,
                       stat_meth=args_juno.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13']],
                       pull_unc=[args_juno.sin2_th13_pull_unc * nuosc.op_nom['sin2_th13']])
         else:
             if args_juno.sin2_th13_opt == "pull":
-                chi2 = Chi2(cm_juno[unc_juno], ensp_nom_juno["rtot"], s_tot_juno,  sp_obs, sp_exp, unc_juno,
+                chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno,  sp_obs, sp_exp, unc_juno,
                       args_juno.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13']],
                       pull_unc=[args_juno.sin2_th13_pull_unc * nuosc.op_nom['sin2_th13']])
             else:
-                chi2 = Chi2(cm_juno[unc_juno], ensp_nom_juno["rtot"], s_tot_juno, sp_obs, sp_exp, unc_juno, args_juno.stat_method_opt)
+                chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs, sp_exp, unc_juno, args_juno.stat_method_opt)
                 #\, pulls=[eff-float(args_juno.detector_efficiency)],pull_unc=[args_juno.eff_unc*float(args_juno.detector_efficiency)] )#, pulls=[me_rho-args_juno.me_rho], pull_unc=[args_juno.me_rho_scale * args_juno.me_rho]) , puls=[a1, a2, a3, a4, a4], pulls_unc=[1.])
 
         return chi2
@@ -249,7 +253,54 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     else:
         m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
-    m.migrad() #fit
+   
+    start_time = time.time()  # Record the start time
+    max_time = 60
+    
+    try:
+        m.migrad()
+
+        while True:
+            elapsed_time = time.time() - start_time
+            if elapsed_time > max_time:
+                print(f"WARNING: Minuit fit exceeded time limit of {max_time} seconds.")
+                print(f"Toy data: {ensp_nom_juno['toy'].bin_cont}")
+                del m
+                return None
+
+            if not m.valid:
+                print("WARNING: Minuit failed to converge.")
+                del m
+                return None
+
+            if not m.fmin.is_valid:
+                print("WARNING: EDM too high: fit may not be reliable.")
+                del m
+                return None
+
+            if any(np.isnan(p) for p in m.values):
+                print("WARNING: Minuit encountered invalid parameters (NaN values).")
+                del m
+                return None
+
+            if m.valid and not m.fmin.is_above_max_edm:
+                break
+
+            time.sleep(0.01)
+
+    except ValueError as e:
+        print(f"WARNING: ValueError during Minuit fit: {e}")
+        del m
+        return None
+    except RuntimeError as e:
+        print(f"WARNING: RuntimeError during Minuit fit: {e}")
+        del m
+        return None
+    except Exception as e:
+        print(f"WARNING: Unexpected error during Minuit fit: {e}")
+        del m
+        return None
+
 
     if args_juno.calc_minuit_errors:
         m.hesse() #get errors
