@@ -6,12 +6,15 @@
 
 using namespace std;
 
-void rebin(TH1D * h_temp, TH1D* h){
-
+void rebin(TH1D * h_temp, TH1D* h, int rebin){
+  std::cout <<   h_temp->GetXaxis()->GetNbins() << std::endl;
   for (int i = 0; i < h->GetXaxis()->GetNbins(); i++){
-    if(i < h_temp->GetXaxis()->GetNbins()) {h->SetBinContent(i+1, h_temp->GetBinContent(i+1));}
+    if(i < rebin*410) {
+      h->SetBinContent(i+1, h_temp->GetBinContent(i+1));
+    }
     else{h->SetBinContent(i+1, 0);}
   }
+  // /h->Draw();
 
 }
 
@@ -31,17 +34,25 @@ void make_canvas (string rootfile1, string rootfile2, string hist1, string hist2
   TH1D *h2_temp = (TH1D*)f2->Get(hist2.c_str());
 
 
-  TH1D* h1 = new TH1D("h1", "h1", nbins, ene_min, ene_max);
-  TH1D* h2 = new TH1D("h2", "h2", nbins, ene_min, ene_max);
 
+
+
+  double bw = (h2_temp->GetXaxis()->GetXmax() - h2_temp->GetXaxis()->GetXmin())/h2_temp->GetXaxis()->GetNbins();
+  int rebin_val = round(0.02/bw);
+  TH1D* h1 = new TH1D("h1", "h1", nbins, ene_min, ene_max);
+  TH1D* h2 = new TH1D("h2", "h2", rebin_val*nbins, ene_min, ene_max);
+  std::cout << rebin_val << std::endl;
  //if(h1_temp->GetXaxis()->GetNbins() != nbins){
-   rebin(h1_temp, h1);
+   rebin(h1_temp, h1, rebin_val);
  //}
  //else{
 //   h1 = h1_temp;
  //}
  //if(h2_temp->GetXaxis()->GetNbins() != nbins){
-   rebin(h2_temp, h2);
+   rebin(h2_temp, h2, rebin_val);
+
+   if (rebin_val != 1) h2->Rebin(rebin_val);
+   std::cout <<   h2->GetXaxis()->GetNbins() << std::endl;
  //}
  //else{
   // h2 = h2_temp;
@@ -138,8 +149,14 @@ void make_canvas (string rootfile1, string rootfile2, string hist1, string hist2
 
 void comp_hist_general(){
 
-   make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rea_osc_noFT2", "hreac_wcorr", "Sindhu", "Yury Oct 23", false);
-   make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/GeoneutrinoCommonInputs.root", "rea_osc_noFT2", "Reactor_NN_rc+me", "Sindhu", "Cris common inputs", false);
+   //make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rea_osc_noFT2", "hreac_wcorr", "Sindhu", "Yury Oct 23", false);
+   //make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/GeoneutrinoCommonInputs.root", "rea_osc_noFT2", "Reactor_NN_rc+me", "Sindhu", "Cris common inputs", false);
+    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/control_histos_NO.root", "rea_osc_noFT2", "h_Sig", "Sindhu", "Steven", false);
+    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/spectra-dubna-normal.root", "rea_osc_PDG2020_100p_noTF2", "juno_eres", "Sindhu", "Dubna", false);
+    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/junotao-NO-spectra-ihep_Jinnan-round13.root", "rea_osc_PDG2020_100p_noTF2", "h_NMO", "Sindhu", "IHEP", false);
+        make_canvas("/home/sindhu/Downloads/spectra-dubna-normal.root", "/home/sindhu/Downloads/junotao-NO-spectra-ihep_Jinnan-round13.root", "juno_eres", "h_NMO", "Dubna", "IHEP", false);
+    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/reactor_spectra.root", "rea_osc_noFT2", "osc_NL_reso_all_cores_NO", "Sindhu", "Vanessa", false);
+
    //make_canvas("/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "/home/sindhu/Downloads/GeoneutrinoCommonInputs.root", "hreac_wcorr", "Reactor_NN_rc+me", "Yury Oct 23rd", "Cris common inputs", false);
   // make_canvas("Sindhu_spectra_Oct28.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rosc_Enfixed_new2", "hreac_wcorr", "Sindhu Tn fixed", "Yury", false);
    //make_canvas("Sindhu_spectra_Oct28.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rosc_newpos_DYB", "hreac_wcorr", "Sindhu 2D hist", "Yury", false);
