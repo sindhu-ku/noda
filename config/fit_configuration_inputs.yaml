@@ -19,16 +19,16 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
-  calc_minuit_errors: false
-  write_results: true
-  silent_print: true
+  calc_minuit_errors: true
+  write_results: false
+  silent_print: false
   geo_spectra: ana
   fit_type: geo #NMO, geo or PMOP (default)
   geo_fit_type: total #UThfree, mantle or total (default)
   mantle_model: GC
   include_TAO: true #for NMO
   geo_OPfixed: false
-  toymc: true
+  toymc: false
   ntoys: 10000
   toy_batch_size: 8
   #just for the bayesian method, random seeds and chi2 def
@@ -56,7 +56,7 @@ fit_options:
     - [8.2, 9, 1]
 
   FORCE_CALC_RM: false # Force calculation of response matrix
-  FORCE_CALC_CM: false # Force calculation of covariance matrices
+  FORCE_CALC_CM: true # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
 
@@ -65,12 +65,14 @@ fit_options:
   geo_MC_U_file: data/geo_U_promptFV.root
   geo_MC_Th_file: data/geo_Th_promptFV.root
   geo_MC_file: data/xc_pdfs_2023-08-25.root
+  aneu_file: data/GeoneutrinoCommonInputs.root
+  aneu_hist: AlphaN_MC
   reactor_model: Huber-Mueller
 
-  main_data_folder: Geo_toy
+  main_data_folder: Geo_Nov19
   cov_matrix_plots_folder: CMplots #folder to store CM plots
   plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: Geo_toy #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: Geo_Nov19 #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: ../Data_test/Bayesian/npz_files
   bayes_plots_folder: ../Data_test/Bayesian/Plots
 
@@ -162,9 +164,9 @@ juno_inputs:
   geo_rate: 1.2
   lihe_rate: 0.8
   fneu_rate: 0.1
-  aneu_rate: 0.05 #0.091
+  aneu_rate: 0.091 #0.05 #0.091
   atm_rate: 0.16
-  rea300 rate: 1 #1.3
+  rea300 rate: 1.3 #1 #1.3
 
   me_rho_scale: 0.15
   eff_unc: 0.01
@@ -180,13 +182,13 @@ juno_inputs:
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
 
-  aneu_rate_unc: 0.5 #0.25
-  aneu_b2b_unc: 0.5 #0.25
+  aneu_rate_unc: 0.25 #0.5 #0.25
+  aneu_b2b_unc: 0.25 #0.5 #0.25
 
   atm_rate_unc: 0.5
   atm_b2b_unc: 0.5
 
-  rea300_rate_unc: 0.02 #0.1
+  rea300_rate_unc: 0.1 #0.02 #0.1
   rea300_b2b_unc: 0.05
 #  # Uncertainty list
   unc_list_juno:
