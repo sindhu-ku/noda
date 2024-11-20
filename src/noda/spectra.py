@@ -238,6 +238,10 @@ def CreateSpectra(ndays=10,
         print("different bins, rebinning ", key)
         ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
 
+  ensp['aneu'] =  GetSpectrumFromROOT(args.aneu_file, args.aneu_hist)
+  ensp['aneu'].GetScaled(args.aneu_rate*ndays/args.duty_cycle)
+  ensp['aneu'].Trim(args.ene_crop)
+
   if detector == "tao":
       ensp['acc'].GetScaled(args.acc_scale)
       ensp['lihe'].GetScaled(args.lihe_scale)
