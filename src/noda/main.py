@@ -280,10 +280,10 @@ def main(argv=None):
 
   def run_toy(i):
       if i%100 == 0: print(f"Toys: {i}/{args_juno.ntoys}")
-      ensp_nom_juno['toy'] = Spectrum(bins=ensp_nom_juno['rdet'].bins, bin_cont=generate_toy_spectrum(ensp_nom_juno['geo'] + ensp_nom_juno['rdet'], cm_juno[unc_list_new_juno[0]]))
+      ensp_nom_juno['toy'] = Spectrum(bins=ensp_nom_juno['rdet'].bins, bin_cont=generate_toy_spectrum(ensp_nom_juno['geomantle'] + ensp_nom_juno['rdet'], cm_juno[unc_list_new_juno[0]]))
       nan_mask = np.isnan(ensp_nom_juno['toy'].bin_cont)
       if len(ensp_nom_juno['toy'].bin_cont[nan_mask] !=0): print("WARNING: NaN values found!")
-      ensp_nom_juno['rtot_toy'] = ensp_nom_juno['rtot'] - ensp_nom_juno['geo'] - ensp_nom_juno['rdet'] + ensp_nom_juno['toy']
+      ensp_nom_juno['rtot_toy'] = ensp_nom_juno['rtot'] - ensp_nom_juno['geomantle'] - ensp_nom_juno['rdet'] + ensp_nom_juno['toy']
       try:
           results = minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
           return results
@@ -292,12 +292,15 @@ def main(argv=None):
           return None 
 
   def save_batch_results(filename, batch_results):
-    filtered_results = [row for row in batch_results if all(value is not None for value in row)]
-    if not filtered_results:
+    if batch_results is None:
+        print("WARNING: No valid data to save. Skipping...")
+        return
+    filtered_results = [row for row in batch_results if row is not None]
+    if filtered_results is None:
         print("WARNING: No valid data to save. Skipping...")
         return
     new_data = np.array(filtered_results, dtype='S64')
-    dataset_name ='geo'
+    dataset_name ='mantle'
     with h5py.File(filename, "a") as hdf:
         if dataset_name in hdf:
             dset = hdf[dataset_name]
@@ -337,11 +340,15 @@ def main(argv=None):
           else:
               if args_juno.toymc:
                   for batch_start in range(0, args_juno.ntoys, args_juno.toy_batch_size):
-                      print(f"Batch {int(batch_start/args_juno.toy_batch_size)}")
                       batch_start_t = datetime.now()
                       batch_end = min(batch_start + args_juno.toy_batch_size, args_juno.ntoys)
-                      batch_results = Parallel(n_jobs=-1, verbose=10)(delayed(run_toy)(i=t) for t in range(batch_start, batch_end))
-                      filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.hdf5"
+                      try:
+                          batch_results = Parallel(n_jobs=-1, timeout=args_juno.toymc_timeout)(delayed(run_toy)(i=t) for t in range(batch_start, batch_end))
+                      except Exception as e:
+                          print(f"WARNING: Joblib exceeded time limit")
+                          batch_results = None
+
+                      filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_mantle_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.hdf5"
                       save_batch_results(filename, batch_results)
                       del batch_results
               else:

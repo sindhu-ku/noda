@@ -253,9 +253,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     else:
         m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"])
-   
-    start_time = time.time()  # Record the start time
-    max_time = 60
+  
+    start_time = time.time()
+    max_time = args_juno.minuit_timeout
     
     try:
         m.migrad()
@@ -264,12 +264,12 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             elapsed_time = time.time() - start_time
             if elapsed_time > max_time:
                 print(f"WARNING: Minuit fit exceeded time limit of {max_time} seconds.")
-                print(f"Toy data: {ensp_nom_juno['toy'].bin_cont}")
                 del m
                 return None
 
             if not m.valid:
                 print("WARNING: Minuit failed to converge.")
+                print(f"Toy: {ensp_nom_juno['toy'].bin_cont}")
                 del m
                 return None
 
@@ -312,7 +312,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         # chi2_min = chi2_mantle_OPfixed(Nrea=m.values[0], Nmantle=m.values[1])
         #chi2_mantle0 = chi2_nomantle_OPfixed(Nrea=m0.values[0])
         dchi2 = chi2_mantle0 - chi2_min
-        print(f"Mantle discovery potential: delta chi2 between mantle and no mantle: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
+        if not args_juno.silent_print: print(f"Mantle discovery potential: delta chi2 between mantle and no mantle: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
     if args_juno.fit_type == "NMO" :
         if args_juno.include_TAO:
@@ -334,9 +334,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     if args_juno.write_results:
         merrors=False
-        extra = [unc_new_juno]
+        extra = [] #[unc_new_juno]
         if args_juno.fit_type == 'geo' and args_juno.geo_fit_type == 'mantle':
-            extra.extend([dchi2, np.sqrt(dchi2), args_juno.mantle_model,  args_juno.crust_rate, args_juno.crust_rate_unc])
+            extra.extend([dchi2, np.sqrt(dchi2)]) #, args_juno.mantle_model,  args_juno.crust_rate, args_juno.crust_rate_unc])
         if args_juno.fit_type == "NMO":
             extra.extend([dchi2, np.sqrt(dchi2)])
         if args_juno.toymc:
