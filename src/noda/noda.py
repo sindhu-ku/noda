@@ -296,6 +296,9 @@ class Spectrum:
 
   def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
     Enu = self.bins
+    Mn = 939.56536 #MeV
+    Mp = 938.27203 #MeV
+    Me = 0.51099893 #MeV
     if inputfile and tf2name:
         Epos = np.zeros_like(Enu)
         file = ROOT.TFile(inputfile)
@@ -306,15 +309,118 @@ class Spectrum:
                 Epos_temp += func.Eval(energy, cos_theta)
             Epos[i] = Epos_temp
     else:
-        Mn = 939.56536 #MeV
-        Mp = 938.27203 #MeV
-        Me = 0.51099893 #MeV
         Deltanp = Mn - Mp
         Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
+        Tn = 2 * Enu**2 / (Mn + Mp)
         Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
 
-    Evis = Epos + 0.511
+
+    Evis = Epos + Me
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+
+  # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
+  #   Enu = self.bins  # Neutrino energy
+  #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
+  #
+  #   # Constants
+  #   Mn = 939.56536  # Neutron mass (MeV)
+  #   Mp = 938.27203  # Proton mass (MeV)
+  #   Me = 0.51099893  # Electron mass (MeV)
+  #   delta = (Mn**2 - Mp**2 - Me**2) / (2.0 * Mp)  # Exact substitution for δ
+  #
+  #   if inputfile and tf2name:
+  #       Epos = np.zeros_like(Enu)
+  #       file = ROOT.TFile(inputfile)
+  #       func = file.Get(tf2name)
+  #       for i, energy in enumerate(Enu):
+  #           Epos_temp = 0.0
+  #           for cos_theta in cos_theta_vals:
+  #               Epos_temp += func.Eval(energy, cos_theta)
+  #           Epos[i] = Epos_temp  # Averaging over cos(θ)
+  #   else:
+  #       # Using exact equations for Ee and Jacobian
+  #       Epos = []
+  #       for Enu_i in Enu:
+  #           Epos_temp = 0.0
+  #           epsilon_nu = Enu_i / Mp
+  #           for cos_theta in cos_theta_vals:
+  #               kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
+  #               if kappa <= 0:
+  #                   continue  # Avoid invalid square root
+  #
+  #               # Exact substitution for Ee (Equation 11)
+  #               Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
+  #                         epsilon_nu * cos_theta *
+  #                         np.sqrt((Enu_i - delta)**2 + kappa * Me**2)) / kappa
+  #
+  #               EPSILON = 1e-10
+  #
+  #               # Exact substitution for ve (pe/Ee)
+  #               ve = np.sqrt(max(0, Epos_i**2 - Me**2)) / Epos_i if Epos_i > Me else EPSILON
+  #
+  #               # Adjust Jacobian to handle ve -> 0 safely
+  #               if abs(ve) < EPSILON:
+  #                   jacobian = 1.0  # Default value when ve is negligible
+  #               else:
+  #                   jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
+  #                             (1 - Epos_i / Mp * (1 - ve * cos_theta)))
+  #               print(Epos_i, jacobian)
+  #               Epos_temp += jacobian * Epos_i
+  #           Epos.append(Epos_temp / len(cos_theta_vals))  # Averaging
+  #
+  #       Epos = np.array(Epos)
+  #   Evis = Epos + 0.511  # Add 0.511 MeV for visible energy
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+  #
+  # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
+  #   Enu = self.bins  # Neutrino energy
+  #   cos_theta_vals = [0] #np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
+  #
+  #   # Constants
+  #   Mn = 939.56536  # Neutron mass (MeV)
+  #   Mp = 938.27203  # Proton mass (MeV)
+  #   Me = 0.51099893  # Electron mass (MeV)
+  #   delta = (Mn**2 - Mp**2 - Me**2) / (2.0 * Mp)  # Exact substitution for δ
+  #
+  #   # Using exact equations for Ee and Jacobian
+  #   Epos = []
+  #   for Enu_i in Enu:
+  #       Epos_temp = 0.0
+  #       epsilon_nu = Enu_i / Mp
+  #       for cos_theta in cos_theta_vals:
+  #           kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
+  #           if kappa <= 0:
+  #               continue  # Avoid invalid square root
+  #
+  #           # Exact substitution for Ee (Equation 11)
+  #           Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
+  #                     epsilon_nu * cos_theta *
+  #                     np.sqrt((Enu_i - delta)**2 + kappa * Me**2)) / kappa
+  #
+  #           EPSILON = 1e-10
+  #           Tn_i = 2 * Enu_i**2 / (Mn + Mp) * (1 - cos_theta)
+  #           # Exact substitution for ve (pe/Ee)
+  #           ve = np.sqrt(max(0, Epos_i**2 - Me**2)) / Epos_i if Epos_i > Me else EPSILON
+  #
+  #           # Adjust Jacobian to handle ve -> 0 safely
+  #           if abs(ve) < EPSILON:
+  #               jacobian = 1.0  # Default value when ve is negligible
+  #           else:
+  #               # jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
+  #               #           (1 - Epos_i / Mp * (1 - ve * cos_theta)))
+  #
+  #               jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
+  #                           (1 - Epos_i / Mp * (1 - ve * cos_theta) - Tn_i / Mp))
+  #
+  #
+  #           #print(Epos_i, jacobian)
+  #           Epos_temp += (jacobian) * Epos_i + Tn_i
+  #       Epos.append((Epos_temp / len(cos_theta_vals)))  # Averaging
+  #
+  #   Epos = np.array(Epos)
+  #   Evis = Epos + Me  # Add 0.511 MeV for visible energy
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+
 
 
   def ShiftEnergy(self, eshift):
@@ -842,25 +948,25 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
 
   if pulls and pull_unc:
       for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
-  
+
   diff = tot_obs.bin_cont - tot_exp.bin_cont
   chi2 = 0.0
-  
+
   if stat_meth == "NorP":
       stat_cov_matrix = rea_obs.GetStatCovMatrix().data
   else:
       stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
-  
+
   if unc == "stat":
       cov_matrix = stat_cov_matrix
   else:
       cov_matrix = stat_cov_matrix + cm.data
-  
+
   c_factor = cho_factor(cov_matrix)
-  chi2_term = cho_solve(c_factor, diff) 
+  chi2_term = cho_solve(c_factor, diff)
   chi2 = np.einsum('i,i->', diff, chi2_term) + penalty #diff.T @ solve(cov_matrix, diff) + penalty
   return chi2
-  
+
 
 def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.0
