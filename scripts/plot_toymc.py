@@ -104,8 +104,8 @@ def plot_ngeo_relative_error(h5_file):
     plt.figure(figsize=(8, 6))
     plt.hist(ngeo_relative_error * 100., bins=30, color="skyblue", alpha=0.7, label="Ngeo Relative Error")
     plt.axvline(median * 100., color="orange", linestyle="--", label=f"Median = {median * 100.:.1f}")
-    plt.axvline((median + sigma_plus) * 100., color="green", linestyle="--", label=f"+34% Sigma = {sigma_plus * 100.:.1f}")
-    plt.axvline((median - sigma_minus) * 100., color="red", linestyle="--", label=f"-34% Sigma = {sigma_minus * 100.:.1f}")
+    plt.axvline((median + sigma_plus) * 100., color="green", linestyle="--", label=f"+34% = {sigma_plus * 100.:.1f}")
+    plt.axvline((median - sigma_minus) * 100., color="red", linestyle="--", label=f"-34% = {sigma_minus * 100.:.1f}")
     plt.xlabel("Ngeo_err / Ngeo [%]")
     plt.ylabel("No. of toys")
     plt.legend()
@@ -116,7 +116,7 @@ def plot_ngeo_relative_error(h5_file):
 h5_file = "fit_results_geo_NorP_free_NO-True_6years_411bins_minuit.hdf5"
 
 # Generate the pair plot
-create_pair_plot(h5_file)
+#create_pair_plot(h5_file)
 
 # Plot the Ngeo relative error
-#plot_ngeo_relative_error(h5_file)
+plot_ngeo_relative_error(h5_file)
