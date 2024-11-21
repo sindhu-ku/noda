@@ -307,6 +307,7 @@ class Spectrum:
             Epos_temp=0.
             for cos_theta in range(-1, 1, 100):
                 Epos_temp += func.Eval(energy, cos_theta)
+
             Epos[i] = Epos_temp
     else:
         Deltanp = Mn - Mp
@@ -374,7 +375,7 @@ class Spectrum:
   #
   # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
   #   Enu = self.bins  # Neutrino energy
-  #   cos_theta_vals = [0] #np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
+  #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
   #
   #   # Constants
   #   Mn = 939.56536  # Neutron mass (MeV)
@@ -398,7 +399,7 @@ class Spectrum:
   #                     np.sqrt((Enu_i - delta)**2 + kappa * Me**2)) / kappa
   #
   #           EPSILON = 1e-10
-  #           Tn_i = 2 * Enu_i**2 / (Mn + Mp) * (1 - cos_theta)
+  #           #Tn_i = 2 * Enu_i**2 / (Mn + Mp) * (1 - cos_theta)
   #           # Exact substitution for ve (pe/Ee)
   #           ve = np.sqrt(max(0, Epos_i**2 - Me**2)) / Epos_i if Epos_i > Me else EPSILON
   #
@@ -406,22 +407,19 @@ class Spectrum:
   #           if abs(ve) < EPSILON:
   #               jacobian = 1.0  # Default value when ve is negligible
   #           else:
-  #               # jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
-  #               #           (1 - Epos_i / Mp * (1 - ve * cos_theta)))
-  #
   #               jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
-  #                           (1 - Epos_i / Mp * (1 - ve * cos_theta) - Tn_i / Mp))
+  #                         (1 - Epos_i / Mp * (1 - ve * cos_theta)))
   #
   #
   #           #print(Epos_i, jacobian)
-  #           Epos_temp += (jacobian) * Epos_i + Tn_i
+  #           Epos_temp += (jacobian) * Epos_i
   #       Epos.append((Epos_temp / len(cos_theta_vals)))  # Averaging
   #
   #   Epos = np.array(Epos)
   #   Evis = Epos + Me  # Add 0.511 MeV for visible energy
   #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
-
-
+  #
+  #
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins
