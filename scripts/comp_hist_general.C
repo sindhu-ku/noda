@@ -107,6 +107,8 @@ void make_canvas (string rootfile1, string rootfile2, string hist1, string hist2
   pad1->cd();
   h1->SetLineColor(4); h1->SetLineWidth(2); h2->Draw("hist");
   h2->SetLineColor(2); h2->SetLineWidth(2); h1->Draw("hist && same");
+  h1->GetYaxis()->SetLabelSize(0.05);
+  h2->GetYaxis()->SetLabelSize(0.05);
   TLegend *legend = new TLegend(0.4, 0.5, 0.9, 0.8);
   TLegendEntry *entry1 =legend->AddEntry(h1, legend1.c_str(), "");
   TLegendEntry *entry2 =legend->AddEntry(h2, legend2.c_str(), "");
@@ -150,12 +152,18 @@ void make_canvas (string rootfile1, string rootfile2, string hist1, string hist2
 void comp_hist_general(){
 
    //make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rea_osc_noFT2", "hreac_wcorr", "Sindhu", "Yury Oct 23", false);
-   //make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/GeoneutrinoCommonInputs.root", "rea_osc_noFT2", "Reactor_NN_rc+me", "Sindhu", "Cris common inputs", false);
-    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/control_histos_NO.root", "rea_osc_noFT2", "h_Sig", "Sindhu", "Steven", false);
-    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/spectra-dubna-normal.root", "rea_osc_PDG2020_100p_noTF2", "juno_eres", "Sindhu", "Dubna", false);
-    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/junotao-NO-spectra-ihep_Jinnan-round13.root", "rea_osc_PDG2020_100p_noTF2", "h_NMO", "Sindhu", "IHEP", false);
-        make_canvas("/home/sindhu/Downloads/spectra-dubna-normal.root", "/home/sindhu/Downloads/junotao-NO-spectra-ihep_Jinnan-round13.root", "juno_eres", "h_NMO", "Dubna", "IHEP", false);
-    make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/reactor_spectra.root", "rea_osc_noFT2", "osc_NL_reso_all_cores_NO", "Sindhu", "Vanessa", false);
+    //make_canvas("Sindhu_Nov21.root", "data/GeoneutrinoCommonInputs.root", "rea_osc_oldana", "Reactor_NN_rc+me", "Analytical formula", "MC (NN)", false);
+    //make_canvas("Sindhu_Nov21.root", "data/GeoneutrinoCommonInputs.root", "rea_osc_oldana_Tn", "Reactor_NN_rc+me", "Analytical with Tn", "MC (NN)", false);
+    //make_canvas("Sindhu_Nov21.root", "data/GeoneutrinoCommonInputs.root", "rea_osc_TF2", "Reactor_NN_rc+me", "Analytical", "MC (NN)", false);
+    // make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/control_histos_NO.root", "rea_osc_noFT2", "h_Sig", "Sindhu", "Steven", false);
+     make_canvas("Sindhu_Nov21.root", "/home/sindhu/Downloads/spectra-dubna-normal.root", "rea_osc_oldana", "juno_eres", "Sindhu analytical formula (approx)", "Dubna", false);
+     make_canvas("Sindhu_Nov21.root", "/home/sindhu/Downloads/spectra-dubna-normal.root", "rea_osc_oldana_Tn", "juno_eres", "Sindhu analytical formula (approx) with Tn", "Dubna", false);
+     make_canvas("Sindhu_Nov21.root", "/home/sindhu/Downloads/spectra-dubna-normal.root", "rea_osc_TF2", "juno_eres", "Sindhu TF2", "Dubna", false);
+     make_canvas("Sindhu_Nov21.root", "/home/sindhu/Downloads/spectra-dubna-normal.root", "rea_osc_TF2_DYB", "juno_eres", "Sindhu TF2 DYB", "Dubna", false);
+     make_canvas("Sindhu_Nov21.root", "/home/sindhu/Downloads/spectra-dubna-normal.root", "rea_osc_fullform", "juno_eres", "Sindhu full analytical formula (Str, Vis.)", "Dubna", false);
+    // make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/junotao-NO-spectra-ihep_Jinnan-round13.root", "rea_osc_PDG2020_100p_noTF2", "h_NMO", "Sindhu", "IHEP", false);
+    // make_canvas("/home/sindhu/Downloads/spectra-dubna-normal.root", "/home/sindhu/Downloads/junotao-NO-spectra-ihep_Jinnan-round13.root", "juno_eres", "h_NMO", "Dubna", "IHEP", false);
+    // make_canvas("Sindhu_Nov11.root", "/home/sindhu/Downloads/reactor_spectra.root", "rea_osc_noFT2", "osc_NL_reso_all_cores_NO", "Sindhu", "Vanessa", false);
 
    //make_canvas("/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "/home/sindhu/Downloads/GeoneutrinoCommonInputs.root", "hreac_wcorr", "Reactor_NN_rc+me", "Yury Oct 23rd", "Cris common inputs", false);
   // make_canvas("Sindhu_spectra_Oct28.root", "/home/sindhu/Downloads/j22_reac_spec_wcorr.root", "rosc_Enfixed_new2", "hreac_wcorr", "Sindhu Tn fixed", "Yury", false);
