@@ -50,6 +50,35 @@ def plot_fit_results():
     plt.tight_layout()
     plt.show()
     #plt.savefig('tot_geo_pres.png')
+
+def plot_geo_sens():
+    years = [1, 3, 6, 10]
+    data = {} 
+
+    for year in years:
+        try:
+            df = pd.read_csv(f"Geo_Nov20/fit_results_geo_UThfree_NorP_free_NO-True_{year}years_411bins_minuit.txt", sep=' ', header=None)
+            uncertainty = df.iloc[:, 25]*100.
+            tnu = df.iloc[:, 29]
+            data[year] = (uncertainty, tnu)
+        except Exception as e:
+            print(f"Error reading file for {year} years: {e}")
+
+    plt.figure(figsize=(10, 6))
+    
+    for year, (uncertainty, tnu) in data.items():
+        plt.plot(tnu, uncertainty, label=f"{year} years", marker='.')
+    plt.axvspan(25, 45, color='forestgreen', alpha=0.3, label="Expected TNU at JUNO") 
+    plt.ylabel("Uncertainty on $^{232}$Th rate [%]", fontsize=18)
+    plt.xlabel("Total geoneutrino ($^{238}$U + $^{232}$Th) rate [TNU]", fontsize=18)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.legend(fontsize=16)
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig('geoTh_total_precision.png')
+    #plt.show() 
+        
 def plot_mantle2D():
     tnu_conv = 30.875912
     df = pd.read_csv('Geo_mantle_2D/fit_results_NorP_free_NO-True_6years_411bins_minuit.txt', header=None, delimiter=' ')
@@ -112,4 +141,5 @@ def plot_mantle_all():
 
 if __name__ == '__main__':
     #plot_fit_results()
-    plot_mantle2D()
+    #plot_mantle2D()
+    plot_geo_sens()
