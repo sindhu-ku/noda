@@ -15,6 +15,7 @@ from .bayesian import bayesian_results as bayes_res
 from . import grid_scan_results as scan_res
 from . import minuit as minuit
 import h5py
+from .toymc import run_toy, save_batch_results
 
 def main(argv=None):
   if argv is None:
@@ -269,50 +270,6 @@ def main(argv=None):
           for u in corr_dep_list:
                cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
                #cm_corr_dep[u]
-  np.random.seed(42)
-  def generate_toy_spectrum(spectrum, cov_matrix):
-      L = np.linalg.cholesky(cov_matrix.data)
-      y = np.random.normal(0, 1, len(spectrum.bin_cont))
-      S_fluc = np.array(spectrum.bin_cont) + L @ y
-      S_fluc = np.maximum(S_fluc, 0)
-      S_fluc_poisson = np.random.poisson(S_fluc)
-      return S_fluc_poisson
-
-  def run_toy(i):
-      if i%100 == 0: print(f"Toys: {i}/{args_juno.ntoys}")
-      ensp_nom_juno['toy'] = Spectrum(bins=ensp_nom_juno['rdet'].bins, bin_cont=generate_toy_spectrum(ensp_nom_juno['geo'] + ensp_nom_juno['rdet'], cm_juno[unc_list_new_juno[0]]))
-      nan_mask = np.isnan(ensp_nom_juno['toy'].bin_cont)
-      if len(ensp_nom_juno['toy'].bin_cont[nan_mask] !=0): print("WARNING: NaN values found!")
-      ensp_nom_juno['rtot_toy'] = ensp_nom_juno['rtot'] - ensp_nom_juno['geo'] - ensp_nom_juno['rdet'] + ensp_nom_juno['toy']
-      try:
-          results = minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
-          return results
-      except Exception as e:
-          print(f"WARNING: Minuit failed")
-          return None 
-
-  def save_batch_results(filename, batch_results):
-    if batch_results is None:
-        print("WARNING: No valid data to save. Skipping...")
-        return
-    filtered_results = [row for row in batch_results if row is not None]
-    if filtered_results is None:
-        print("WARNING: No valid data to save. Skipping...")
-        return
-    new_data = np.array(filtered_results, dtype='S64')
-    dataset_name ='geo'
-    with h5py.File(filename, "a") as hdf:
-        if dataset_name in hdf:
-            dset = hdf[dataset_name]
-            dset.resize(dset.shape[0] + new_data.shape[0], axis=0)
-            dset[-new_data.shape[0]:] = new_data
-        else:
-            dset = hdf.create_dataset(
-                dataset_name,
-                data=new_data,
-                maxshape=(None, new_data.shape[1]),  # Unlimited rows, fixed columns
-                compression="gzip",
-            )
 
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args_juno.stat_method_opt == 'bayesian':
@@ -342,8 +299,10 @@ def main(argv=None):
                   for batch_start in range(0, args_juno.ntoys, args_juno.toy_batch_size):
                       batch_start_t = datetime.now()
                       batch_end = min(batch_start + args_juno.toy_batch_size, args_juno.ntoys)
+
                       try:
-                          batch_results = Parallel(n_jobs=-1, timeout=args_juno.toymc_timeout)(delayed(run_toy)(i=t) for t in range(batch_start, batch_end))
+                          batch_results = Parallel(n_jobs=-1, timeout=args_juno.toymc_timeout)(delayed(run_toy)(i=t, ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0],\
+                           resp_matrix=resp_matrix, cm_juno=cm_juno, args_juno=args_juno) for t in range(batch_start, batch_end))
                       except Exception as e:
                           print(f"WARNING: Joblib exceeded time limit")
                           batch_results = None
@@ -351,6 +310,7 @@ def main(argv=None):
                       filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.hdf5"
                       save_batch_results(filename, batch_results)
                       del batch_results
+                      if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
               else:
                   for unc in unc_list_new_juno: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
          # dm2_31_val = 2.5283e-3
