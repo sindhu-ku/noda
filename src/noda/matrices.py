@@ -180,8 +180,8 @@ def GetCM(ensp = {},
         cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) + ensp['rea300'].GetStatCovMatrix()
 
     if detector != "tao":
-        if args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
-        if args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
+        if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
+        if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
         return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300']
     else: return cm['acc'] + cm['lihe'] + cm['fneu']
 
