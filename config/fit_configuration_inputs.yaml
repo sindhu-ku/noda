@@ -19,18 +19,20 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
-  calc_minuit_errors: true
-  write_results: false
-  silent_print: false
+  calc_minuit_errors: false
+  write_results: true
+  silent_print: true
   geo_spectra: ana
   fit_type: geo #NMO, geo or PMOP (default)
   geo_fit_type: total #UThfree, mantle or total (default)
   mantle_model: GC
   include_TAO: true #for NMO
   geo_OPfixed: false
-  toymc: false
+  toymc: true
   ntoys: 10000
   toy_batch_size: 8
+  minuit_timeout: 60 #s
+  toymc_timeout: 60 #s
   #just for the bayesian method, random seeds and chi2 def
   bayes_seed_beg: 481
   bayes_chi2: CNP
@@ -56,7 +58,7 @@ fit_options:
     - [8.2, 9, 1]
 
   FORCE_CALC_RM: false # Force calculation of response matrix
-  FORCE_CALC_CM: true # Force calculation of covariance matrices
+  FORCE_CALC_CM: false # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
 
@@ -69,10 +71,10 @@ fit_options:
   aneu_hist: AlphaN_MC
   reactor_model: Huber-Mueller
 
-  main_data_folder: Geo_Nov19
+  main_data_folder: Geo_toy_Nov20
   cov_matrix_plots_folder: CMplots #folder to store CM plots
   plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: Geo_Nov19 #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: Geo_toy_Nov20 #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: ../Data_test/Bayesian/npz_files
   bayes_plots_folder: ../Data_test/Bayesian/Plots
 
@@ -91,9 +93,9 @@ fit_options:
 
   bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
 
-  sample_size_resp: 10 #000 # Sample size for response matrix fluctuations
+  sample_size_resp: 10000 # Sample size for response matrix fluctuations
   sample_size_core: 10000 # Sample size for core powers fluctuations
-  sample_size_nonl: 10 #000 # Sample size for non-linearity fluctuations
+  sample_size_nonl: 10000 # Sample size for non-linearity fluctuations
   sample_size_me: 10000 #00 # Sample size for matter effect fluctuations
 
 
@@ -106,8 +108,11 @@ common_det_inputs:
   crust_rate_unc: 0.1
   mantle_rate:
     GD: 0.635
-    GC: 0.259 #0.285  #0.259 #0.285
+    GC: 0.285  #0.259 #0.285
     CC: 0.081
+
+  geo_tnu_rate: 37.0
+  tnu_to_cpd: 0.032387707 
 
   me_rho: 2.45 #2.45
   duty_cycle: 0.91666667
@@ -138,8 +143,8 @@ common_det_inputs:
   noneq_unc: 0.3
   core_flux_unc: 0.008
   ff: 0.0005
-  nl_hist_name: positronScintNL
-  pos_ene_TF2: Epositron_Enu_cos_DYB
+  nl_hist_name: J22rc0_positronScintNL
+  pos_ene_TF2: Epositron_Enu_cos_StrumiaVissani
 
   unc_corr_ind: r2+snf+noneq
 
@@ -193,7 +198,7 @@ juno_inputs:
 #  # Uncertainty list
   unc_list_juno:
     #- stat
-    - stat+bg+b2b_DYB
+    - stat+bg+b2b_DYB+nl
     # - stat+bg+eff+r2+snf+noneq+abc+me
     #   - stat+eff
     #   - stat+r2
