@@ -14,7 +14,6 @@ from .bayesian import bayesian as bayes
 from .bayesian import bayesian_results as bayes_res
 from . import grid_scan_results as scan_res
 from . import minuit as minuit
-import h5py
 from .toymc import run_toy, save_batch_results
 
 def main(argv=None):
