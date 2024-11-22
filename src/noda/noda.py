@@ -16,6 +16,8 @@ from joblib import Parallel, delayed
 import uproot
 import ROOT
 from scipy.integrate import quad
+from array import array
+from scipy.linalg import cho_solve, cho_factor
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -39,8 +41,7 @@ class Spectrum:
     self.ylabel = ylabel
 
     for i, x in enumerate(self.bin_cont):  # make negative bins equal to one
-      if x<0: self.bin_cont[i] = 0
-
+      if x<0 : self.bin_cont[i] = 0
   def __add__(self, other):
 # Should we check weather the bins are the same in two spectra? May be slow.
 #    if self.bins != other.bins:
@@ -255,7 +256,6 @@ class Spectrum:
     eshift = 0
     if ene_mode == 'vis':
       eshift = -0.511+1.293
-    #print(sin2_th12, sin2_th13, dm2_21, dm2_32)
     for l, share in zip(L, core_shares):
       if osc_formula == nuosc.AntiNueSurvProb:
         P = lambda evis: osc_formula(evis+eshift, l,
@@ -267,17 +267,16 @@ class Spectrum:
                                      sin2_th12=sin2_th12, sin2_th13=sin2_th13,
                                      dm2_21=dm2_21, dm2_ee=dm2_ee,
                                      me_rho=me_rho)
-      val = []
+      val =[]
       for b1, b2, x in zip(self.bins[:-1], self.bins[1:], self.bin_cont):
         if points_per_bin == 1:
           val.append(x*P(0.5*(b1+b2))*share)
         else:
-          v = 0
-          for i in range(points_per_bin):
-            w = (b2-b1)/points_per_bin
-            v += P(b1+(i+0.5)*w)/points_per_bin
+          w = (b2 - b1) / points_per_bin
+          v = sum(P(b1 + (i + 0.5) * w) for i in range(points_per_bin)) / points_per_bin
           val.append(x*v*share)
       spec += Spectrum(val, bins=self.bins, xlabel=self.xlabel)
+
     return spec
 
   def ApplyDetResp(self, respMat, pecrop=None):
@@ -294,36 +293,133 @@ class Spectrum:
     Enu = self.bins
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
-  #
-  def GetWithPositronEnergy(self):
-    # #print("entering pos E")
+
+  def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
     Enu = self.bins
     Mn = 939.56536 #MeV
     Mp = 938.27203 #MeV
     Me = 0.51099893 #MeV
-    Deltanp = Mn - Mp
-    Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
-    #print ("Any Mdiff is < 0", (Mdiff<0.).any())
-    Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
-    #Epos = (Enu - Deltanp) / 2.0 + np.sqrt((Enu - Deltanp)**2 - Me**2) / 2.0
+    if inputfile and tf2name:
+        Epos = np.zeros_like(Enu)
+        file = ROOT.TFile(inputfile)
+        func = file.Get(tf2name)
+        for i, energy in enumerate(Enu):
+            Epos_temp=0.
+            for cos_theta in range(-1, 1, 100):
+                Epos_temp += func.Eval(energy, cos_theta)
 
-    Evis = Epos + 0.511
+            Epos[i] = Epos_temp
+    else:
+        Deltanp = Mn - Mp
+        Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
+        Tn = 2 * Enu**2 / (Mn + Mp)
+        Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
+
+
+    Evis = Epos + Me
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
 
-  # def GetWithPositronEnergy(self):
+  # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
+  #   Enu = self.bins  # Neutrino energy
+  #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
+  #
   #   # Constants
-  #   Enu = self.bins  # Antineutrino energy bins
-  #   Epos = np.zeros_like(Enu)
-  #   file = ROOT.TFile("data/JUNOInputs2022_05_08.root")
-  #   Epositron_Enu_cos_StrumiaVissani = file.Get("Epositron_Enu_cos_StrumiaVissani")
-  #   for i, energy in enumerate(Enu):
-  #       Epos_temp =0.
-  #       for cos_theta in range(-1, 1, 100):  # Random angle for each energy
-  #           Epos_temp += -1.*Epositron_Enu_cos_StrumiaVissani.Eval(energy, cos_theta)
-  #       Epos[i] = -1e2*Epos_temp/100.
-  #   # Visible energy includes the positron mass contribution
-  #   Evis = Epos + 0.511  # Adding the rest mass of the positron
+  #   Mn = 939.56536  # Neutron mass (MeV)
+  #   Mp = 938.27203  # Proton mass (MeV)
+  #   Me = 0.51099893  # Electron mass (MeV)
+  #   delta = (Mn**2 - Mp**2 - Me**2) / (2.0 * Mp)  # Exact substitution for δ
+  #
+  #   if inputfile and tf2name:
+  #       Epos = np.zeros_like(Enu)
+  #       file = ROOT.TFile(inputfile)
+  #       func = file.Get(tf2name)
+  #       for i, energy in enumerate(Enu):
+  #           Epos_temp = 0.0
+  #           for cos_theta in cos_theta_vals:
+  #               Epos_temp += func.Eval(energy, cos_theta)
+  #           Epos[i] = Epos_temp  # Averaging over cos(θ)
+  #   else:
+  #       # Using exact equations for Ee and Jacobian
+  #       Epos = []
+  #       for Enu_i in Enu:
+  #           Epos_temp = 0.0
+  #           epsilon_nu = Enu_i / Mp
+  #           for cos_theta in cos_theta_vals:
+  #               kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
+  #               if kappa <= 0:
+  #                   continue  # Avoid invalid square root
+  #
+  #               # Exact substitution for Ee (Equation 11)
+  #               Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
+  #                         epsilon_nu * cos_theta *
+  #                         np.sqrt((Enu_i - delta)**2 + kappa * Me**2)) / kappa
+  #
+  #               EPSILON = 1e-10
+  #
+  #               # Exact substitution for ve (pe/Ee)
+  #               ve = np.sqrt(max(0, Epos_i**2 - Me**2)) / Epos_i if Epos_i > Me else EPSILON
+  #
+  #               # Adjust Jacobian to handle ve -> 0 safely
+  #               if abs(ve) < EPSILON:
+  #                   jacobian = 1.0  # Default value when ve is negligible
+  #               else:
+  #                   jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
+  #                             (1 - Epos_i / Mp * (1 - ve * cos_theta)))
+  #               print(Epos_i, jacobian)
+  #               Epos_temp += jacobian * Epos_i
+  #           Epos.append(Epos_temp / len(cos_theta_vals))  # Averaging
+  #
+  #       Epos = np.array(Epos)
+  #   Evis = Epos + 0.511  # Add 0.511 MeV for visible energy
   #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+  #
+  # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
+  #   Enu = self.bins  # Neutrino energy
+  #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
+  #
+  #   # Constants
+  #   Mn = 939.56536  # Neutron mass (MeV)
+  #   Mp = 938.27203  # Proton mass (MeV)
+  #   Me = 0.51099893  # Electron mass (MeV)
+  #   delta = (Mn**2 - Mp**2 - Me**2) / (2.0 * Mp)  # Exact substitution for δ
+  #
+  #   # Using exact equations for Ee and Jacobian
+  #   Epos = []
+  #   for Enu_i in Enu:
+  #       Epos_temp = 0.0
+  #       epsilon_nu = Enu_i / Mp
+  #       for cos_theta in cos_theta_vals:
+  #           kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
+  #           if kappa <= 0:
+  #               continue  # Avoid invalid square root
+  #
+  #           # Exact substitution for Ee (Equation 11)
+  #           Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
+  #                     epsilon_nu * cos_theta *
+  #                     np.sqrt((Enu_i - delta)**2 + kappa * Me**2)) / kappa
+  #
+  #           EPSILON = 1e-10
+  #           #Tn_i = 2 * Enu_i**2 / (Mn + Mp) * (1 - cos_theta)
+  #           # Exact substitution for ve (pe/Ee)
+  #           ve = np.sqrt(max(0, Epos_i**2 - Me**2)) / Epos_i if Epos_i > Me else EPSILON
+  #
+  #           # Adjust Jacobian to handle ve -> 0 safely
+  #           if abs(ve) < EPSILON:
+  #               jacobian = 1.0  # Default value when ve is negligible
+  #           else:
+  #               jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
+  #                         (1 - Epos_i / Mp * (1 - ve * cos_theta)))
+  #
+  #
+  #           #print(Epos_i, jacobian)
+  #           Epos_temp += (jacobian) * Epos_i
+  #       Epos.append((Epos_temp / len(cos_theta_vals)))  # Averaging
+  #
+  #   Epos = np.array(Epos)
+  #   Evis = Epos + Me  # Add 0.511 MeV for visible energy
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+  #
+  #
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins
@@ -499,6 +595,17 @@ class Spectrum:
       #print(f"     Doing rebinning for b2b uncertainties")
     return self.GetVariedB2BCovMatrix(sigmas)
 
+  def WritetoROOT(self, histname, outfile):
+    output_file = ROOT.TFile(outfile, "update")
+    bins = self.bins
+    bin_cont = self.bin_cont
+    hist = ROOT.TH1D(histname, histname, len(bins) - 1, array('d', bins))
+    hist.Sumw2()
+    for i in range(len(bin_cont)):
+        hist.SetBinContent(i + 1, bin_cont[i])
+    hist.Write()
+    output_file.Close()
+
   def SetXlabel(self, label):
     self.xlabel = label
 
@@ -523,18 +630,20 @@ class Spectrum:
     elif type(colors) == 'str':
       colors = [colors] + ['lightsteelblue']*len(extra_spectra)
     plt.figure(figsize=(10,6))
-    plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=1, color=colors[0], label=leg_labels[0], log=log_scale)
+    plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=2, color=colors[0], label=leg_labels[0], log=log_scale)
     for i,s in enumerate(extra_spectra):
-      plt.hist(s.bins[:-1], weights=s.bin_cont, bins=s.bins, fill=False, histtype='step', linewidth=1, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
-    plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=1, color=colors[0])
+      plt.hist(s.bins[:-1], weights=s.bin_cont, bins=s.bins, fill=False, histtype='step', linewidth=2, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
+    plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=2, color=colors[0])
     if xmin is not None: plt.xlim(left=xmin)
     if xmax is not None: plt.xlim(right=xmax)
     if ymin is not None: plt.ylim(bottom=ymin)
     if ymax is not None: plt.ylim(top=ymax)
     if yinterval: plt.yticks(np.arange(ymin, ymax, yinterval))
-    plt.xlabel(self.xlabel)
-    plt.ylabel(self.ylabel)
-    if all(leg_labels): plt.legend()
+    plt.xlabel(self.xlabel, fontsize=18)
+    plt.ylabel(self.ylabel, fontsize=18)
+    plt.xticks(fontsize=16)
+    plt.xticks(fontsize=16)
+    if all(leg_labels): plt.legend(fontsize=16)
     plt.savefig(fname)
     plt.close()
 
@@ -596,6 +705,15 @@ class CovMatrix:
 
   def Add(self, cm):  # to be removed
     return CovMatrix(self.data + cm.data, bins=self.bins, axis_label=self.axis_label)
+
+  def Extend(self, other):
+    A = self.data.shape[0]
+    B = other.data.shape[0]
+    extended_data = np.zeros((A + B, A + B))
+    extended_data[:A, :A] = self.data
+    extended_data[A:, A:] = other.data
+    new_bins = np.concatenate([self.bins, other.bins])
+    return CovMatrix(data=extended_data, bins=new_bins)
 
   def Scale(self, scale_factor):
     sf2 = scale_factor*scale_factor
@@ -823,34 +941,70 @@ def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0)
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
 
-def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' '):
+def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
+  penalty = 0.
+
+  if pulls and pull_unc:
+      for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
+
   diff = tot_obs.bin_cont - tot_exp.bin_cont
   chi2 = 0.0
+
   if stat_meth == "NorP":
-    norp_stat_cm = rea_obs.GetStatCovMatrix()
-    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff
-    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff
+      stat_cov_matrix = rea_obs.GetStatCovMatrix().data
   else:
-    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
-    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff
-    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff
+      stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
+
+  if unc == "stat":
+      cov_matrix = stat_cov_matrix
+  else:
+      cov_matrix = stat_cov_matrix + cm.data
+
+  c_factor = cho_factor(cov_matrix)
+  chi2_term = cho_solve(c_factor, diff)
+  chi2 = np.einsum('i,i->', diff, chi2_term) + penalty #diff.T @ solve(cov_matrix, diff) + penalty
   return chi2
 
-def Chi2_p(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=[], pull_unc=[]):
-  penalty = 0.
-  for p, u in zip(pulls, pull_unc):
-    penalty += (p/u)**2
-  diff = tot_obs.bin_cont - tot_exp.bin_cont
-  chi2 = 0.0
+
+def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
+  penalty = 0.0
+  if pulls and pull_unc:
+      for p, u in zip(pulls, pull_unc): penalty += (p / u) ** 2
+
+  diff1 = tot_obs1.bin_cont - tot_exp1.bin_cont
+  diff2 = tot_obs2.bin_cont - tot_exp2.bin_cont
+
+  diff_total = np.concatenate((diff1, diff2))
+
   if stat_meth == "NorP":
-    norp_stat_cm = rea_obs.GetStatCovMatrix()
-    if unc == "stat": chi2 = diff.T @ norp_stat_cm.data_inv @ diff + penalty
-    else: chi2 = diff.T @ np.linalg.inv(norp_stat_cm.data + cm.data) @ diff + penalty
+      stat_cm1 = rea_obs1.GetStatCovMatrix()
+      stat_cm2 = rea_obs2.GetStatCovMatrix()
   else:
-    cnp_stat_cm = rea_obs.GetCNPStatCovMatrix(rea_exp)
-    if unc == "stat": chi2 = diff.T @ cnp_stat_cm.data_inv @ diff + penalty
-    else: chi2 = diff.T @ np.linalg.inv(cnp_stat_cm.data + cm.data) @ diff + penalty
+      stat_cm1 = rea_obs1.GetCNPStatCovMatrix(rea_exp1)
+      stat_cm2 = rea_obs2.GetCNPStatCovMatrix(rea_exp2)
+
+  stat_cm1_mod = stat_cm1.Extend(CovMatrix(data=np.zeros((len(tot_obs1.bins)-1, len(tot_obs1.bins)-1)), bins=tot_obs1.bins))
+  cm_stat_tao_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
+  stat_cm2_mod = cm_stat_tao_z.Extend(stat_cm2)
+
+  cm1_mod = cm1.Extend(CovMatrix(data=np.zeros((len(tot_obs1.bins)-1, len(tot_obs1.bins)-1)), bins=tot_obs1.bins))
+  cm_tao_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
+  cm2_mod = cm_tao_z.Extend(cm2)
+
+  if unc == "stat":
+      total_cov_matrix = stat_cm1_mod.data + stat_cm2_mod.data
+
+  else:
+      total_cov_matrix = stat_cm1_mod.data +  stat_cm2_mod.data + cm1_mod.data + cm2_mod.data + corr_cm.data
+
+  total_cov_matrix_inv = np.linalg.inv(total_cov_matrix)
+
+  #diff_total = diff_total.reshape(-1, 1)
+  #chi2 = np.linalg.solve(total_cov_matrix, diff_total).T @ diff_total + penalty
+  chi2 = diff_total.T @ total_cov_matrix_inv @ diff_total + penalty
+
   return chi2
+
 
 # def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
 #   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,

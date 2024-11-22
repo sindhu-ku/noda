@@ -27,6 +27,7 @@ setup(
         'corner',
         'iminuit',
         'uproot',
+        'h5py',
     ],
     python_requires='>=3.10',
 )
