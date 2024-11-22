@@ -294,12 +294,12 @@ class Spectrum:
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
 
-  def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
+  def GetWithPositronEnergy(self, type='ana', inputfile=None, tf2name=None):
     Enu = self.bins
     Mn = 939.56536 #MeV
     Mp = 938.27203 #MeV
     Me = 0.51099893 #MeV
-    if inputfile and tf2name:
+    if type=='TF2':
         Epos = np.zeros_like(Enu)
         file = ROOT.TFile(inputfile)
         func = file.Get(tf2name)
@@ -309,12 +309,13 @@ class Spectrum:
                 Epos_temp += func.Eval(energy, cos_theta)
 
             Epos[i] = Epos_temp
-    else:
+    elif type=='ana':
         Deltanp = Mn - Mp
         Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
         Tn = 2 * Enu**2 / (Mn + Mp)
         Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
-
+    else:
+        RaiseValueError(f"Unknown type value for positron energy shift {type}")
 
     Evis = Epos + Me
     return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)

@@ -154,16 +154,16 @@ def CreateSpectra(ndays=10,
 
 
 
-  ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-  ensp['rvis_nonl_temp'] = ensp['ribd'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+  ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+  ensp['rvis_nonl_temp'] = ensp['ribd'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
 
-  ensp['snf_osc_nonl'] = ensp['snf_osc'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+  ensp['snf_osc_nonl'] = ensp['snf_osc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
   del ensp['snf_osc']
-  ensp['noneq_osc_nonl'] = ensp['noneq_osc'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+  ensp['noneq_osc_nonl'] = ensp['noneq_osc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
   del ensp['noneq_osc']
 
   if detector=="tao":
-      ensp['rosc_pos'] = ensp['rosc'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2) #only for plotting
+      ensp['rosc_pos'] = ensp['rosc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2) #only for plotting
       ensp['rosc_eneleak'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop) #only for plotting
 
       ensp['rvis_nonl'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
@@ -274,8 +274,8 @@ def CreateSpectra(ndays=10,
       ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(ndays*rate/((1+ratio)*args.duty_cycle*ensp['rfis0_geou'].GetIntegral()))
       ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ndays*rate*ratio/((1+ratio)*args.duty_cycle*ensp['rfis0_geoth'].GetIntegral()))
 
-      ensp[f'rvis_{name}u'] = ensp[f'rfis_{name}u'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-      ensp[f'rvis_{name}th'] = ensp[f'rfis_{name}th'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      ensp[f'rvis_{name}u'] = ensp[f'rfis_{name}u'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      ensp[f'rvis_{name}th'] = ensp[f'rfis_{name}th'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
 
       ensp[f'rvis_{name}u_nonl'] = ensp[f'rvis_{name}u'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       ensp[f'rvis_{name}th_nonl'] = ensp[f'rvis_{name}th'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
@@ -309,7 +309,7 @@ def CreateSpectra(ndays=10,
       # nbins = int((9.0-3.4)/0.01)
       # ensp['geo']  = ensp['geo'] + Spectrum(bins = np.arange(3.4, 9.0, nbins), bin_cont = [0]*nbins)
       # ensp['geo'].Rebin(ebins, mode='spline-not-keep-norm')
-      # ensp['geo'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      # ensp['geo'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       # ensp['geo'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       # ensp['geo'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 

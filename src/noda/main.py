@@ -110,14 +110,11 @@ def main(argv=None):
                                     detector="juno",
                                     resp_matrix=resp_matrix,
                                     args=args_juno)
-  # ensp_nom_juno['rfis'].WritetoROOT("Enu_noRC", "Sindhu_spectra_Oct25.root")
-  # ensp_nom_juno['ribd'].WritetoROOT("Enu_wRC", "Sindhu_spectra_Oct25.root")
-  #ensp_nom_juno['rdet'].WritetoROOT("rosc_newpos_DYB", "Sindhu_spectra_Oct28.root")
-  # ensp_nom_juno['geo'].WritetoROOT("geo", "Sindhu_Nov11.root")
-  # ensp_nom_juno['geou'].WritetoROOT("geoU", "Sindhu_Nov11.root")
-  # ensp_nom_juno['geoth'].WritetoROOT("geoTh", "Sindhu_Nov11.root")
-  #ensp_nom_juno['rdet'].WritetoROOT("rea_osc_noFT2", "Sindhu_Nov11.root")
-  # ensp_nom_juno['ribd'].WritetoROOT("rea_unosc_noRC_noME", "Sindhu_Nov11.root")
+  # ensp_nom_juno['geo'].WritetoROOT("geo", "Sindhu_spectra_Nov21_v2.root")
+  # ensp_nom_juno['geou'].WritetoROOT("geoU", "Sindhu_spectra_Nov21_v2.root")
+  # ensp_nom_juno['geoth'].WritetoROOT("geoTh", "Sindhu_spectra_Nov21_v2.root")
+  # ensp_nom_juno['rdet'].WritetoROOT("rea_osc", "Sindhu_spectra_Nov21_v2.root")
+  # ensp_nom_juno['ribd'].WritetoROOT("rea_unosc", "Sindhu_spectra_Nov21_v2.root")
   if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
       ensp_nom_tao  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,

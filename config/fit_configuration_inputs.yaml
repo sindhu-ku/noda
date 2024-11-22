@@ -19,16 +19,16 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
-  calc_minuit_errors: false
+  calc_minuit_errors: true
   write_results: true
-  silent_print: true
+  silent_print: false
   geo_spectra: ana
   fit_type: geo #NMO, geo or PMOP (default)
   geo_fit_type: total #UThfree, mantle or total (default)
   mantle_model: GC
   include_TAO: true #for NMO
   geo_OPfixed: false
-  toymc: true
+  toymc: false
   ntoys: 10000
   toy_batch_size: 8
   minuit_timeout: 60 #s
@@ -57,8 +57,8 @@ fit_options:
     - [7.8, 8.2, 4]
     - [8.2, 9, 1]
 
-  FORCE_CALC_RM: false # Force calculation of response matrix
-  FORCE_CALC_CM: false # Force calculation of covariance matrices
+  FORCE_CALC_RM: true # Force calculation of response matrix
+  FORCE_CALC_CM: true # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
 
@@ -112,7 +112,7 @@ common_det_inputs:
     CC: 0.081
 
   geo_tnu_rate: 37.0
-  tnu_to_cpd: 0.032387707 
+  tnu_to_cpd: 0.032387707
 
   me_rho: 2.45 #2.45
   duty_cycle: 0.91666667
@@ -144,6 +144,7 @@ common_det_inputs:
   core_flux_unc: 0.008
   ff: 0.0005
   nl_hist_name: J22rc0_positronScintNL
+  posE_shift: ana
   pos_ene_TF2: Epositron_Enu_cos_StrumiaVissani
 
   unc_corr_ind: r2+snf+noneq

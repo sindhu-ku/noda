@@ -30,7 +30,7 @@ def GetCM(ensp = {},
 
   def mat_flu(me_rho_flu):
       ensp['rosc_me_flu'] = ensp['ribd'].GetOscillated(L=args.core_baselines, core_powers=args.core_powers, me_rho=me_rho_flu, ene_mode='true', args=args)
-      ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       if detector == "tao": ensp['rvis_me_flu_0'] = ensp['rvis_me_flu_0'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
       ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rosc_me_flu'], ensp['rvis_me_flu_0']
@@ -139,7 +139,7 @@ def GetCM(ensp = {},
       ensp['ribd_crel'].GetScaled(extrafactors2)
       ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=args.core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true', args=args)
       del ensp['ribd_crel']
-      ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy(inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       if detector == "tao": ensp['rvis_crel_flu_nonl'] = ensp['rvis_crel_flu_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
       ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rvis_crel_flu_nonl']
