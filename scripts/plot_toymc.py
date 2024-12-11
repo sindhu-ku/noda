@@ -42,20 +42,22 @@ def create_pair_plot(h5_file):
     pair_plot = sns.pairplot(
         plot_data,
         kind="hist",
-        diag_kind="kde",
+        diag_kind="hist",
         corner=True,  # Only show lower triangle of scatter plots
         height=3  # Increase figure size for better visibility
     )
 
     for i, var in enumerate(variables):
-        # Fit the data to a normal distribution
-        mu, sigma = norm.fit(df[var])
-        print(f"{var}: Mean = {mu}, Sigma = {sigma}")
-        digits =  3
+        # Compute the median and the 16th/84th percentiles for spread
+        median_val = np.median(df[var])
+        sigma_plus = np.percentile(df[var], 84) - median_val
+        sigma_minus = median_val - np.percentile(df[var], 16)
+        print(f"{var}: Median = {median_val}, +34% = {sigma_plus}, -34% = {sigma_minus}")
+        digits = 3
 
-        # Add mean and sigma text to diagonal plots
+        # Add median and spread text to diagonal plots
         ax = pair_plot.diag_axes[i]
-        ax.annotate(f"Mean: {mu:.{digits}e}\nSigma: {sigma:.{digits}e}",
+        ax.annotate(f"Median: {median_val:.{digits}e}\n+34%: {sigma_plus:.{digits}e}\n-34%: {sigma_minus:.{digits}e}",
                     xy=(0.85, 0.95), xycoords="axes fraction", fontsize=10,
                     ha="center", va="center", bbox=dict(facecolor="white", edgecolor="black", boxstyle="round"))
 
@@ -68,10 +70,10 @@ def create_pair_plot(h5_file):
             text_x = asimov_value * 1 if asimov_value > 0 else asimov_value * 1.02
             text_y = ax.get_ylim()[1] * 0.5  # Move text down a bit to avoid overlap
 
-            ax.text(text_x, text_y, f"Bias w.r.t. Asimov: {abs(asimov_value - mu)*100./asimov_value:.2f}%",
+            ax.text(text_x, text_y, f"Bias w.r.t. Asimov: {abs(asimov_value - median_val) * 100. / asimov_value:.2f}%",
                     color="red", fontsize=10, ha="right", bbox=dict(facecolor="white", alpha=0.8))
 
-    pair_plot.fig.suptitle("Pair Plot with Mean, Sigma, and Asimov Values", y=1.02)
+    pair_plot.fig.suptitle("Pair Plot with Median, Spread, and Asimov Values", y=1.02)
 
     plt.show()
 
@@ -113,10 +115,10 @@ def plot_ngeo_relative_error(h5_file):
     plt.show()
 
 # Specify the HDF5 file name
-h5_file = "fit_results_geo_NorP_free_NO-True_6years_411bins_minuit.hdf5"
+h5_file = "Nov22_final_results/fit_results_geo_NorP_free_NO-True_6years_411bins_minuit.hdf5"
 
 # Generate the pair plot
-#create_pair_plot(h5_file)
+create_pair_plot(h5_file)
 
 # Plot the Ngeo relative error
 plot_ngeo_relative_error(h5_file)
