@@ -53,7 +53,10 @@ def GetCM(ensp = {},
       new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
       new_nonl.bin_cont = ensp['scintNL'].bin_cont + w[0]*(ensp['NL_pull'][0].bin_cont - ensp['scintNL'].bin_cont) + w[1]*(ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)  + w[2]*(ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont) +  w[3]*(ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont)
       if args.fit_type =='geo' and args.geo_spectra == 'ana':
-          output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_geou'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_geoth'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
+          if args.geo_fit_type == 'mantle':
+              output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_mantleu'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_mantleth'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
+          else:
+              output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_geou'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_geoth'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       else:
           output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       del new_nonl
@@ -73,7 +76,11 @@ def GetCM(ensp = {},
       ensp['rdet_nl_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_nl_flu']]
       del ensp['rvis_nl_flu']
       print("     constructing cov. matrix")
-      if args.fit_type == 'geo' and args.geo_spectra == 'ana': cm['nl'] =(ensp['rdet']+ensp['geo']).GetCovMatrixFromRandSample(ensp['rdet_nl_flu'])
+      if args.fit_type == 'geo' and args.geo_spectra == 'ana':
+          if args.geo_fit_type == 'mantle':
+              cm['nl'] =(ensp['rdet']+ensp['geomantle']).GetCovMatrixFromRandSample(ensp['rdet_nl_flu'])
+          else:
+              cm['nl'] =(ensp['rdet']+ensp['geo']).GetCovMatrixFromRandSample(ensp['rdet_nl_flu'])
       else: cm['nl'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_nl_flu'])
       del ensp['rdet_nl_flu']
       end_time_nl = datetime.now()
