@@ -143,10 +143,10 @@ def geo():
     # First plot: Square-like aspect ratio
 #    ax1.plot(years, values4, marker='o', label='Irvine common inputs')
     #ax1.plot(years, values1, marker='o', label='Irvine NODA analytical')
-    ax1.plot(years, values2, marker='o', label='Irvine Asimov')
+    ax1.plot(years, values2, marker='o', label='Irvine')
     #ax1.plot(years, values3, marker='o', label='Irvine MC')
-    #ax1.plot(years, z_values, marker='o', label='Zhao')
-    ax1.plot(years, j_values, marker='o', label='Juelich Asimov')
+    ax1.plot(years, z_values, marker='o', label='Zhao')
+    #ax1.plot(years, j_values, marker='o', label='Juelich Asimov')
     #ax1.plot(years, j_values_toy, marker='o', label='Juelich toyMC')
 
     ax1.set_ylabel('Precision %', fontsize=18)
@@ -158,10 +158,10 @@ def geo():
 
     # Second plot: Rectangular aspect ratio
 #    ax2.plot(years, z_diff_ci, marker='o', label="Irvine common inputs vs Zhao")
-    #ax2.plot(years, z_diff_noda_ana, marker='o', label="Irvine NODA analytical vs Zhao")
+    ax2.plot(years, z_diff_noda_ana, marker='o', label="Irvine vs Zhao")
     #ax2.plot(years, z_diff_zhao_ana, marker='o', label="Irvine Zhao analytical vs Zhao")
     #ax2.plot(years, z_diff_mc, marker='o', label="Irvine MC vs Zhao")
-    ax2.plot(years, j_diff, marker='o', label="Irvine Asimov vs Juelich Asimov")
+    #ax2.plot(years, j_diff, marker='o', label="Irvine Asimov vs Juelich Asimov")
     #ax2.plot(years, j_diff_toy, marker='o', label="Irvine Asimov vs Juelich toyMC")
 
     ax2.set_ylabel('Rel. difference %', fontsize=18)
@@ -172,8 +172,8 @@ def geo():
 
     # Adjust layout and show the plots
     plt.tight_layout()
-    #plt.show()
-    plt.savefig('Juelich_comp.png')
+    plt.show()
+    #plt.savefig('Juelich_comp.png')
 def main():
     # unc_list, geo, change = single('fit_results_NorP_free_NO-True_6years_411bins_minuit_NL_Oct14')
     # unc_list_new, geo_new, change_new = single('fit_results_NorP_free_NO-True_6years_411bins_minuit_newNL')
