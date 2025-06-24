@@ -87,20 +87,20 @@ def main(argv=None):
   a, b, c = args_juno.a, args_juno.b, args_juno.c
   a_err, b_err, c_err =args_juno.a_err, args_juno.b_err, args_juno.c_err
 
-  if os.path.isfile(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_RM:
-    resp_matrix = LoadRespMatrix(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  if os.path.isfile(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_RM:
+    resp_matrix = LoadRespMatrix(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
   else:
     resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
-    resp_matrix.Save(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+    resp_matrix.Save(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
   if args_juno.FORCE_CALC_RM:
     resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/resp_matrix.csv")
 
-  if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_tao.FORCE_CALC_ENE_LEAK:
-    ene_leak_tao = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_tao.FORCE_CALC_ENE_LEAK:
+    ene_leak_tao = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
   else:
     ene_leak_tao = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
-    ene_leak_tao.Save(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+    ene_leak_tao.Save(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
   if args_tao.FORCE_CALC_ENE_LEAK:
     ene_leak_tao.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/ene_leak_tao_matrix.csv")
@@ -137,12 +137,12 @@ def main(argv=None):
   cm_juno = {}
 
   for u in unc_list_juno:
-      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-          print(" # Loading covariance matriix", f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-          cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+          print(" # Loading covariance matriix", f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
       else:
-          print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
           cm_juno[u] = mat.GetCM(ensp = ensp_nom_juno,
             resp_matrix=resp_matrix,
             ndays=ndays,
@@ -164,11 +164,11 @@ def main(argv=None):
       cm_tao = {}
 
       for u in unc_list_tao:
-          if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-              print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-              cm_tao[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+              print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              cm_tao[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
           else:
-              print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
               cm_tao[u] = mat.GetCM(ensp = ensp_nom_tao,
                  resp_matrix=resp_matrix,
                  ndays=ndays,
@@ -188,11 +188,11 @@ def main(argv=None):
               unc_list_corr_dep = [args_juno.unc_corr_dep]
 
           for u in unc_list_corr_dep:
-              if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-                  print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-                  cm_corr_dep[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+                  print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+                  cm_corr_dep[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
               else:
-                  print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+                  print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
                   cm_corr_dep[u] = mat.GetCorrCM(ensp_juno = ensp_nom_juno,
                             ensp_tao = ensp_nom_tao,
                             resp_matrix=resp_matrix,
@@ -212,8 +212,8 @@ def main(argv=None):
       if args_juno.unc_corr_ind:
           unc_list_corr_ind = args_juno.unc_corr_ind.split('+')
           for new_unc in unc_list_corr_ind:
-              cm_corr[new_unc] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{new_unc}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")\
-                                .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{new_unc}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
+              cm_corr[new_unc] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")\
+                                .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
               #cm_juno[new_unc].Extend(cm_tao[new_unc])
 
 
@@ -230,10 +230,10 @@ def main(argv=None):
 
   for full_unc in unc_list_new_juno:
     single_unc_list = full_unc.split("+")
-    cm_juno[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
+    cm_juno[full_unc] = CovMatrix(data=np.zeros((len(ensp_nom_juno['rdet'].bins)-1, len(ensp_nom_juno['rdet'].bins)-1)), bins=ebins)
     for u in single_unc_list:
-      cm_juno[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      #cm_juno[u]
+      cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      cm_juno[full_unc] += cm_juno[u]
 
 
   if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
@@ -247,7 +247,7 @@ def main(argv=None):
           single_unc_list = full_unc.split("+")
           cm_tao[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
           for u in single_unc_list:
-              cm_tao[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              cm_tao[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
               #cm_tao[u]
 
       for key in unc_list_new_tao:
@@ -264,7 +264,7 @@ def main(argv=None):
           for u in corr_ind_list[1:]:
               cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += cm_corr[u]
           for u in corr_dep_list:
-               cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+               cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
                #cm_corr_dep[u]
 
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
@@ -292,18 +292,20 @@ def main(argv=None):
               minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
           else:
               if args_juno.toymc:
-                  for batch_start in range(0, args_juno.ntoys, args_juno.toy_batch_size):
+                  #if args_juno.geo_tnu_rate <= 20: ntoys = 5000
+                  #else: ntoys = 1000
+                  for batch_start in range(0, int(args_juno.ntoys), args_juno.toy_batch_size):
                       batch_start_t = datetime.now()
-                      batch_end = min(batch_start + args_juno.toy_batch_size, args_juno.ntoys)
+                      batch_end = min(batch_start + args_juno.toy_batch_size, int(args_juno.ntoys))
 
-                      try:
-                          batch_results = Parallel(n_jobs=-1, timeout=args_juno.toymc_timeout)(delayed(run_toy)(i=t, ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0],\
+                      #try:
+                      batch_results = Parallel(n_jobs=-1, timeout=args_juno.toymc_timeout)(delayed(run_toy)(i=t, ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0],\
                            resp_matrix=resp_matrix, cm_juno=cm_juno, args_juno=args_juno) for t in range(batch_start, batch_end))
-                      except Exception as e:
-                          print(f"WARNING: Joblib exceeded time limit")
-                          batch_results = None
+                      #except Exception as e:
+                       #   print(f"WARNING: Joblib exceeded time limit")
+                       #   batch_results = None
 
-                      filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_{args_juno.stat_method_opt}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.hdf5"
+                      filename = f"{args_juno.main_data_folder}/fit_results_minos_{args_juno.fit_type}_{args_juno.stat_method_opt}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.hdf5"
                       save_batch_results(filename, batch_results)
                       del batch_results
                       if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
