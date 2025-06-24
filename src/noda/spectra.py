@@ -292,7 +292,7 @@ def CreateSpectra(ndays=10,
 
   if args.geo_spectra == 'ana':
       if args.geo_fit_type == 'mantle':
-          ensp['geomantle'] = make_ana_geo_spectra(args.mantle_rate.get(args.mantle_model), args.mantle_Th_U_ratio, 'mantle')
+          ensp['geomantle'] = make_ana_geo_spectra(args.mantle_rate.get(args.mantle_model), args.mantle_Th_U_ratio.get(args.mantle_model), 'mantle')
           ensp['geocrust'] = make_ana_geo_spectra(float(args.crust_rate), args.crust_Th_U_ratio, 'crust')
           if args.rebin_nonuniform: 
               ensp['geomantle'].Rebin_nonuniform(args.bins_nonuniform)

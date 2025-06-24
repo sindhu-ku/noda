@@ -19,16 +19,16 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
-  calc_minuit_errors: true
+  calc_minuit_errors: false
   write_results: true
-  silent_print: true
+  silent_print: false
   geo_spectra: ana  
   fit_type: geo #NMO, geo or PMOP (default)
-  geo_fit_type: total #UThfree, mantle or total (default)
+  geo_fit_type: mantle #UThfree, mantle or total (default)
   mantle_model: GD  
   include_TAO: false #for NMO
   geo_OPfixed: false
-  toymc: true       
+  toymc: false       
   ntoys: 500      
   toy_batch_size: 8 
   minuit_timeout: 600 #s
@@ -84,10 +84,10 @@ fit_options:
   aneu_hist: AlphaN_MC
   reactor_model: Huber-Mueller
 
-  main_data_folder: Geo_June19_all
+  main_data_folder: Geo_June24_mantle
   cov_matrix_plots_folder: CMplots #folder to store CM plots
   plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: Geo_June19_all #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: Geo_June24_mantle #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: ../Data_test/Bayesian/npz_files
   bayes_plots_folder: ../Data_test/Bayesian/Plots
 
@@ -115,7 +115,10 @@ fit_options:
 # Juno Inputs
 common_det_inputs:
   Th_U_ratio: 0.29
-  mantle_Th_U_ratio: 0.298 #0.298
+  mantle_Th_U_ratio:
+    GD: 0.26 
+    GC: 0.23
+    CC: 0.17
   crust_Th_U_ratio: 0.30
   crust_rate: 1.370
   crust_rate_unc: 0.1
