@@ -47,6 +47,18 @@ def SetOscillationParameters(opt, NO, silent=True):
       op_nom['dm2_32_err'] = 0.034e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
     op_nom['dm2_31_err'] = np.sqrt(pow(op_nom["dm2_32_err"], 2) + pow(op_nom["dm2_21_err"], 2))
+  elif opt == 'PDG2024': # https://pdg.lbl.gov/2024/tables/contents_tables.html
+    op_nom['sin2_th12'] = 0.307
+    op_nom['sin2_th13'] = 0.0219
+    op_nom['dm2_21'] = 7.53e-5
+    if NO:
+      op_nom['sin2_th23'] = 0.558
+      op_nom['dm2_32'] = 2.455e-3
+    else:
+      op_nom['sin2_th23'] = 0.553
+      op_nom['dm2_32'] = -2.529e-3
+    op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
+  #
   else:
     print(f"No such option \"{opt}\"")
     return

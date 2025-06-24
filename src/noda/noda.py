@@ -102,9 +102,9 @@ class Spectrum:
     if val < self.bins[0]:
         return -1
     if val >= self.bins[-1]:
-        return len(self.bins) - 1
+        return len(self.bin_cont) - 1
     left = 0
-    right = len(self.bins) - 1
+    right = len(self.bins) - 2
     while left <= right:
         mid = (left + right) // 2
         if val < self.bins[mid]:
@@ -194,7 +194,7 @@ class Spectrum:
     new_bins.append(bins_nonuniform[-1][1])  # Append the last bin edge
 
     new_bin_cont = np.zeros(len(new_bins) - 1)
-
+   
     for i in range(len(new_bins) - 1):
       bin_start, bin_end = new_bins[i], new_bins[i+1]
       bin_mask = (self.bins[:-1] < bin_end) & (self.bins[1:] > bin_start)
@@ -204,7 +204,8 @@ class Spectrum:
           overlap_end = min(bin_end, self.bins[j+1])
           overlap_fraction = (overlap_end - overlap_start) / (self.bins[j+1] - self.bins[j])
           new_bin_cont[i] += self.bin_cont[j] * overlap_fraction
-
+    self.bins = np.array(new_bins)
+    self.bin_cont = new_bin_cont
     return Spectrum(bin_cont=new_bin_cont, bins=np.array(new_bins), xlabel=self.xlabel, ylabel=self.ylabel)
 
 
@@ -568,7 +569,7 @@ class Spectrum:
 
  # def GetVariedB2BCovMatrix(self, b2b_spectra):
  #   sigmas = np.zeros(len(self.bin_cont))
- #   for ene, sigma in zip(b2b_spectra.bins, b2b_spectra.bin_cont):
+ #   for ene, sigma in zip(b2b_spectra.bins[:-1], b2b_spectra.bin_cont):
  #     ibin = self.FindBin(ene)
  #     if ibin >= 0 and ibin < len(sigmas):
  #       sigmas[ibin] = 5#sigma
@@ -577,7 +578,7 @@ class Spectrum:
  #   for i,(x,sigma) in enumerate(zip(self.bin_cont, sigmas)):
 ##      print(x, sigma)
  #     data[i][i] = x*x*sigma*sigma
- #     print(data[i][i])
+ ##     print(data[i][i])
  #   return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
   def GetVariedB2BCovMatrixFromROOT(self, fname, hname):
@@ -935,43 +936,51 @@ def spectrum_integral(E_j, E_j1, A, B, C):
   integral, _ = quad(integrand, E_j, E_j1)
   return integral
 
-def GetSpectrumFromROOT(fname, hname, xlabel="Energy (MeV)", scale=1., eshift=0):
+def GetSpectrumFromROOT(fname, hname, toy=False, xlabel="Energy (MeV)", scale=1., eshift=0):
   rf = uproot.open(fname)
   hist = rf[hname]
   bin_cont = hist.values()*scale
+  #if toy: bin_cont[bin_cont == 0] = 0.1
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
 
+
 def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.
-
+  bins_nonuniform = [[0.8, 1.0, 1],
+                    [1.0, 7.0, 300],
+                    [7.0, 9.0, 10],
+                    [9.0, 10.0, 2],
+                    [10.0, 12.0, 1]]
   if pulls and pull_unc:
       for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
-
-  diff = tot_obs.bin_cont - tot_exp.bin_cont
   chi2 = 0.0
-
   if stat_meth == "NorP":
       stat_cov_matrix = rea_obs.GetStatCovMatrix().data
   else:
       stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
-
   if unc == "stat":
       cov_matrix = stat_cov_matrix
   else:
       cov_matrix = stat_cov_matrix + cm.data
-
+  
+  obs = tot_obs.bin_cont
+  exp = tot_exp.bin_cont
+  valid = (obs > 0) & (exp > 0)
+  diff = obs - exp
+  cov_matrix = cov_matrix[np.ix_(valid, valid)]
   c_factor = cho_factor(cov_matrix)
-  chi2_term = cho_solve(c_factor, diff)
-  chi2 = np.einsum('i,i->', diff, chi2_term) + penalty #diff.T @ solve(cov_matrix, diff) + penalty
+  chi2_term = cho_solve(c_factor, diff[valid])
+  chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty #diff.T @ solve(cov_matrix, diff) + penalty
+  #denom = 3./((1./obs[valid]) + (2./exp[valid]))
+  #nom = diff[valid]**2
+  #chi2 = np.sum(nom/denom)
   return chi2
-
 
 def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.0
   if pulls and pull_unc:
       for p, u in zip(pulls, pull_unc): penalty += (p / u) ** 2
-
   diff1 = tot_obs1.bin_cont - tot_exp1.bin_cont
   diff2 = tot_obs2.bin_cont - tot_exp2.bin_cont
 

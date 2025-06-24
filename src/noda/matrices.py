@@ -14,7 +14,7 @@ def GetCM(ensp = {},
   unc_map = {
     'stat': lambda: ensp['rdet'].GetStatCovMatrix() if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetStatCovMatrix(),
     'r2': lambda: ensp['rdet'].GetRateCovMatrix(args.r2_unc),
-    'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc) if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetRateCovMatrix(args.eff_unc),
+    'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc) if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetRateCovMatrix(args.eff_unc), 
     'b2b_DYB': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "DYBUncertainty"),
     'b2b_TAO': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "TAOUncertainty"),
     'snf': lambda: ensp['snf_final'].GetRateCovMatrix(args.snf_unc),
@@ -45,6 +45,7 @@ def GetCM(ensp = {},
       del ensp['rvis_me_flu']
       time_end_me = datetime.now()
       print ("ME flu time", time_end_me - time_start_me)
+      if args.rebin_nonuniform: ensp['rdet_me_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_me_flu']]
       cm = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
       del ensp['rdet_me_flu']
       return cm
@@ -74,6 +75,7 @@ def GetCM(ensp = {},
       ensp['rvis_nl_flu']  = GetFluNL()
       print("     getting rdet spectra")
       ensp['rdet_nl_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_nl_flu']]
+      if args.rebin_nonuniform: ensp['rdet_nl_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_nl_flu']]
       del ensp['rvis_nl_flu']
       print("     constructing cov. matrix")
       if args.fit_type == 'geo' and args.geo_spectra == 'ana':
@@ -123,6 +125,7 @@ def GetCM(ensp = {},
       end_time_resp = datetime.now()
       del ensp['rvis']
       print("RM flu time", end_time_resp - start_time_resp)
+      if args.rebin_nonuniform: ensp['rdet_abc_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_abc_flu']]
       if args.fit_type == 'geo' and args.geo_spectra == 'ana': cm_temp = (ensp['rdet'] + ensp['geo']).GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
       else: cm_temp = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
       del ensp['rdet_abc_flu']
@@ -160,31 +163,32 @@ def GetCM(ensp = {},
       del ensp['rvis_crel_flu']
       end_time_core = datetime.now()
       print("Core flu time", end_time_core - start_time_core)
+      if args.rebin_nonuniform: ensp['rdet_crel_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_crel_flu']]
       cm_temp  = ensp["rdet"].GetCovMatrixFromRandSample(ensp["rdet_crel_flu"])
       del ensp['rdet_crel_flu']
       return cm_temp
 
   def get_bckg_CM():
-    cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) + ensp['acc'].GetStatCovMatrix()
-    cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) + ensp['lihe'].GetStatCovMatrix()
-    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) + ensp['fneu'].GetStatCovMatrix()
+    cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) #+ ensp['acc'].GetStatCovMatrix()
+    cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) #+ ensp['lihe'].GetStatCovMatrix()
+    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) #+ ensp['fneu'].GetStatCovMatrix()
     if detector != "tao":
         cm['fneu'] += ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc)
         if not args.fit_type == 'geo':
-            cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geo'].GetStatCovMatrix()
-            cm['geou'] = ensp['geou'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geou'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geou'].GetStatCovMatrix()
-            cm['geoth'] = ensp['geoth'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geoth'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geoth'].GetStatCovMatrix()
+            cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) #+ ensp['geo'].GetStatCovMatrix()
+            cm['geou'] = ensp['geou'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geou'].GetB2BCovMatrix(args.geo_b2b_unc) #+ ensp['geou'].GetStatCovMatrix()
+            cm['geoth'] = ensp['geoth'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geoth'].GetB2BCovMatrix(args.geo_b2b_unc) #+ ensp['geoth'].GetStatCovMatrix()
         else:
             cm['geo'] = ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc)
             cm['geou'] = ensp['geou'].GetB2BCovMatrix(args.geo_b2b_unc)
             cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(args.geo_b2b_unc)
             if args.geo_fit_type == 'mantle':
-                cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geocrust'].GetRateCovMatrix(float(args.crust_rate_unc)) + ensp['geocrust'].GetStatCovMatrix()
+                cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geocrust'].GetRateCovMatrix(float(args.crust_rate_unc)) #+ ensp['geocrust'].GetStatCovMatrix()
                 cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(args.geo_b2b_unc)
 
-        cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) + ensp['aneu'].GetStatCovMatrix()
-        cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) + ensp['atm'].GetStatCovMatrix()
-        cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) + ensp['rea300'].GetStatCovMatrix()
+        cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) #+ ensp['aneu'].GetStatCovMatrix()
+        cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) #+ ensp['atm'].GetStatCovMatrix()
+        cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) #+ ensp['rea300'].GetStatCovMatrix()
 
     if detector != "tao":
         if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
@@ -200,7 +204,7 @@ def GetCM(ensp = {},
   #for u in unc:
   if unc in unc_map:
       cm[unc] = unc_map[unc]()
-      SaveObject(cm[unc], f"{args.data_matrix_folder}/cm_{detector}_{unc}_{args.bayes_chi2}_{args.sin2_th13_opt}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
+      SaveObject(cm[unc], f"{args.data_matrix_folder}/cm_{detector}_{unc}_{args.bayes_chi2}_{args.geo_tnu_rate}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
       return cm[unc]
   else:
       raise ValueError(f"unc {unc} not found! Cannot calculate!")
@@ -246,10 +250,13 @@ def GetCorrCM(ensp_juno = {},
       del ensp_juno['rvis_nl_flu']
       del ensp_tao['rvis_nl_flu']
       print("     constructing cov. matrix")
+      if args_juno.rebin_nonuniform: 
+          ensp_juno['rdet_nl_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_juno['rdet_nl_flu']]
+          ensp_tao['rdet_nl_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_tao['rdet_nl_flu']]
       cm_juno['nl'] = ensp_juno['rdet'].GetCovMatrixFromRandSample(ensp_juno['rdet_nl_flu'])
       cm_tao['nl'] = ensp_tao['rdet'].GetCovMatrixFromRandSample(ensp_tao['rdet_nl_flu'])
-      SaveObject(cm_juno['nl'], f"{args_juno.data_matrix_folder}/cm_correlated_juno_nl_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      SaveObject(cm_tao['nl'], f"{args_juno.data_matrix_folder}/cm_correlated_tao_nl_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      SaveObject(cm_juno['nl'], f"{args_juno.data_matrix_folder}/cm_correlated_juno_nl_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      SaveObject(cm_tao['nl'], f"{args_juno.data_matrix_folder}/cm_correlated_tao_nl_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
       del ensp_juno['rdet_nl_flu']
       del ensp_tao['rdet_nl_flu']
 
@@ -318,6 +325,9 @@ def GetCorrCM(ensp_juno = {},
       del ensp_tao['rvis_crel_flu']
       end_time_core = datetime.now()
       print("Core flu time", end_time_core - start_time_core)
+      if args_juno.rebin_nonuniform: 
+          ensp_juno['rdet_crel_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_juno['rdet_crel_flu']]
+          ensp_tao['rdet_crel_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_tao['rdet_crel_flu']]
       cm_juno['crel'] = ensp_juno["rdet"].GetCovMatrixFromRandSample(ensp_juno["rdet_crel_flu"])
       cm_tao['crel'] = ensp_tao["rdet"].GetCovMatrixFromRandSample(ensp_tao["rdet_crel_flu"])
       cm_comb = cm_juno['crel'].Extend(cm_tao['crel'])
@@ -331,7 +341,7 @@ def GetCorrCM(ensp_juno = {},
   #for u in unc:
   if unc in unc_map:
       cm[unc] = unc_map[unc]()
-      SaveObject(cm[unc], f"{args_juno.data_matrix_folder}/cm_correlated_{unc}_{args_juno.bayes_chi2}_{args_juno.sin2_th13_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      SaveObject(cm[unc], f"{args_juno.data_matrix_folder}/cm_correlated_{unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
       return cm[unc]
   else:
       raise ValueError(f"unc {unc} not found! Cannot calculate!")
