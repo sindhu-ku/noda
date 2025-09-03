@@ -4,7 +4,7 @@ config: ''
 fit_options:
 
   is_data: False
-  stat_opt: 1years # time period for sensitivity studies
+  stat_opt: 6years # time period for sensitivity studies
   sin2_th13_opt: free # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
@@ -19,17 +19,18 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: false
   print_minuit_correlation: false
-  calc_minuit_errors: false
+  calc_minuit_errors: true
   write_results: true
-  silent_print: false
+  silent_print: true
   geo_spectra: ana  
   fit_type: geo #NMO, geo or PMOP (default)
-  geo_fit_type: mantle #UThfree, mantle or total (default)
+  geo_fit_type: total #UThfree , mantle or total (default)
   mantle_model: GD  
   include_TAO: false #for NMO
   geo_OPfixed: false
   toymc: false       
-  ntoys: 500      
+  ntoys: 1000 
+  toy_prefix: 0    
   toy_batch_size: 8 
   minuit_timeout: 600 #s
   toymc_timeout: 600 #s
@@ -39,7 +40,7 @@ fit_options:
   bayes_events: 400
   bayes_nwalkers: 30
   bayes_nprocesses: 16
-
+  ihep_usage: True
   # Energy crop range for fit
   ene_crop:
     - 0.8
@@ -49,7 +50,7 @@ fit_options:
   ene_crop2:
     - 0.8
     - 12.0
-  rebin_nonuniform: True
+  rebin_nonuniform: False
   bins_nonuniform:
     - [0.8, 1.0, 1]
     - [1.0, 7.0, 300]
@@ -70,26 +71,26 @@ fit_options:
     #- [7.8, 8.2, 4]
     #- [8.2, 9, 1]
 
-  FORCE_CALC_RM: true # Force calculation of response matrix
+  FORCE_CALC_RM: false # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
 
-  input_data_file: data/JUNOInputs2022_05_08.root #data file
-  geo_file: data/geo_raw_Nov2723.root
-  geo_MC_U_file: data/geo_U_promptFV.root
-  geo_MC_Th_file: data/geo_Th_promptFV.root
-  geo_MC_file: data/xc_pdfs_2023-08-25.root
-  aneu_file: data/GeoneutrinoCommonInputs.root
+  input_data_file: /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #data file
+  geo_file: /junofs/users/sindhu/NODA/noda/data/geo_raw_Nov2723.root
+  geo_MC_U_file: /junofs/users/sindhu/NODA/noda/data/geo_U_promptFV.root
+  geo_MC_Th_file: /junofs/users/sindhu/NODA/noda/data/geo_Th_promptFV.root
+  geo_MC_file: /junofs/users/sindhu/NODA/noda/data/xc_pdfs_2023-08-25.root
+  aneu_file: /junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root
   aneu_hist: AlphaN_MC
   reactor_model: Huber-Mueller
 
-  main_data_folder: Geo_June24_mantle
-  cov_matrix_plots_folder: CMplots #folder to store CM plots
-  plots_folder: Plots #folder to save plots of spectra
-  data_matrix_folder: Geo_June24_mantle #folder to save or to use csv files of spectra and matrices
-  bayes_data_folder: ../Data_test/Bayesian/npz_files
-  bayes_plots_folder: ../Data_test/Bayesian/Plots
+  main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_Sep1
+  cov_matrix_plots_folder: /junofs/users/sindhu/NODA/noda/CMplots #folder to store CM plots
+  plots_folder: /junofs/users/sindhu/NODA/noda/Plots #folder to save plots of spectra
+  data_matrix_folder: /junofs/users/sindhu/NODA/noda/Geo_Sep1 #folder to save or to use csv files of spectra and matrices
+  bayes_data_folder: /junofs/users/sindhu/NODA/noda/Bayesian/npz_files
+  bayes_plots_folder: /junofs/users/sindhu/NODA/noda/Bayesian/Plots
 
   #start and end points for each parameter in grid space
   grid_params:
@@ -120,14 +121,14 @@ common_det_inputs:
     GC: 0.23
     CC: 0.17
   crust_Th_U_ratio: 0.30
-  crust_rate: 1.370
-  crust_rate_unc: 0.1
+  crust_rate_tnu: 50 # 1.370
+  crust_rate_unc: 0.25
   mantle_rate:
-    GD: 0.564 #0.635
+    GD: 0.562 #0.635
     GC: 0.259 #0.285
     CC: 0.091 #0.081
 
-  geo_tnu_rate: 10.0 #37.0
+  geo_tnu_rate: 40.0
   tnu_to_cpd: 0.032387707
 
   me_rho: 2.45 #2.45
