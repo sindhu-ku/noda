@@ -142,7 +142,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             sp_exp = s_juno.GetScaledFit(Nrea)
             s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
                          ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + \
-                         ensp_nom_juno['rea300']
+                         ensp_nom_juno['rea300'] + ensp_nom['nn']
 
         if args_juno.toymc:
             #sp_obs = ensp_nom_juno["toy"]
