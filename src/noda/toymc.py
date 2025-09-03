@@ -52,7 +52,7 @@ def run_toy(i, ensp_nom_juno={}, unc_juno='', resp_matrix=None, cm_juno=None, ar
          else:
              #crust_fluc = ensp_nom_juno['geocrust'].bin_cont*np.random.normal(loc=1., scale=0.1)
              #ensp_nom_juno['crust_toy'] = Spectrum(bins=ensp_nom_juno['geocrust'].bins, bin_cont=crust_fluc)
-             det_sp += ensp_nom_juno['geocrust'] + ensp_nom_juno['geomantle']
+             det_sp += ensp_nom_juno['geomantle']
 
      #ensp_nom_juno['toy'] = Spectrum(bins=det_sp.bins, bin_cont=generate_toy_spectrum(det_sp.bin_cont, cm_juno[unc_juno].data))
      #nan_mask = np.isnan(ensp_nom_juno['toy'].bin_cont)

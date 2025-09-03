@@ -74,8 +74,8 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
 
 def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_corr='', rm= [], ene_leak_tao =[], cm_juno ={}, cm_tao={}, cm_corr='', args_juno='', args_tao=''):#, dm2_31=0.):
    # a_nom, b_nom, c_nom =args_juno.a, args_juno.b, args_juno.c
-    crust = np.random.normal(loc=0., scale=0.1)
-    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1.0, Nrea=1.0, NU=1.0, NTh=1.0, Nmantle=1.0, Ncrust=1.0, opp=False): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0, me_rho=args_juno.me_rho):
+#    crust = np.random.normal(loc=0., scale=0.1)
+    def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Ngeo=1.0, Nrea=1.0, NU=1.0, NTh=1.0, Nmantle=1.0, opp=False): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0, me_rho=args_juno.me_rho):
         # Get the oscillated spectrum
         #ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins)
        # s_juno = ensp_nom_juno['rfis'].GetScaledFit(eff/float(args_juno.detector_efficiency))
@@ -125,10 +125,10 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                              ensp_nom_juno['aneu'] + ensp_nom_juno['geou'].GetScaledFit(NU) + ensp_nom_juno['geoth'].GetScaledFit(NTh) + ensp_nom_juno['atm'] + \
                              ensp_nom_juno['rea300']
             elif args_juno.geo_fit_type == 'mantle':
-                sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geomantle"]+ensp_nom_juno["geocrust"]
-                sp_exp = s_juno.GetScaledFit(Nrea) + ensp_nom_juno["geomantle"].GetScaledFit(Nmantle) + ensp_nom_juno["geocrust"].GetScaledFit(Ncrust)
+                sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geomantle"]
+                sp_exp = s_juno.GetScaledFit(Nrea) + ensp_nom_juno["geomantle"].GetScaledFit(Nmantle)
                 s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
-                             ensp_nom_juno['aneu'] + ensp_nom_juno['geocrust'].GetScaledFit(Ncrust) + ensp_nom_juno['geomantle'].GetScaledFit(Nmantle) + ensp_nom_juno['atm'] + \
+                             ensp_nom_juno['aneu'] + ensp_nom_juno['geocrust'] + ensp_nom_juno['geomantle'].GetScaledFit(Nmantle) + ensp_nom_juno['atm'] + \
                              ensp_nom_juno['rea300']
             else:
                 sp_obs = ensp_nom_juno["rdet"]+ensp_nom_juno["geo"]
@@ -144,7 +144,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                          ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + \
                          ensp_nom_juno['rea300'] + ensp_nom['nn']
 
-        if args_juno.toymc:
+        if bool(args_juno.toymc):
             #sp_obs = ensp_nom_juno["toy"]
             sp_obs_tot = ensp_nom_juno["rtot_toy"]
         chi2 = 1e+6
@@ -192,7 +192,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             #cm_diff = CovMatrix(cm_as.data - cm_toy.data, bins=cm_as.bins)
             #cm_diff.Plot(f"cm_diff_{Ngeo}.png")
             if args_juno.fit_type == 'geo' and args_juno.geo_fit_type == 'mantle':
-                chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs, sp_exp, unc_juno, args_juno.stat_method_opt, pulls=[Ncrust-1+crust], pull_unc=[args_juno.crust_rate_unc])
+                chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt) #, pulls=[Ncrust-1+crust], pull_unc=[args_juno.crust_rate_unc])
             else:
                 if args_juno.sin2_th13_opt == "pull":
                     if args_juno.is_data:
@@ -220,10 +220,10 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0):
        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=Ngeo, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=1.0, opp=False) #eff=float(args_juno.detector_efficiency), me_rho=args_juno.me_rho, a1=0.0, a2=0.0, a3=0.0, a4=0.0)
-    def chi2_mantle(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ncrust=1.0, Nmantle=1.0):
-        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=1.0, Nrea=Nrea,  NU=1.0, NTh=1.0,Ncrust=Ncrust,Nmantle=Nmantle, opp=False)
-    def chi2_nomantle(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ncrust=1.0): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0):
-        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=1.0, Nrea=Nrea,Ncrust=Ncrust,NU=1.0, NTh=1.0,Nmantle=0.0, opp=False)
+    def chi2_mantle(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Nmantle=1.0):
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=1.0, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=Nmantle, opp=False)
+    def chi2_nomantle(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0):
+        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=1.0, Nrea=Nrea,NU=1.0, NTh=1.0,Nmantle=0.0, opp=False)
 
     def chi2_UTh(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, NU=1.0, NTh=1.0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=Nrea, NU=NU, NTh=NTh,Nmantle=1.0, Ngeo=1.0, opp=False)
@@ -250,8 +250,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             m.limits["NU"] = [0, None]
             m.limits["NTh"] = [0, None]
         elif args_juno.geo_fit_type == 'mantle':
-            m = Minuit(chi2_mantle, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Ncrust=1.0,Nmantle=1.0)
-            m0 = Minuit(chi2_nomantle, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Ncrust=1.0)
+            m = Minuit(chi2_mantle, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0, Nmantle=1.0)
+            m0 = Minuit(chi2_nomantle, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], Nrea=1.0)
             m.limits["Nmantle"] = [0, None]
             if args_juno.geo_OPfixed:
                 for param in osc_params:
@@ -288,14 +288,15 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     start_time = time.time()
     max_time = args_juno.minuit_timeout
     m.migrad()   
-
-    if args_juno.calc_minuit_errors:
+    if bool(args_juno.calc_minuit_errors):
         m.hesse() #get errors
+        if not m.fmin.is_valid:
+            return None
         m.minos() #get minos errors
 
     if args_juno.fit_type == "geo"  and args_juno.geo_fit_type == 'mantle':
-        chi2_min = chi2_mantle(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4], Ncrust=m.values[5],Nmantle=m.values[6])
-        chi2_mantle0 = chi2_nomantle(sin2_12=m0.values[0], sin2_13=m0.values[1], dm2_21=m0.values[2], dm2_31=m0.values[3], Nrea=m0.values[4],Ncrust=m0.values[5])
+        chi2_min = chi2_mantle(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4],Nmantle=m.values[5])
+        chi2_mantle0 = chi2_nomantle(sin2_12=m0.values[0], sin2_13=m0.values[1], dm2_21=m0.values[2], dm2_31=m0.values[3], Nrea=m0.values[4])
         # chi2_min = chi2_mantle_OPfixed(Nrea=m.values[0], Nmantle=m.values[1])
         #chi2_mantle0 = chi2_nomantle_OPfixed(Nrea=m0.values[0])
         dchi2 = chi2_mantle0 - chi2_min
@@ -319,19 +320,19 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         print(m)
 
 
-    chi2_min = chi2_geo(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4], Ngeo=m.values[5])
+    #chi2_min = chi2_geo(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4], Ngeo=m.values[5])
     #print(chi2_min)
     if args_juno.write_results:
-        merrors=args_juno.calc_minuit_errors
-        #extra = [args_juno.geo_tnu_rate]
+        merrors=bool(args_juno.calc_minuit_errors)
+        extra = [] #[args_juno.geo_tnu_rate]
         if args_juno.fit_type == 'geo' and args_juno.geo_fit_type == 'mantle':
-            extra.extend([dchi2, np.sqrt(dchi2), args_juno.mantle_model,  args_juno.crust_rate, args_juno.crust_rate_unc])
+            extra.extend([dchi2, np.sqrt(dchi2), args_juno.mantle_model,  args_juno.crust_rate_tnu, args_juno.crust_rate_unc])
         if args_juno.fit_type == 'geo' and args_juno.geo_fit_type != 'mantle':
             extra.extend([args_juno.geo_tnu_rate])
         if args_juno.fit_type == "NMO":
             extra.extend([dchi2, np.sqrt(dchi2)])
-        if args_juno.toymc:
-            extra = [chi2_min, ensp_nom_juno['rtot_toy'].GetIntegral()]
+        if bool(args_juno.toymc):
+            extra.extend([ensp_nom_juno['rtot_toy'].GetIntegral()])
             #minos_err = max(abs(m.merrors[5].upper), abs(m.merrors[5].lower))
             #hesse_err = m.errors[5]
             #print(abs(minos_err-hesse_err))#*100./minos_err)

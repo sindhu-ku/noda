@@ -87,13 +87,13 @@ def main(argv=None):
   a, b, c = args_juno.a, args_juno.b, args_juno.c
   a_err, b_err, c_err =args_juno.a_err, args_juno.b_err, args_juno.c_err
 
-  if os.path.isfile(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_RM:
+  if os.path.isfile(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not bool(args_juno.FORCE_CALC_RM):
     resp_matrix = LoadRespMatrix(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
   else:
     resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
     resp_matrix.Save(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
-  if args_juno.FORCE_CALC_RM:
+  if bool(args_juno.FORCE_CALC_RM):
     resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/resp_matrix.csv")
 
   if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_tao.FORCE_CALC_ENE_LEAK:
@@ -288,7 +288,7 @@ def main(argv=None):
               if not args_juno.pull_all: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
               else: minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
           else:
-              if args_juno.toymc:
+              if bool(args_juno.toymc):
                   #if args_juno.geo_tnu_rate <= 20: ntoys = 5000
                   #else: ntoys = 1000
                   for batch_start in range(0, int(args_juno.ntoys), args_juno.toy_batch_size):
@@ -302,7 +302,7 @@ def main(argv=None):
                        #   print(f"WARNING: Joblib exceeded time limit")
                        #   batch_results = None
 
-                      filename = f"{args_juno.main_data_folder}/fit_results_minos_{args_juno.fit_type}_{args_juno.stat_method_opt}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.hdf5"
+                      filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_UThfree_{args_juno.stat_method_opt}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit_{args_juno.toy_prefix}.hdf5"
                       save_batch_results(filename, batch_results)
                       del batch_results
                       if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")

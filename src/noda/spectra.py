@@ -155,7 +155,7 @@ def CreateSpectra(ndays=10,
 
 
   ensp['rvis_nonl'] = ensp['rosc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-  #ensp['rvis_nonl_temp'] = ensp['ribd'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+  ensp['rvis_nonl_temp'] = ensp['ribd'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
 
   ensp['snf_osc_nonl'] = ensp['snf_osc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
   del ensp['snf_osc']
@@ -188,7 +188,7 @@ def CreateSpectra(ndays=10,
   ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
 
 
-  #ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+  ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
@@ -213,7 +213,7 @@ def CreateSpectra(ndays=10,
 
 
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-  #ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+  ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
   ensp['snf_final'] = ensp['snf_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   ensp['noneq_final'] = ensp['noneq_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
@@ -287,20 +287,19 @@ def CreateSpectra(ndays=10,
       ensp[f'{name}u'] = ensp[f'rvis_{name}u_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
       ensp[f'{name}th'] = ensp[f'rvis_{name}th_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
       
+      if args.rebin_nonuniform: 
+          ensp[f'{name}u'].Rebin_nonuniform(args.bins_nonuniform)
+          ensp[f'{name}th'].Rebin_nonuniform(args.bins_nonuniform)
       del ensp['rfis0_geou'], ensp['rfis0_geoth'], ensp[f'rfis_{name}u'], ensp[f'rfis_{name}th']
       return ensp[f'{name}u'] + ensp[f'{name}th']
 
   if args.geo_spectra == 'ana':
       if args.geo_fit_type == 'mantle':
-          ensp['geomantle'] = make_ana_geo_spectra(args.mantle_rate.get(args.mantle_model), args.mantle_Th_U_ratio, 'mantle')
-          ensp['geocrust'] = make_ana_geo_spectra(float(args.crust_rate), args.crust_Th_U_ratio, 'crust')
-          if args.rebin_nonuniform: 
-              ensp['geomantle'].Rebin_nonuniform(args.bins_nonuniform)
-              ensp['geocrust'].Rebin_nonuniform(args.bins_nonuniform)
+          ensp['geomantle'] = make_ana_geo_spectra(args.mantle_rate.get(args.mantle_model), args.mantle_Th_U_ratio.get(args.mantle_model), 'mantle')
+          ensp['geocrust'] = make_ana_geo_spectra(float(args.crust_rate_tnu)*args.tnu_to_cpd, args.crust_Th_U_ratio, 'crust')
           ensp['geo'] = ensp['geocrust'] + ensp['geomantle']
       else:
           ensp['geo'] = make_ana_geo_spectra(float(args.geo_tnu_rate)*args.tnu_to_cpd, args.Th_U_ratio, 'geo')
-          if args.rebin_nonuniform: ensp['geo'].Rebin_nonuniform(args.bins_nonuniform)
 
 
   if args.geo_spectra == 'MC':
@@ -435,9 +434,9 @@ def CreateSpectra(ndays=10,
           ensp[key].Dump(f"{args.data_matrix_folder}/csv_{args.stat_opt}/ensp_{detector}_{key}.csv")
 
   
-  #ensp['rdet'].WritetoROOT("Rea", "Geo_June6/Spectra_1year_10TNU_June6_new2.root")
-  #ensp['rtot'].WritetoROOT("Total", "Geo_June6/Spectra_1year_10TNU_June13.root")
-
+#  ensp['rdet'].WritetoROOT("Rea", "Geo_test/Spectra_Sep2_25.root")
+#  for key in bg_keys:
+#      ensp[key].WritetoROOT(key, "Geo_test/Spectra_Sep2_25.root")
   #ensp["data_rea"] = GetSpectrumFromROOT("IBD_sel_May9_truth.root", "trueEnergy")
   #ensp["data"] = ensp['rtot'] - ensp['rdet'] + ensp['data_rea']
   #rf = uproot.open(args.input_data_file) 

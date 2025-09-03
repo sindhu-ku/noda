@@ -41,7 +41,10 @@ def GetCM(ensp = {},
       print ("Matter effect fluctuated spectra")
       time_start_me = datetime.now()
       me_rho_flu = np.random.normal(loc=args.me_rho, scale=args.me_rho_scale, size=args.sample_size_me)
-      ensp['rvis_me_flu'] = Parallel(n_jobs=-1)(delayed(mat_flu)(val) for val in me_rho_flu)
+      if args.ihep_usage:
+          ensp['rvis_me_flu'] = [mat_flu(val) for val in me_rho_flu]
+      else:
+          ensp['rvis_me_flu'] = Parallel(n_jobs=-1)(delayed(mat_flu)(val) for val in me_rho_flu)
       ensp['rdet_me_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_me_flu']]
       del ensp['rvis_me_flu']
       time_end_me = datetime.now()
@@ -66,7 +69,10 @@ def GetCM(ensp = {},
 
   def GetFluNL():
       weights = np.random.normal(loc=0., scale=1., size=(args.sample_size_nonl,4))
-      output = Parallel(n_jobs=-1)(delayed(new_NL_curve)(w) for w in weights)
+      if args.ihep_usage:
+          output = [new_NL_curve(w) for w in weights] 
+      else:
+          output = Parallel(n_jobs=-1)(delayed(new_NL_curve)(w) for w in weights)
       return output
 
   def get_NL_CM():
@@ -112,7 +118,10 @@ def GetCM(ensp = {},
       c_flu = np.random.normal(loc=c, scale=c_err, size=args.sample_size_resp)
 
       CalcRM = lambda a,b,c: CalcRespMatrix_abc( a, b, c, ebins, pebins, escale=escale,  eshift=eshift, norm_mode=norm_mode, verbose=False)
-      spectra = Parallel(n_jobs=-1)(delayed(CalcRM)(a_flu[i], b_flu[i], c_flu[i]) for i in range(len(a_flu)))
+      if args.ihep_usage:
+          spectra = [CalcRM(a_flu[i], b_flu[i], c_flu[i]) for i in range(len(a_flu))]
+      else:
+          spectra = Parallel(n_jobs=-1)(delayed(CalcRM)(a_flu[i], b_flu[i], c_flu[i]) for i in range(len(a_flu)))
       return spectra
 
   def get_abc_CM():
@@ -159,7 +168,10 @@ def GetCM(ensp = {},
   def get_core_flux_CM():
       print(" # Fluctuating relative core fluxes ")
       start_time_core = datetime.now()
-      ensp['rvis_crel_flu'] = Parallel(n_jobs=-1)(delayed(get_core_flu)(i) for i in range(args.sample_size_core))
+      if args.ihep_usage:
+          ensp['rvis_crel_flu'] = [get_core_flu(i) for i in range(args.sample_size_core)]
+      else:
+          ensp['rvis_crel_flu'] = Parallel(n_jobs=-1)(delayed(get_core_flu)(i) for i in range(args.sample_size_core))
       ensp["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) for s in ensp['rvis_crel_flu']]
       del ensp['rvis_crel_flu']
       end_time_core = datetime.now()
@@ -258,7 +270,10 @@ def GetCorrCM(ensp_juno = {},
 
   def GetFluNL(ensp_juno, ensp_tao):
       weights = np.random.normal(loc=0., scale=1., size=(args.sample_size_nonl,4))
-      output = Parallel(n_jobs=-1)(delayed(new_NL_curve)(w, ensp_juno, ensp_tao) for w in weights)
+      if args.ihep_usage:
+          output = [delayed(new_NL_curve)(w, ensp_juno, ensp_tao) for w in weights]
+      else:
+          output = Parallel(n_jobs=-1)(delayed(new_NL_curve)(w, ensp_juno, ensp_tao) for w in weights)
       output_spectra_juno, output_spectra_tao = zip(*output)
       return output_spectra_juno, output_spectra_tao
 
@@ -341,7 +356,10 @@ def GetCorrCM(ensp_juno = {},
   def get_core_flux_CM():
       print(" # Fluctuating relative core fluxes ")
       start_time_core = datetime.now()
-      results = Parallel(n_jobs=-1)(delayed(get_core_flu)(i) for i in range(args_juno.sample_size_core))
+      if args.ihep_usage:
+          results = [get_core_flu(i) for i in range(args_juno.sample_size_core)]
+      else:
+          results = Parallel(n_jobs=-1)(delayed(get_core_flu)(i) for i in range(args_juno.sample_size_core))
       ensp_juno['rvis_crel_flu'], ensp_tao['rvis_crel_flu'] = zip(*results)
       ensp_juno["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_juno['rvis_crel_flu']]
       ensp_tao["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_tao['rvis_crel_flu']]
