@@ -207,7 +207,7 @@ def GetCM(ensp = {},
     if detector != "tao":
         if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
         if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
-        return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] #+cm['nn']
+        return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] +cm['nn']
     else: return cm['acc'] + cm['lihe'] + cm['fneu']
 
   def get_bckg_CM_pull():
