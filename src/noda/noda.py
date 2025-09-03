@@ -581,22 +581,46 @@ class Spectrum:
  ##     print(data[i][i])
  #   return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
+  #def GetVariedB2BCovMatrixFromROOT(self, fname, hname):
+  #  rf = uproot.open(fname)
+  #  hist = rf[hname]
+  #  edges = hist.axis().edges()
+  #  sigmas = np.zeros(len(self.bin_cont))
+  #  for ene, sigma in zip(hist.axis().edges()[:-1], hist.values()):
+  #    ibin = self.FindBin(ene)
+  #    if ibin >= 0 and ibin < len(sigmas):
+  #      sigmas[ibin] = sigma
+  #  if len(sigmas) != len(self.bin_cont):
+  #    print(f" ### WARNING: number of b2b bins is {len(sigmas)}; number of spectrum bins is {len(self.bin_cont)}.")
+  #  if edges[1]-edges[0] != self.bins[1]-self.bins[0]:
+  #    print(f" ### WARNING: bin width for b2b is {edges[1]-edges[0]}; spectrum bin width is {self.bins[1]-self.bins[0]}.")
+  #    #print(f"     Doing rebinning for b2b uncertainties")
+  #  return self.GetVariedB2BCovMatrix(sigmas)
+
   def GetVariedB2BCovMatrixFromROOT(self, fname, hname):
     rf = uproot.open(fname)
     hist = rf[hname]
-    edges = hist.axis().edges()
-    sigmas = np.zeros(len(self.bin_cont))
-    for ene, sigma in zip(hist.axis().edges()[:-1], hist.values()):
-      ibin = self.FindBin(ene)
-      if ibin >= 0 and ibin < len(sigmas):
-        sigmas[ibin] = sigma
-    if len(sigmas) != len(self.bin_cont):
-      print(f" ### WARNING: number of b2b bins is {len(sigmas)}; number of spectrum bins is {len(self.bin_cont)}.")
-    if edges[1]-edges[0] != self.bins[1]-self.bins[0]:
-      print(f" ### WARNING: bin width for b2b is {edges[1]-edges[0]}; spectrum bin width is {self.bins[1]-self.bins[0]}.")
-      #print(f"     Doing rebinning for b2b uncertainties")
-    return self.GetVariedB2BCovMatrix(sigmas)
+    sigmas_inv_var = np.zeros(len(self.bin_cont))
+    hist_edges = hist.axis().edges()
+    hist_values = hist.values()
 
+    max_energy = self.bins[-1]
+    bin_width = hist_edges[-1] - hist_edges[-2]
+
+    while hist_edges[-1] < max_energy:
+        hist_edges = np.append(hist_edges, hist_edges[-1] + bin_width)
+        hist_values = np.append(hist_values, hist_values[-1])
+    for i in range(len(self.bins)-1):
+        for j in range(len(hist_edges) - 1):
+            if hist_edges[j] > self.bins[i+1]: break
+            if hist_edges[j] < self.bins[i]: continue
+            sigma = hist_values[j]
+            inv_var = 1. / sigma**2
+            sigmas_inv_var[i] += inv_var
+
+    sigmas = 1. / np.sqrt(sigmas_inv_var)
+    return self.GetVariedB2BCovMatrix(sigmas)
+  
   def WritetoROOT(self, histname, outfile):
     output_file = ROOT.TFile(outfile, "update")
     bins = self.bins
@@ -947,11 +971,6 @@ def GetSpectrumFromROOT(fname, hname, toy=False, xlabel="Energy (MeV)", scale=1.
 
 def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.
-  bins_nonuniform = [[0.8, 1.0, 1],
-                    [1.0, 7.0, 300],
-                    [7.0, 9.0, 10],
-                    [9.0, 10.0, 2],
-                    [10.0, 12.0, 1]]
   if pulls and pull_unc:
       for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
   chi2 = 0.0
@@ -969,9 +988,10 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
   valid = (obs > 0) & (exp > 0)
   diff = obs - exp
   cov_matrix = cov_matrix[np.ix_(valid, valid)]
-  c_factor = cho_factor(cov_matrix)
-  chi2_term = cho_solve(c_factor, diff[valid])
-  chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty #diff.T @ solve(cov_matrix, diff) + penalty
+  #c_factor = cho_factor(cov_matrix)
+  #chi2_term = cho_solve(c_factor, diff[valid])
+  #chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty 
+  chi2 = diff[valid].T @ np.linalg.solve(cov_matrix, diff[valid]) + penalty
   #denom = 3./((1./obs[valid]) + (2./exp[valid]))
   #nom = diff[valid]**2
   #chi2 = np.sum(nom/denom)

@@ -65,7 +65,7 @@ def GetCM(ensp = {},
 
   def GetFluNL():
       weights = np.random.normal(loc=0., scale=1., size=(args.sample_size_nonl,4))
-      output = Parallel(n_jobs=-1)(delayed(new_NL_curve)(w) for w in weights)
+      output = [new_NL_curve(w) for w in weights] #Parallel(n_jobs=-1)(delayed(new_NL_curve)(w) for w in weights)
       return output
 
   def get_NL_CM():
