@@ -10,21 +10,22 @@ def GetCM(ensp = {},
       detector="juno",
       ene_leak_tao=[],
       args=None):
-
+  ebins = ensp['rdet'].bins
+  nbins = len(ebins)
   unc_map = {
     'stat': lambda: ensp['rdet'].GetStatCovMatrix() if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetStatCovMatrix(),
-    'r2': lambda: ensp['rdet'].GetRateCovMatrix(args.r2_unc),
-    'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc) if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetRateCovMatrix(args.eff_unc), 
+    'r2': lambda: ensp['rdet'].GetRateCovMatrix(args.r2_unc) if not args.pull_all else CovMatrix(data=np.zeros((nbins-1, nbins-1)), bins=ebins),
+    'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc) if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetRateCovMatrix(args.eff_unc),
     'b2b_DYB': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "DYBUncertainty"),
     'b2b_TAO': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "TAOUncertainty"),
     'snf': lambda: ensp['snf_final'].GetRateCovMatrix(args.snf_unc),
     'noneq': lambda: ensp['noneq_final'].GetRateCovMatrix(args.noneq_unc),
     'ene_scale': lambda: ensp['rdet'].GetRateCovMatrix(args.ene_scale_unc),
     'me': lambda: get_ME_CM(),
-    'nl': lambda: get_NL_CM(),
+    'nl': lambda: get_NL_CM() if not args.pull_all else CovMatrix(data=np.zeros((nbins-1, nbins-1)), bins=ebins),
     'abc': lambda: get_abc_CM(),
     'crel': lambda: get_core_flux_CM(),
-    'bg': lambda: get_bckg_CM()
+    'bg': lambda: get_bckg_CM() if not args.pull_all else get_bckg_CM_pull()
   }
 
 
@@ -182,14 +183,14 @@ def GetCM(ensp = {},
 
   def get_bckg_CM():
     cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) #+ ensp['acc'].GetStatCovMatrix()
-    cm['lihe'] = ensp['lihe'].GetRateCovMatrix(args.lihe_rate_unc) + ensp['lihe'].GetB2BCovMatrix(args.lihe_b2b_unc) #+ ensp['lihe'].GetStatCovMatrix()
-    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(args.fneu_b2b_unc) #+ ensp['fneu'].GetStatCovMatrix()
+    cm['lihe'] = ensp['lihe'].GetRateCovMatrix(float(args.lihe_rate_unc)) + ensp['lihe'].GetB2BCovMatrix(float(args.lihe_b2b_unc)) #+ ensp['lihe'].GetStatCovMatrix()
+    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(float(args.fneu_b2b_unc)) #+ ensp['fneu'].GetStatCovMatrix()
     if detector != "tao":
-        cm['fneu'] += ensp['fneu'].GetRateCovMatrix(args.fneu_rate_unc)
+        cm['fneu'] += ensp['fneu'].GetRateCovMatrix(float(args.fneu_rate_unc))
         if not args.fit_type == 'geo':
-            cm['geo'] = ensp['geo'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc) #+ ensp['geo'].GetStatCovMatrix()
-            cm['geou'] = ensp['geou'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geou'].GetB2BCovMatrix(args.geo_b2b_unc) #+ ensp['geou'].GetStatCovMatrix()
-            cm['geoth'] = ensp['geoth'].GetRateCovMatrix(args.geo_rate_unc) + ensp['geoth'].GetB2BCovMatrix(args.geo_b2b_unc) #+ ensp['geoth'].GetStatCovMatrix()
+            cm['geo'] = ensp['geo'].GetRateCovMatrix(float(args.geo_rate_unc)) + ensp['geo'].GetB2BCovMatrix(float(args.geo_b2b_unc)) #+ ensp['geo'].GetStatCovMatrix()
+            cm['geou'] = ensp['geou'].GetRateCovMatrix(float(args.geo_rate_unc)) + ensp['geou'].GetB2BCovMatrix(float(args.geo_b2b_unc)) #+ ensp['geou'].GetStatCovMatrix()
+            cm['geoth'] = ensp['geoth'].GetRateCovMatrix(float(args.geo_rate_unc)) + ensp['geoth'].GetB2BCovMatrix(float(args.geo_b2b_unc)) #+ ensp['geoth'].GetStatCovMatrix()
         else:
             cm['geo'] = ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc)
             cm['geou'] = ensp['geou'].GetB2BCovMatrix(args.geo_b2b_unc)
@@ -199,14 +200,37 @@ def GetCM(ensp = {},
                 cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(args.geo_b2b_unc)
 
         cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) #+ ensp['aneu'].GetStatCovMatrix()
+        cm['nn'] = ensp['nn'].GetRateCovMatrix(float(args.nn_rate_unc)) + ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc)) #+ ensp['aneu'].GetStatCovMatrix()
         cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) #+ ensp['atm'].GetStatCovMatrix()
         cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) #+ ensp['rea300'].GetStatCovMatrix()
 
     if detector != "tao":
         if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
         if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
-        return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300']
+        return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] +cm['nn']
     else: return cm['acc'] + cm['lihe'] + cm['fneu']
+
+  def get_bckg_CM_pull():
+    cm['lihe'] = ensp['lihe'].GetB2BCovMatrix(float(args.lihe_b2b_unc)) 
+    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(float(args.fneu_b2b_unc))
+    if detector != "tao":
+        cm['geo'] = ensp['geo'].GetB2BCovMatrix(float(args.geo_b2b_unc))
+        cm['geou'] = ensp['geou'].GetB2BCovMatrix(float(args.geo_b2b_unc))
+        cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(float(args.geo_b2b_unc))
+        if args.geo_fit_type == 'mantle' and args.fit_type == 'geo':
+            cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(args.geo_b2b_unc)
+            cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(args.geo_b2b_unc)
+
+        cm['aneu'] = ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc)
+        cm['nn'] =  ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc))
+        cm['atm'] = ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc)
+        cm['rea300'] = ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc)
+
+    if detector != "tao":
+        if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
+        if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
+        return cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] +cm['nn']
+    else: return cm['lihe'] + cm['fneu']
 
 
  # # Initialize the cm dictionary

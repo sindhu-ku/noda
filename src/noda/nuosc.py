@@ -50,6 +50,7 @@ def SetOscillationParameters(opt, NO, silent=True):
   elif opt == 'PDG2024': # https://pdg.lbl.gov/2024/tables/contents_tables.html
     op_nom['sin2_th12'] = 0.307
     op_nom['sin2_th13'] = 0.0219
+    op_nom['sin2_th13_err'] = 0.07e-2
     op_nom['dm2_21'] = 7.53e-5
     if NO:
       op_nom['sin2_th23'] = 0.558
@@ -57,6 +58,19 @@ def SetOscillationParameters(opt, NO, silent=True):
     else:
       op_nom['sin2_th23'] = 0.553
       op_nom['dm2_32'] = -2.529e-3
+    op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
+  #
+  elif opt == 'PDG2025': # https://pdg.lbl.gov/2025/tables/contents_tables.html
+    op_nom['sin2_th12'] = 0.307
+    op_nom['sin2_th13'] = 0.0216
+    op_nom['sin2_th13_err'] = 0.06e-2
+    op_nom['dm2_21'] = 7.50e-5
+    if NO:
+      op_nom['sin2_th23'] = 0.534
+      op_nom['dm2_32'] = 2.451e-3
+    else:
+      op_nom['sin2_th23'] = 0.537
+      op_nom['dm2_32'] = -2.527e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
   #
   else:

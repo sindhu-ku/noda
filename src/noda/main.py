@@ -14,6 +14,7 @@ from .bayesian import bayesian as bayes
 from .bayesian import bayesian_results as bayes_res
 from . import grid_scan_results as scan_res
 from . import minuit as minuit
+from . import minuit_pull as minuit_pull
 from .toymc import run_toy, save_batch_results
 
 def main(argv=None):
@@ -58,13 +59,12 @@ def main(argv=None):
   if args_juno.stat_opt[-4:] == "days":
       ndays = float(args_juno.stat_opt[:-4])
   elif args_juno.stat_opt[-4:] == "year":
-      ndays = 365.25*float(args_juno.stat_opt[:-4])
+      ndays = 365.25*float(args_juno.stat_opt[:-4])*args_juno.duty_cycle
   elif args_juno.stat_opt[-5:] == "years":
-      ndays = 365.25*float(args_juno.stat_opt[:-5])
+      ndays = 365.25*float(args_juno.stat_opt[:-5])*args_juno.duty_cycle
   else:
       raise ValueError("only days or year(s) supported")
 
-  ndays *= args_juno.duty_cycle #for nuclear reactor livetime, effectively only 11 out of 12 months in a year
 
   juno_baselines = args_juno.core_baselines #which reactor baselines and cores
   juno_powers = args_juno.core_powers
@@ -110,11 +110,6 @@ def main(argv=None):
                                     detector="juno",
                                     resp_matrix=resp_matrix,
                                     args=args_juno)
-  # ensp_nom_juno['geo'].WritetoROOT("geo", "Sindhu_spectra_Nov21_v2.root")
-  # ensp_nom_juno['geou'].WritetoROOT("geoU", "Sindhu_spectra_Nov21_v2.root")
-  # ensp_nom_juno['geoth'].WritetoROOT("geoTh", "Sindhu_spectra_Nov21_v2.root")
-  # ensp_nom_juno['rdet'].WritetoROOT("rea_osc", "Sindhu_spectra_Nov21_v2.root")
-  # ensp_nom_juno['ribd'].WritetoROOT("rea_unosc", "Sindhu_spectra_Nov21_v2.root")
   if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
       ensp_nom_tao  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
@@ -233,6 +228,7 @@ def main(argv=None):
     cm_juno[full_unc] = CovMatrix(data=np.zeros((len(ensp_nom_juno['rdet'].bins)-1, len(ensp_nom_juno['rdet'].bins)-1)), bins=ebins)
     for u in single_unc_list:
       cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      print(u)
       cm_juno[full_unc] += cm_juno[u]
 
 
@@ -289,7 +285,8 @@ def main(argv=None):
       else:
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
           if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
-              minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
+              if not args_juno.pull_all: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
+              else: minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
           else:
               if bool(args_juno.toymc):
                   #if args_juno.geo_tnu_rate <= 20: ntoys = 5000
@@ -310,7 +307,11 @@ def main(argv=None):
                       del batch_results
                       if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
               else:
-                  for unc in unc_list_new_juno: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+                  for unc in unc_list_new_juno: 
+                      if not args_juno.pull_all:
+                          minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+                      else:
+                          minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
          # dm2_31_val = 2.5283e-3
          # dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 100 )
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)

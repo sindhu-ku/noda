@@ -4,11 +4,11 @@ config: ''
 fit_options:
 
   is_data: False
-  stat_opt: 6years # time period for sensitivity studies
-  sin2_th13_opt: free # Sin2_theta13 option
+  stat_opt: 1years # time period for sensitivity studies
+  sin2_th13_opt: pull # Sin2_theta13 option
   sin2_th13_pull_unc: 0.032 #uncertainty for sin2_theta13 pull
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2022 # PDG option
+  PDG_opt: PDG2025 # PDG option
   NMO_opt: true  # NMO option, true is normal
   min_ene: 0.8  # Minimum energy
   max_ene: 12 # Maximum energy
@@ -83,6 +83,9 @@ fit_options:
   geo_MC_file: /junofs/users/sindhu/NODA/noda/data/xc_pdfs_2023-08-25.root
   aneu_file: /junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root
   aneu_hist: AlphaN_MC
+  nn_file: data/neutron.root
+  nn_hist: rec_energy_neutron
+
   reactor_model: Huber-Mueller
 
   main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_Sep1
@@ -190,7 +193,7 @@ juno_inputs:
   aneu_rate: 0.090 #0.05 #0.090
   atm_rate: 0.16
   rea300_rate: 1.3 #1 #1.3
-
+  nn_rate: 0.77
   me_rho_scale: 0.15
   eff_unc: 0.01
 
@@ -204,6 +207,9 @@ juno_inputs:
 
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
+
+  nn_rate_unc: 1.0 #0.5 #0.25
+  nn_b2b_unc: 0.5 #0.5 #0.25
 
   aneu_rate_unc: 0.25 #0.5 #0.25
   aneu_b2b_unc: 0.25 #0.5 #0.25
