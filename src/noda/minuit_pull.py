@@ -78,7 +78,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
     def chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, \
             Ngeo=1.0, Nrea=1.0, NU=1.0, NTh=1.0, Nmantle=1.0, Ncrust=1.0, \
             opp=False, a1=0.0, a2=0.0, a3=0.0, a4=0.0,\
-            NLiHe=1.0, NFneu=1.0, Natm=1.0, Nacc=1.0, Nnn=1.0, Nrea300=1.0, Naneu=1.0):
+            NLiHe=1.0, NFneu=1.0, Natm=1.0, Nacc=1.0, Nrea300=1.0, Naneu=1.0):
         # Get the oscillated spectrum
         #ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins)
        # s_juno = ensp_nom_juno['rfis'].GetScaledFit(eff/float(args_juno.detector_efficiency))
@@ -100,7 +100,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                             +a3*(ensp_nom_juno['NL_pull'][2].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
                             +a4*(ensp_nom_juno['NL_pull'][3].bin_cont - ensp_nom_juno['scintNL'].bin_cont)
         s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)  # Apply non-linearity
-       # a_err, b_err, c_err =args_juno.a_err, args_juno.b_err, args_juno.c_err
+       #a_err, b_err, c_err =args_juno.a_err, args_juno.b_err, args_juno.c_err
        # rm = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
         s_juno = s_juno.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
 
@@ -145,14 +145,14 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             sp_exp = s_juno.GetScaledFit(Nrea)
             s_tot_juno = s_juno.GetScaledFit(Nrea) + ensp_nom_juno['acc'].GetScaledFit(Nacc) + ensp_nom_juno['fneu'].GetScaledFit(NFneu) + ensp_nom_juno['lihe'].GetScaledFit(NLiHe) + \
                          ensp_nom_juno['aneu'].GetScaledFit(Naneu) + ensp_nom_juno['geo'].GetScaledFit(Ngeo) + ensp_nom_juno['atm'].GetScaledFit(Natm) + \
-                         ensp_nom_juno['rea300'].GetScaledFit(Nrea300) + ensp_nom_juno['nn'].GetScaledFit(Nnn)
+                         ensp_nom_juno['rea300'].GetScaledFit(Nrea300) #+ ensp_nom_juno['nn'].GetScaledFit(Nnn)
 
         if args_juno.toymc:
             #sp_obs = ensp_nom_juno["toy"]
             sp_obs_tot = ensp_nom_juno["rtot_toy"]
         chi2 = 1e+6
 
-        if args_juno.fit_type == "NMO" and args_juno.include_TAO:
+        if args_juno.fit_type == "PMOP_combined" and args_juno.include_nd:
             s_tao = ensp_nom_tao['ribd'].GetOscillated(L=args_tao.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
                                           dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_tao.core_powers,
                                           me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_tao)
@@ -200,9 +200,9 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
                 if args_juno.sin2_th13_opt == "pull":
                     sin2_th13_pull_unc = nuosc.op_nom["sin2_th13_err"]/nuosc.op_nom["sin2_th13"]
                     if args_juno.is_data:
-                        chi2 = Chi2(cm_juno[unc_juno], ensp_nom_juno['data'], s_tot_juno, ensp_nom_juno['data'], s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13'], a1, a2, a3, a4, Nrea-1.0, Ngeo-1.0,Nacc-1.0, NFneu-1.0, NLiHe-1.0, Nnn-1.0, Nrea300-1.0, Naneu-1.0, Natm-1.0], pull_unc=[sin2_th13_pull_unc * nuosc.op_nom['sin2_th13'], args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.r2_unc, args_juno.geo_rate_unc, args_juno.acc_rate_unc, args_juno.fneu_rate_unc, args_juno.lihe_rate_unc, args_juno.nn_rate_unc, args_juno.rea300_rate_unc, args_juno.aneu_rate_unc, args_juno.atm_rate_unc])
+                        chi2 = Chi2(cm_juno[unc_juno], ensp_nom_juno['data'], s_tot_juno, ensp_nom_juno['data'], s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13'], a1, a2, a3, a4, Nrea-1.0, Ngeo-1.0,Nacc-1.0, NFneu-1.0, NLiHe-1.0, Nrea300-1.0, Naneu-1.0, Natm-1.0], pull_unc=[sin2_th13_pull_unc * nuosc.op_nom['sin2_th13'], args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.r2_unc, args_juno.geo_rate_unc, args_juno.acc_rate_unc, args_juno.fneu_rate_unc, args_juno.lihe_rate_unc, args_juno.rea300_rate_unc, args_juno.aneu_rate_unc, args_juno.atm_rate_unc])
                     else:
-                        chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13'], a1, a2, a3, a4, Nrea-1.0, Ngeo-1.0, Nacc-1.0, NFneu-1.0, NLiHe-1.0, Nnn-1.0, Nrea300-1.0, Naneu-1.0, Natm-1.0], pull_unc=[sin2_th13_pull_unc * nuosc.op_nom['sin2_th13'], args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.r2_unc, args_juno.geo_rate_unc, args_juno.acc_rate_unc, args_juno.fneu_rate_unc, args_juno.lihe_rate_unc, args_juno.nn_rate_unc, args_juno.rea300_rate_unc, args_juno.aneu_rate_unc, args_juno.atm_rate_unc])
+                        chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=[sin2_13 - nuosc.op_nom['sin2_th13'], a1, a2, a3, a4, Nrea-1.0, Ngeo-1.0, Nacc-1.0, NFneu-1.0, NLiHe-1.0, Nrea300-1.0, Naneu-1.0, Natm-1.0], pull_unc=[sin2_th13_pull_unc * nuosc.op_nom['sin2_th13'], args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.NL_sd, args_juno.r2_unc, args_juno.geo_rate_unc, args_juno.acc_rate_unc, args_juno.fneu_rate_unc, args_juno.lihe_rate_unc, args_juno.rea300_rate_unc, args_juno.aneu_rate_unc, args_juno.atm_rate_unc])
                 else:
                     chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt)
                         #print(chi2, Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs, sp_exp, 'stat+bg', args_juno.stat_method_opt))
@@ -212,14 +212,14 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
    #fitting stuff
     def chi2_pmop(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0, a1=0.0, a2=0.0, a3=0.0, a4=0.0,\
-                 NLiHe=1.0, NFneu=1.0, Natm=1.0, Nacc=1.0, Nnn=1.0, Nrea300=1.0, Naneu=1.0):
+                 NLiHe=1.0, NFneu=1.0, Natm=1.0, Nacc=1.0, Nrea300=1.0, Naneu=1.0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=Nrea, Ngeo=Ngeo,a1=a1, a2=a2, a3=a3, a4=a4,\
-                   NLiHe=NLiHe, NFneu=NFneu, Natm=Natm, Nacc=Nacc, Nnn=Nnn, Nrea300=Nrea300, Naneu=Naneu,opp=False)
+                   NLiHe=NLiHe, NFneu=NFneu, Natm=Natm, Nacc=Nacc,  Nrea300=Nrea300, Naneu=Naneu,opp=False)
     
     def chi2_pmop_opp(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0, a1=0.0, a2=0.0, a3=0.0, a4=0.0,\
                  NLiHe=1.0, NFneu=1.0, Natm=1.0, Nacc=1.0, Nnn=1.0, Nrea300=1.0, Naneu=1.0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=Nrea, Ngeo=Ngeo,a1=a1, a2=a2, a3=a3, a4=a4,\
-                   NLiHe=NLiHe, NFneu=NFneu, Natm=Natm, Nacc=Nacc, Nnn=Nnn, Nrea300=Nrea300, Naneu=Naneu,opp=True)
+                   NLiHe=NLiHe, NFneu=NFneu, Natm=Natm, Nacc=Nacc,  Nrea300=Nrea300, Naneu=Naneu,opp=True)
 
     def combined_chi2(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0):
         return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Nrea=1.0, Ngeo=1.0, NU=1.0, NTh=1.0, Nmantle=1.0, opp=False)
@@ -243,8 +243,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             print(f"Th/U free: {args_juno.geo_fit_type == 'UThfree'}")
             print(f"Mantle fit: {args_juno.geo_fit_type == 'mantle'}")
             print(f"OPfixed: {args_juno.geo_OPfixed}")
-        if args_juno.fit_type == "NMO" :
-            print(f"TAO inclusion: {args_juno.include_TAO}")
+        if args_juno.fit_type == "PMOP_combined" :
+            print(f"TAO inclusion: {args_juno.include_nd}")
 
     unc_new_juno = unc_juno
     if(unc_juno != 'stat'): unc_new_juno = 'stat+'+unc_juno
@@ -272,8 +272,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             for param in osc_params:
                 m.fixed[param] =True
 
-    elif args_juno.fit_type == "NMO":
-        if args_juno.include_TAO:
+    elif args_juno.fit_type == "PMOP_combined":
+        if args_juno.include_nd:
             unc_new_tao = unc_tao
             if(unc_tao != 'stat'): unc_new_tao = 'stat+'+unc_tao
             print("Uncertainty TAO: ", unc_new_tao)
@@ -294,7 +294,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     else:
         m = Minuit(chi2_pmop, sin2_12= nuosc.op_nom["sin2_th12"], sin2_13= nuosc.op_nom["sin2_th13"],  dm2_21=nuosc.op_nom["dm2_21"], dm2_31=nuosc.op_nom["dm2_31"], a1=0.0, a2=0.0, \
-                  a3=0.0, a4=0.0, Nrea=1.0, Ngeo=1.0, NLiHe=1.0, NFneu=1.0, Nnn=1.0, Naneu=1.0, Nacc=1.0, Nrea300=1.0, Natm=1.0)
+                  a3=0.0, a4=0.0, Nrea=1.0, Ngeo=1.0, NLiHe=1.0, NFneu=1.0, Naneu=1.0, Nacc=1.0, Nrea300=1.0, Natm=1.0)
   
     start_time = time.time()
     max_time = args_juno.minuit_timeout
@@ -302,7 +302,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     if args_juno.calc_minuit_errors:
         m.hesse() #get errors
-        m.minos() #get minos errors
+        m.minos("sin2_12", "sin2_13", "dm2_21", "dm2_31") #get minos errors
 
     if args_juno.fit_type == "geo"  and args_juno.geo_fit_type == 'mantle':
         chi2_min = chi2_mantle(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4], Ncrust=m.values[5],Nmantle=m.values[6])
@@ -312,8 +312,8 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
         dchi2 = chi2_mantle0 - chi2_min
         if not args_juno.silent_print: print(f"Mantle discovery potential: delta chi2 between mantle and no mantle: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
 
-    if args_juno.fit_type == "NMO" :
-        if args_juno.include_TAO:
+    if args_juno.fit_type == "PMOP_combined" :
+        if args_juno.include_nd:
             chi2_min = combined_chi2(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3])
             chi2_min_opp = combined_chi2_opp(sin2_12=m_opp.values[0], sin2_13=m_opp.values[1], dm2_21=m_opp.values[2], dm2_31=m_opp.values[3])
         else:
@@ -325,12 +325,12 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
 
     if not args_juno.silent_print:
         print("************Fit results************")
-        for i in range(len(m.values)):
+        for i in range(4):#len(m.values)):
             if args_juno.calc_minuit_errors:
                 err = max(abs(m.merrors[i].upper), abs(m.merrors[i].lower))
             else:
                 err = m.errors[i]
-            print(f"{m.parameters[i]}: {m.values[i]} +/- {err}")
+            print(f"{m.parameters[i]}: {m.values[i]} +/- {err}; rel unc: {err/m.values[i]}")
         print(m)
 
 
@@ -343,7 +343,7 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             extra.extend([dchi2, np.sqrt(dchi2), args_juno.mantle_model,  args_juno.crust_rate, args_juno.crust_rate_unc])
         if args_juno.fit_type == 'geo' and args_juno.geo_fit_type != 'mantle':
             extra.extend([args_juno.geo_tnu_rate])
-        if args_juno.fit_type == "NMO":
+        if args_juno.fit_type == "PMOP_combined":
             extra.extend([dchi2, np.sqrt(dchi2)])
         if args_juno.toymc:
             extra = [ensp_nom_juno['rtot_toy'].GetIntegral()]
@@ -354,11 +354,11 @@ def run_minuit(ensp_nom_juno={}, ensp_nom_tao={},  unc_juno='', unc_tao='', unc_
             
         extra_name = ''
         if not args_juno.geo_fit_type == 'total': extra_name = f'{args_juno.geo_fit_type}_'
-        if args_juno.fit_type == "NMO" and args_juno.include_TAO: extra_name = '_TAO_'
+        if args_juno.fit_type == "PMOP_combined" and args_juno.include_nd: extra_name = '_TAO_'
         filename = f"{args_juno.main_data_folder}/fit_results_mdata_nonblind_sel_highunc_{args_juno.fit_type}_{extra_name}{args_juno.stat_method_opt}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit.txt"
         #fileo = open(filename, "a")
         #if unc_new_juno==args_juno.unc_list_juno[0]:
-        #   if args_juno.fit_type == "NMO":
+        #   if args_juno.fit_type == "PMOP_combined":
         #       fileo.write("sin2_12 sin2_12_err sin2_12_merr sin2_12_perr sin2_13 sin2_13_err sin2_13_merr sin2_13_perr dm2_21 dm2_21_err dm2_21_merr dm2_21_perr dm2_31 dm2_31_err dm2_31_merr dm2_31_perr unc dchi2 sigma\n")
         #   elif args_juno.fit_type == 'geo':
         #       if args_juno.geo_fit_type == 'UThfree':

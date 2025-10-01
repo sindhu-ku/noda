@@ -8,7 +8,7 @@ def GetCM(ensp = {},
       ndays=10,
       unc='',
       detector="juno",
-      ene_leak_tao=[],
+      ene_leak_nd=[],
       args=None):
   ebins = ensp['rdet'].bins
   nbins = len(ebins)
@@ -32,7 +32,7 @@ def GetCM(ensp = {},
   def mat_flu(me_rho_flu):
       ensp['rosc_me_flu'] = ensp['ribd'].GetOscillated(L=args.core_baselines, core_powers=args.core_powers, me_rho=me_rho_flu, ene_mode='true', args=args)
       ensp['rvis_me_flu_0'] = ensp['rosc_me_flu'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-      if detector == "tao": ensp['rvis_me_flu_0'] = ensp['rvis_me_flu_0'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
+      if detector == "TAO": ensp['rvis_me_flu_0'] = ensp['rvis_me_flu_0'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
       ensp['rvis_me_flu'] = ensp['rvis_me_flu_0'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rosc_me_flu'], ensp['rvis_me_flu_0']
       return ensp['rvis_me_flu']
@@ -49,7 +49,8 @@ def GetCM(ensp = {},
       del ensp['rvis_me_flu']
       time_end_me = datetime.now()
       print ("ME flu time", time_end_me - time_start_me)
-      if args.rebin_nonuniform: ensp['rdet_me_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_me_flu']]
+      if args.rebin_nonuniform: 
+          ensp['rdet_me_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_me_flu']]
       cm = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_me_flu'])
       del ensp['rdet_me_flu']
       return cm
@@ -160,7 +161,7 @@ def GetCM(ensp = {},
       ensp['rosc_crel_flu'] = ensp['ribd_crel'].GetOscillated(L=args.core_baselines, core_powers=flu_powers, me_rho=args.me_rho, ene_mode='true', args=args)
       del ensp['ribd_crel']
       ensp['rvis_crel_flu_nonl'] = ensp['rosc_crel_flu'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-      if detector == "tao": ensp['rvis_crel_flu_nonl'] = ensp['rvis_crel_flu_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args.ene_crop)
+      if detector == "TAO": ensp['rvis_crel_flu_nonl'] = ensp['rvis_crel_flu_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
       ensp['rvis_crel_flu'] = ensp['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       del ensp['rvis_crel_flu_nonl']
       return ensp['rvis_crel_flu']
@@ -185,7 +186,7 @@ def GetCM(ensp = {},
     cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) #+ ensp['acc'].GetStatCovMatrix()
     cm['lihe'] = ensp['lihe'].GetRateCovMatrix(float(args.lihe_rate_unc)) + ensp['lihe'].GetB2BCovMatrix(float(args.lihe_b2b_unc)) #+ ensp['lihe'].GetStatCovMatrix()
     cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(float(args.fneu_b2b_unc)) #+ ensp['fneu'].GetStatCovMatrix()
-    if detector != "tao":
+    if detector != "TAO":
         cm['fneu'] += ensp['fneu'].GetRateCovMatrix(float(args.fneu_rate_unc))
         if not args.fit_type == 'geo':
             cm['geo'] = ensp['geo'].GetRateCovMatrix(float(args.geo_rate_unc)) + ensp['geo'].GetB2BCovMatrix(float(args.geo_b2b_unc)) #+ ensp['geo'].GetStatCovMatrix()
@@ -200,20 +201,20 @@ def GetCM(ensp = {},
                 cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(args.geo_b2b_unc)
 
         cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) #+ ensp['aneu'].GetStatCovMatrix()
-        cm['nn'] = ensp['nn'].GetRateCovMatrix(float(args.nn_rate_unc)) + ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc)) #+ ensp['aneu'].GetStatCovMatrix()
+        #cm['nn'] = ensp['nn'].GetRateCovMatrix(float(args.nn_rate_unc)) + ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc)) #+ ensp['aneu'].GetStatCovMatrix()
         cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) #+ ensp['atm'].GetStatCovMatrix()
         cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) #+ ensp['rea300'].GetStatCovMatrix()
 
-    if detector != "tao":
+    if detector != "TAO":
         if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
         if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
-        return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] +cm['nn']
+        return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] #+cm['nn']
     else: return cm['acc'] + cm['lihe'] + cm['fneu']
 
   def get_bckg_CM_pull():
     cm['lihe'] = ensp['lihe'].GetB2BCovMatrix(float(args.lihe_b2b_unc)) 
     cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(float(args.fneu_b2b_unc))
-    if detector != "tao":
+    if detector != "TAO":
         cm['geo'] = ensp['geo'].GetB2BCovMatrix(float(args.geo_b2b_unc))
         cm['geou'] = ensp['geou'].GetB2BCovMatrix(float(args.geo_b2b_unc))
         cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(float(args.geo_b2b_unc))
@@ -222,14 +223,14 @@ def GetCM(ensp = {},
             cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(args.geo_b2b_unc)
 
         cm['aneu'] = ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc)
-        cm['nn'] =  ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc))
+        #cm['nn'] =  ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc))
         cm['atm'] = ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc)
         cm['rea300'] = ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc)
 
-    if detector != "tao":
+    if detector != "TAO":
         if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
         if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
-        return cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] +cm['nn']
+        return cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] #+cm['nn']
     else: return cm['lihe'] + cm['fneu']
 
 
@@ -246,77 +247,77 @@ def GetCM(ensp = {},
       raise ValueError(f"unc {unc} not found! Cannot calculate!")
 
 def GetCorrCM(ensp_juno = {},
-      ensp_tao = {},
+      ensp_nd = {},
       resp_matrix=[],
       ndays=10,
       unc='',
-      ene_leak_tao=[],
+      ene_leak_nd=[],
       args_juno=None,
-      args_tao=None):
+      args_nd=None):
   cm_juno = {}
-  cm_tao = {}
+  cm_nd = {}
   unc_map = {
     'nl': lambda: get_NL_CM(),
     'crel': lambda: get_core_flux_CM(),
   }
 
-  def new_NL_curve(w, ensp_juno, ensp_tao):
+  def new_NL_curve(w, ensp_juno, ensp_nd):
       new_nonl =  Spectrum(bins = ensp_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_juno['scintNL'].bin_cont)))
       new_nonl.bin_cont = ensp_juno['scintNL'].bin_cont + w[0]*(ensp_juno['NL_pull'][0].bin_cont - ensp_juno['scintNL'].bin_cont) + w[1]*(ensp_juno['NL_pull'][1].bin_cont - ensp_juno['scintNL'].bin_cont)  + w[2]*(ensp_juno['NL_pull'][2].bin_cont - ensp_juno['scintNL'].bin_cont) +  w[3]*(ensp_juno['NL_pull'][3].bin_cont - ensp_juno['scintNL'].bin_cont)
       output_juno = ensp_juno['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
-      output_tao = ensp_tao['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
+      output_nd = ensp_nd['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
       del new_nonl
-      return output_juno, output_tao
+      return output_juno, output_nd
 
-  def GetFluNL(ensp_juno, ensp_tao):
+  def GetFluNL(ensp_juno, ensp_nd):
       weights = np.random.normal(loc=0., scale=1., size=(args.sample_size_nonl,4))
       if args.ihep_usage:
-          output = [delayed(new_NL_curve)(w, ensp_juno, ensp_tao) for w in weights]
+          output = [delayed(new_NL_curve)(w, ensp_juno, ensp_nd) for w in weights]
       else:
-          output = Parallel(n_jobs=-1)(delayed(new_NL_curve)(w, ensp_juno, ensp_tao) for w in weights)
-      output_spectra_juno, output_spectra_tao = zip(*output)
-      return output_spectra_juno, output_spectra_tao
+          output = Parallel(n_jobs=-1)(delayed(new_NL_curve)(w, ensp_juno, ensp_nd) for w in weights)
+      output_spectra_juno, output_spectra_nd = zip(*output)
+      return output_spectra_juno, output_spectra_nd
 
   def get_NL_CM():
       print ("NL fluctuated spectra")
       start_time_nl = datetime.now()
 
       print("     getting rvis spectra")
-      ensp_juno['rvis_nl_flu'], ensp_tao['rvis_nl_flu'] = GetFluNL(ensp_juno, ensp_tao)
+      ensp_juno['rvis_nl_flu'], ensp_nd['rvis_nl_flu'] = GetFluNL(ensp_juno, ensp_nd)
       print("     getting rdet spectra")
       ensp_juno['rdet_nl_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_juno['rvis_nl_flu']]
-      ensp_tao['rdet_nl_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_tao['rvis_nl_flu']]
+      ensp_nd['rdet_nl_flu'] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_nd['rvis_nl_flu']]
       del ensp_juno['rvis_nl_flu']
-      del ensp_tao['rvis_nl_flu']
+      del ensp_nd['rvis_nl_flu']
       print("     constructing cov. matrix")
       if args_juno.rebin_nonuniform: 
           ensp_juno['rdet_nl_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_juno['rdet_nl_flu']]
-          ensp_tao['rdet_nl_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_tao['rdet_nl_flu']]
+          ensp_nd['rdet_nl_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_nd['rdet_nl_flu']]
       cm_juno['nl'] = ensp_juno['rdet'].GetCovMatrixFromRandSample(ensp_juno['rdet_nl_flu'])
-      cm_tao['nl'] = ensp_tao['rdet'].GetCovMatrixFromRandSample(ensp_tao['rdet_nl_flu'])
+      cm_nd['nl'] = ensp_nd['rdet'].GetCovMatrixFromRandSample(ensp_nd['rdet_nl_flu'])
       SaveObject(cm_juno['nl'], f"{args_juno.data_matrix_folder}/cm_correlated_juno_nl_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      SaveObject(cm_tao['nl'], f"{args_juno.data_matrix_folder}/cm_correlated_tao_nl_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      SaveObject(cm_nd['nl'], f"{args_juno.data_matrix_folder}/cm_correlated_nd_nl_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
       del ensp_juno['rdet_nl_flu']
-      del ensp_tao['rdet_nl_flu']
+      del ensp_nd['rdet_nl_flu']
 
       end_time_nl = datetime.now()
       print ("NL flu time", end_time_nl - start_time_nl)
       print("   Summing nl matrices")
-      cm_comb = cm_juno['nl'].Extend(cm_tao['nl'])
+      cm_comb = cm_juno['nl'].Extend(cm_nd['nl'])
       return cm_comb
 
   def get_core_flu(i):
       if i%1000 == 0: print (f"{i}/{args_juno.sample_size_core}")
       deviations_juno = np.random.normal(loc=1., scale=args_juno.core_flux_unc, size=len(args_juno.core_powers))
-      deviations_tao = np.array([deviations_juno[6], deviations_juno[7]])
+      deviations_nd = np.array([deviations_juno[6], deviations_juno[7]])
 
       flu_powers_juno = [dev*p for dev, p in zip(deviations_juno, args_juno.core_powers)]
-      flu_powers_tao = [dev*p for dev, p in zip(deviations_tao, args_tao.core_powers)]
+      flu_powers_nd = [dev*p for dev, p in zip(deviations_nd, args_nd.core_powers)]
 
       flu_powers2_juno = np.array([dev*p for dev, p in zip(deviations_juno, args_juno.core_powers)])
       flu_powers22_juno = flu_powers2_juno*6.24e21*60*60*24 # MeV/day
-      flu_powers2_tao = np.array([dev*p for dev, p in zip(deviations_tao, args_tao.core_powers)])
-      flu_powers22_tao = flu_powers2_tao*6.24e21*60*60*24 # MeV/day
+      flu_powers2_nd = np.array([dev*p for dev, p in zip(deviations_nd, args_nd.core_powers)])
+      flu_powers22_nd = flu_powers2_nd*6.24e21*60*60*24 # MeV/day
 
       alpha_arr = np.array(args_juno.alpha)
       efission_arr = np.array(args_juno.efission)
@@ -324,14 +325,14 @@ def GetCorrCM(ensp_juno = {},
       Pth_arr_juno = np.array(args_juno.Pth)
       L_arr_juno = np.array(args_juno.L)
 
-      Pth_arr_tao = np.array(args_tao.Pth)
-      L_arr_tao = np.array(args_tao.L)
+      Pth_arr_nd = np.array(args_nd.Pth)
+      L_arr_nd = np.array(args_nd.L)
 
       extrafactors_juno = args_juno.detector_efficiency*args_juno.veto*args_juno.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr_juno/(L_arr_juno*L_arr_juno))
       extrafactors2_juno = args_juno.detector_efficiency*args_juno.veto*args_juno.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22_juno/(L_arr_juno*L_arr_juno))
 
-      extrafactors_tao = args_tao.detector_efficiency*args_tao.veto*args_tao.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr_tao/(L_arr_tao*L_arr_tao))
-      extrafactors2_tao = args_tao.detector_efficiency*args_tao.veto*args_tao.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22_tao/(L_arr_tao*L_arr_tao))
+      extrafactors_nd = args_nd.detector_efficiency*args_nd.veto*args_nd.Np/(4*np.pi)*1./(np.sum(alpha_arr*efission_arr))*np.sum(Pth_arr_nd/(L_arr_nd*L_arr_nd))
+      extrafactors2_nd = args_nd.detector_efficiency*args_nd.veto*args_nd.Np/(4*np.pi)*1./np.sum(alpha_arr*efission_arr)*np.sum(flu_powers22_nd/(L_arr_nd*L_arr_nd))
 
       ensp_juno['ribd_crel'] = ensp_juno['ribd'].Copy()
       ensp_juno['ribd_crel'].GetScaled(1./extrafactors_juno)
@@ -341,17 +342,17 @@ def GetCorrCM(ensp_juno = {},
       ensp_juno['rvis_crel_flu_nonl'] = ensp_juno['rosc_crel_flu'].GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)
       ensp_juno['rvis_crel_flu'] = ensp_juno['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_juno['scintNL'])
 
-      ensp_tao['ribd_crel'] = ensp_tao['ribd'].Copy()
-      ensp_tao['ribd_crel'].GetScaled(1./extrafactors_tao)
-      ensp_tao['ribd_crel'].GetScaled(extrafactors2_tao)
-      ensp_tao['rosc_crel_flu'] = ensp_tao['ribd_crel'].GetOscillated(L=args_tao.core_baselines, core_powers=flu_powers_tao, me_rho=args_tao.me_rho, ene_mode='true', args=args_tao)
-      del ensp_tao['ribd_crel']
-      ensp_tao['rvis_crel_flu_nonl'] = ensp_tao['rosc_crel_flu'].GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)
-      ensp_tao['rvis_crel_flu_nonl'] =  ensp_tao['rvis_crel_flu_nonl'].ApplyDetResp(ene_leak_tao, pecrop=args_tao.ene_crop)
-      ensp_tao['rvis_crel_flu'] = ensp_tao['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_tao['scintNL'])
+      ensp_nd['ribd_crel'] = ensp_nd['ribd'].Copy()
+      ensp_nd['ribd_crel'].GetScaled(1./extrafactors_nd)
+      ensp_nd['ribd_crel'].GetScaled(extrafactors2_nd)
+      ensp_nd['rosc_crel_flu'] = ensp_nd['ribd_crel'].GetOscillated(L=args_nd.core_baselines, core_powers=flu_powers_nd, me_rho=args_nd.me_rho, ene_mode='true', args=args_nd)
+      del ensp_nd['ribd_crel']
+      ensp_nd['rvis_crel_flu_nonl'] = ensp_nd['rosc_crel_flu'].GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)
+      ensp_nd['rvis_crel_flu_nonl'] =  ensp_nd['rvis_crel_flu_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args_nd.ene_crop)
+      ensp_nd['rvis_crel_flu'] = ensp_nd['rvis_crel_flu_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nd['scintNL'])
 
-      del ensp_juno['rvis_crel_flu_nonl'], ensp_tao['rvis_crel_flu_nonl']
-      return ensp_juno['rvis_crel_flu'], ensp_tao['rvis_crel_flu']
+      del ensp_juno['rvis_crel_flu_nonl'], ensp_nd['rvis_crel_flu_nonl']
+      return ensp_juno['rvis_crel_flu'], ensp_nd['rvis_crel_flu']
 
   def get_core_flux_CM():
       print(" # Fluctuating relative core fluxes ")
@@ -360,21 +361,21 @@ def GetCorrCM(ensp_juno = {},
           results = [get_core_flu(i) for i in range(args_juno.sample_size_core)]
       else:
           results = Parallel(n_jobs=-1)(delayed(get_core_flu)(i) for i in range(args_juno.sample_size_core))
-      ensp_juno['rvis_crel_flu'], ensp_tao['rvis_crel_flu'] = zip(*results)
+      ensp_juno['rvis_crel_flu'], ensp_nd['rvis_crel_flu'] = zip(*results)
       ensp_juno["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_juno['rvis_crel_flu']]
-      ensp_tao["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_tao['rvis_crel_flu']]
+      ensp_nd["rdet_crel_flu"] = [s.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop) for s in ensp_nd['rvis_crel_flu']]
       del ensp_juno['rvis_crel_flu']
-      del ensp_tao['rvis_crel_flu']
+      del ensp_nd['rvis_crel_flu']
       end_time_core = datetime.now()
       print("Core flu time", end_time_core - start_time_core)
       if args_juno.rebin_nonuniform: 
           ensp_juno['rdet_crel_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_juno['rdet_crel_flu']]
-          ensp_tao['rdet_crel_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_tao['rdet_crel_flu']]
+          ensp_nd['rdet_crel_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp_nd['rdet_crel_flu']]
       cm_juno['crel'] = ensp_juno["rdet"].GetCovMatrixFromRandSample(ensp_juno["rdet_crel_flu"])
-      cm_tao['crel'] = ensp_tao["rdet"].GetCovMatrixFromRandSample(ensp_tao["rdet_crel_flu"])
-      cm_comb = cm_juno['crel'].Extend(cm_tao['crel'])
+      cm_nd['crel'] = ensp_nd["rdet"].GetCovMatrixFromRandSample(ensp_nd["rdet_crel_flu"])
+      cm_comb = cm_juno['crel'].Extend(cm_nd['crel'])
       del ensp_juno["rdet_crel_flu"]
-      del ensp_tao["rdet_crel_flu"]
+      del ensp_nd["rdet_crel_flu"]
       return cm_comb
 
  # Initialize the cm dictionary

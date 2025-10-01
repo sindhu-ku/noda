@@ -16,6 +16,7 @@ from joblib import Parallel, delayed
 import uproot
 import ROOT
 from scipy.integrate import quad
+from numpy.linalg import solve, slogdet
 from array import array
 from scipy.linalg import cho_solve, cho_factor
 #np.set_printoptions(threshold=sys.maxsize)
@@ -72,7 +73,11 @@ class Spectrum:
       return (self.bins[-1]-self.bins[0])/self.GetNBins()
     else:
       return (self.bins[i+1]-self.bins[i])
-
+        
+  def ScaleByBinWidth(self):
+    widths = np.array([self.GetBinWidth(i) for i in range(self.GetNBins())])
+    self.bin_cont = np.array(self.bin_cont, dtype=float) * widths
+      
   def GetBinCenters(self):
     return 0.5*(self.bins[:-1]+self.bins[1:])
 
@@ -289,6 +294,41 @@ class Spectrum:
     peb2 = int(np.around((pecrop[1]-pebins_full[0])/pebw))
     pebins_crop = pebins_full[peb1:peb2+1]
     return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+  def ApplyDetRespNew(self, respMat, pecrop=None):
+    """
+    Apply detector response matrix (respMat) to this Spectrum.
+    Allows respMat to have finer binning than self.bins.
+    """
+
+    # --- True energy binning ---
+    ebins_coarse = self.bins                # coarse bins (spectrum)
+    ebins_fine   = respMat.ebins            # fine bins (matrix)
+    pebins_full  = respMat.pebins           # PE edges
+    n_pebins     = len(pebins_full) - 1     # number of PE bins
+
+    # --- Rebin respMat along the true-energy axis ---
+    rebinned_data = np.zeros((len(ebins_coarse) - 1, n_pebins))
+    for i in range(len(ebins_coarse) - 1):
+        # mask of fine bins fully inside this coarse bin
+        mask = (ebins_fine[:-1] >= ebins_coarse[i]) & (ebins_fine[1:] <= ebins_coarse[i+1])
+        if not np.any(mask):
+            continue
+        # sum fine rows into the coarse row
+        rebinned_data[i, :] = np.sum(respMat.data[mask, :], axis=0)
+
+    # --- Apply response ---
+    smeared = self.bin_cont.dot(rebinned_data)
+
+    # --- Handle cropping ---
+    if pecrop is not None:
+        # locate indices of crop range
+        pebw = (pebins_full[-1] - pebins_full[0]) / (len(pebins_full) - 1)
+        peb1 = int(np.around((pecrop[0] - pebins_full[0]) / pebw))
+        peb2 = int(np.around((pecrop[1] - pebins_full[0]) / pebw))
+        pebins_crop = pebins_full[peb1:peb2+1]
+        return Spectrum(smeared[peb1:peb2], bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+
+    return Spectrum(smeared, bins=pebins_full, xlabel=r"$E_{\rm vis}$ (MeV)")
 
   def GetWithShiftedEnergy(self, eshift):
     Enu = self.bins
@@ -507,7 +547,7 @@ class Spectrum:
     bin_centers = 0.5*(self.bins[1:]+self.bins[:-1])
     for bin_c, val in zip(bin_centers, self.bin_cont):
       values.append(val*f(bin_c))
-    self.bin_cont = values
+    self.bin_cont = np.array(values)
 
   def Trim(self, crop):
     lower_edge, higher_edge = crop
@@ -655,7 +695,7 @@ class Spectrum:
       colors = ['darkred'] + ['lightsteelblue']*len(extra_spectra)
     elif type(colors) == 'str':
       colors = [colors] + ['lightsteelblue']*len(extra_spectra)
-    plt.figure(figsize=(10,6))
+    plt.figure(figsize=(8,6))
     plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=2, color=colors[0], label=leg_labels[0], log=log_scale)
     for i,s in enumerate(extra_spectra):
       plt.hist(s.bins[:-1], weights=s.bin_cont, bins=s.bins, fill=False, histtype='step', linewidth=2, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
@@ -670,6 +710,7 @@ class Spectrum:
     plt.xticks(fontsize=16)
     plt.xticks(fontsize=16)
     if all(leg_labels): plt.legend(fontsize=16)
+    plt.tight_layout()
     plt.savefig(fname)
     plt.close()
 
@@ -899,6 +940,70 @@ def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="
       rm_data[i,:] = gaussian_distribution[i].pdf(pe) * pe_bin_width
 
   return RespMatrix(rm_data, ebins=ebins, pebins=pebins)
+# import numpy as np
+# import scipy.stats as sp
+
+# def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0.,
+#                        norm_mode="per_MeV", verbose=True, method="cdf"):
+#     """
+#     Construct detector response matrix with Gaussian energy resolution.
+    
+#     Parameters
+#     ----------
+#     a, b, c : floats
+#         Resolution parameters (a/sqrt(E) ⊕ b ⊕ c/E).
+#     ebins : array
+#         True energy bin edges.
+#     pebins : array
+#         Measured energy (PE) bin edges (can be nonuniform).
+#     escale : float
+#         Energy scale factor.
+#     eshift : float
+#         Energy shift (MeV).
+#     norm_mode : str
+#         If "per_MeV", normalize by true bin width.
+#     method : str
+#         "cdf" (exact, recommended) or "pdf" (approx).
+#     """
+
+#     # True visible energy centers
+#     evis = 0.5*(ebins[1:] + ebins[:-1]) + eshift
+
+#     # Relative resolution [%]
+#     rel_res = 100. * np.sqrt(a*a/evis + b*b + c*c/(evis*evis))
+#     if np.isscalar(rel_res):
+#         rel_res = rel_res * np.sqrt(evis)
+
+#     nE = len(ebins) - 1
+#     nPE = len(pebins) - 1
+#     rm_data = np.zeros((nE, nPE))
+
+#     if method == "cdf":
+#         # exact probability per bin using CDF differences
+#         for i, e in enumerate(evis):
+#             loc = escale * e
+#             scale = escale * rel_res[i] / 100. * e
+#             dist = sp.stats.norm(loc=loc, scale=scale)
+#             rm_data[i, :] = dist.cdf(pebins[1:]) - dist.cdf(pebins[:-1])
+
+#     elif method == "pdf":
+#         # approximate: pdf(center)*bin_width (works if bins are small vs sigma)
+#         pe_centers = 0.5*(pebins[1:] + pebins[:-1])
+#         pe_widths = np.diff(pebins)
+#         for i, e in enumerate(evis):
+#             loc = escale * e
+#             scale = escale * rel_res[i] / 100. * e
+#             dist = sp.stats.norm(loc=loc, scale=scale)
+#             rm_data[i, :] = dist.pdf(pe_centers) * pe_widths
+#     else:
+#         raise ValueError(f"Unknown method={method}")
+
+#     # Optional normalization
+#     if norm_mode == "per_MeV":
+#         bin_widths = np.diff(ebins)
+#         rm_data = rm_data / bin_widths[:, None]
+
+#     return RespMatrix(rm_data, ebins=ebins, pebins=pebins)
 
 
 def CalcRespMatrix_abc_flu(a, b, c, unc, ebins, pebins, escale=1., eshift=0., norm_mode='per_MeV', sample_size=100):
@@ -968,6 +1073,52 @@ def GetSpectrumFromROOT(fname, hname, toy=False, xlabel="Energy (MeV)", scale=1.
   bins = hist.axis().edges()+eshift
   return Spectrum(bin_cont, bins, xlabel=xlabel)
 
+# def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, add_logdet=False):
+#     penalty = 0.
+#     if pulls and pull_unc:
+#         for p, u in zip(pulls, pull_unc):
+#             penalty += (p/u)**2
+
+#     # --- choose stat covariance
+#     if stat_meth == "NorP":
+#         stat_cov_matrix = rea_obs.GetStatCovMatrix().data
+#     else:
+#         stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
+
+#     # --- choose total covariance
+#     if unc == "stat":
+#         cov_matrix = stat_cov_matrix
+#     else:
+#         cov_matrix = stat_cov_matrix + cm.data
+#     obs = tot_obs.bin_cont
+#     exp = tot_exp.bin_cont 
+    
+#     alpha = np.zeros_like(exp)  # pull values (could later be fit params)
+#     exp = exp * (1 + alpha)     # distorted spectrum
+#     penalty += np.sum((alpha)**2)
+    
+
+#     valid = (obs > 0) & (exp > 0)
+#     diff = obs - exp
+#     cov_matrix = cov_matrix[np.ix_(valid, valid)]
+#     diff = diff[valid]
+   
+
+#     # --- quadratic form
+#     chi2_term = diff.T @ np.linalg.solve(cov_matrix, diff)
+
+#     # --- logdet term (optional)
+#     logdet_term = 0.0
+#     if add_logdet:
+#         # use slogdet for numerical stability
+#         sign, logdet = np.linalg.slogdet(cov_matrix)
+#         if sign <= 0:
+#             raise ValueError("Covariance matrix not positive definite")
+#         logdet_term = logdet
+
+#     chi2 = chi2_term + logdet_term + penalty
+#     return chi2
+
 
 def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.
@@ -997,14 +1148,11 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
   #chi2 = np.sum(nom/denom)
   return chi2
 
-def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
+def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, nd="TAO"):
   penalty = 0.0
   if pulls and pull_unc:
       for p, u in zip(pulls, pull_unc): penalty += (p / u) ** 2
-  diff1 = tot_obs1.bin_cont - tot_exp1.bin_cont
-  diff2 = tot_obs2.bin_cont - tot_exp2.bin_cont
 
-  diff_total = np.concatenate((diff1, diff2))
 
   if stat_meth == "NorP":
       stat_cm1 = rea_obs1.GetStatCovMatrix()
@@ -1014,28 +1162,54 @@ def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea
       stat_cm2 = rea_obs2.GetCNPStatCovMatrix(rea_exp2)
 
   stat_cm1_mod = stat_cm1.Extend(CovMatrix(data=np.zeros((len(tot_obs1.bins)-1, len(tot_obs1.bins)-1)), bins=tot_obs1.bins))
-  cm_stat_tao_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
-  stat_cm2_mod = cm_stat_tao_z.Extend(stat_cm2)
+  cm_stat_nd_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
+  stat_cm2_mod = cm_stat_nd_z.Extend(stat_cm2)
 
   cm1_mod = cm1.Extend(CovMatrix(data=np.zeros((len(tot_obs1.bins)-1, len(tot_obs1.bins)-1)), bins=tot_obs1.bins))
-  cm_tao_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
-  cm2_mod = cm_tao_z.Extend(cm2)
+  cm_nd_z = CovMatrix(data=np.zeros((len(tot_obs2.bins)-1, len(tot_obs2.bins)-1)), bins=tot_obs2.bins)
+  cm2_mod = cm_nd_z.Extend(cm2)
 
   if unc == "stat":
       total_cov_matrix = stat_cm1_mod.data + stat_cm2_mod.data
 
   else:
       total_cov_matrix = stat_cm1_mod.data +  stat_cm2_mod.data + cm1_mod.data + cm2_mod.data + corr_cm.data
+  
 
-  total_cov_matrix_inv = np.linalg.inv(total_cov_matrix)
+  diff1 = tot_obs1.bin_cont - tot_exp1.bin_cont
+  diff2 = tot_obs2.bin_cont - tot_exp2.bin_cont
+  
+  obs_total = np.concatenate((tot_obs1.bin_cont, tot_obs2.bin_cont))
+  exp_total = np.concatenate((tot_exp1.bin_cont, tot_exp2.bin_cont))
 
-  #diff_total = diff_total.reshape(-1, 1)
-  #chi2 = np.linalg.solve(total_cov_matrix, diff_total).T @ diff_total + penalty
-  chi2 = diff_total.T @ total_cov_matrix_inv @ diff_total + penalty
+  valid_mask = (obs_total > 0) & (exp_total > 0)
 
+  diff_total = np.concatenate((diff1, diff2))
+  total_cov_matrix = total_cov_matrix[np.ix_(valid, valid)]
+  #c_factor = cho_factor(cov_matrix)
+  #chi2_term = cho_solve(c_factor, diff[valid])
+  #chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty 
+  chi2 = diff_total[valid].T @ np.linalg.solve(total_cov_matrix, diff_total[valid]) + penalty
+    
   return chi2
 
+def Chi2DYB(rel_cm, obs_sp, exp_sp):
+    obs = obs_sp.bin_cont
+    exp = exp_sp.bin_cont
+    diff = (obs/exp) - 1
+    chi2 =  diff.T @ np.linalg.solve(rel_cm.data, diff)
+    return chi2
 
+
+def GetRelCM(V, d, bins=None, axis_label=""):
+    if V.data.shape[0] != len(d.bin_cont):
+        raise ValueError("Length of d must match size of covariance matrix")
+
+    obs = d.bin_cont
+    denom = np.outer(obs, obs)
+    Q = V.data/denom
+    
+    return CovMatrix(Q, bins=d.bins, axis_label=axis_label)
 # def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
 #   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,
 #                                          kind='slinear', bounds_error=False,
@@ -1061,3 +1235,19 @@ def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea
 #  output = ensp_nonl.GetWithModifiedEnergyBulk(mode='spectrum', spectra = new_nonl_spectra)
 #  return output
 #
+
+def make_nonuniform_bins(bins_nonuniform):
+    edges = []
+    for start, end, n in bins_nonuniform:
+        part = np.linspace(start, end, n + 1)
+        if edges:  # avoid duplicating the shared boundary
+            part = part[1:]
+        edges.extend(part)
+    return np.array(edges)
+
+def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
+    nuisance_fine = np.zeros(len(fine_bins)-1)
+    for i in range(len(coarse_edges)-1):
+        mask = (fine_bins[:-1] >= coarse_edges[i]) & (fine_bins[1:] <= coarse_edges[i+1])
+        nuisance_fine[mask] = nuisance_coarse[i]
+    return nuisance_fine

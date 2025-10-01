@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import os
 import gc
+import pandas as pd
 from datetime import datetime
 import argparse
 import yaml
@@ -15,6 +16,7 @@ from .bayesian import bayesian_results as bayes_res
 from . import grid_scan_results as scan_res
 from . import minuit as minuit
 from . import minuit_pull as minuit_pull
+from . import minuit_comb as minuit_comb
 from .toymc import run_toy, save_batch_results
 
 def main(argv=None):
@@ -25,7 +27,7 @@ def main(argv=None):
 
   #Create parser for config file
   parser_juno = argparse.ArgumentParser()
-  parser_tao = argparse.ArgumentParser()
+  parser_nd = argparse.ArgumentParser()
 #  parser.add_argument('--config', help='Path to the YAML configuration file')
 #  args_juno = parser.parse_args_juno()
 
@@ -36,20 +38,20 @@ def main(argv=None):
      # Parse arguments from the YAML content
     for option, value in config["fit_options"].items():
       parser_juno.add_argument(f"--{option}", default=value)
-      parser_tao.add_argument(f"--{option}", default=value)
+      parser_nd.add_argument(f"--{option}", default=value)
 
     for option, value in config["common_det_inputs"].items():
       parser_juno.add_argument(f"--{option}", default=value)
-      parser_tao.add_argument(f"--{option}", default=value)
+      parser_nd.add_argument(f"--{option}", default=value)
 
     for option, value in config["juno_inputs"].items():
       parser_juno.add_argument(f"--{option}", default=value)
 
-    for option, value in config["tao_inputs"].items():
-      parser_tao.add_argument(f"--{option}", default=value)
+    for option, value in config["nd_inputs"].items():
+      parser_nd.add_argument(f"--{option}", default=value)
 
   args_juno = parser_juno.parse_args()
-  args_tao = parser_tao.parse_args()
+  args_nd = parser_nd.parse_args()
   #This is where all the data comes and goes
   if not os.path.exists(f"{args_juno.main_data_folder}"):
     os.mkdir(f"{args_juno.main_data_folder}")
@@ -64,11 +66,27 @@ def main(argv=None):
       ndays = 365.25*float(args_juno.stat_opt[:-5])*args_juno.duty_cycle
   else:
       raise ValueError("only days or year(s) supported")
-
+      
+  ndays_nd =0
+  if args_nd.stat_opt[-4:] == "days":
+      ndays_nd = float(args_nd.stat_opt[:-4])
+  elif args_nd.stat_opt[-4:] == "year":
+      ndays_nd = 365.25*float(args_nd.stat_opt[:-4])*args_nd.duty_cycle
+  elif args_nd.stat_opt[-5:] == "years":
+      ndays_nd = 365.25*float(args_nd.stat_opt[:-5])*args_nd.duty_cycle
+  else:
+      raise ValueError("only days or year(s) supported")
 
   juno_baselines = args_juno.core_baselines #which reactor baselines and cores
   juno_powers = args_juno.core_powers
+
+
   ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins) #energy distributions/pdf binning
+  if args_nd.rebin_nonuniform:
+      ebins_nd = make_nonuniform_bins(args_nd.bins_nonuniform)
+  else:
+      ebins_nd = np.linspace(args_nd.min_ene, args_nd.max_ene, args_nd.bins) #energy distributions/pdf binning
+
   min_temp = args_juno.max_ene + ((args_juno.max_ene- args_juno.min_ene)/args_juno.bins-1) #for combined CM calculation
   max_temp = min_temp + (args_juno.max_ene- args_juno.min_ene)
   ebins_temp = np.linspace(min_temp,max_temp, args_juno.bins)
@@ -78,45 +96,39 @@ def main(argv=None):
 
   if not os.path.exists(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}"):
       os.mkdir(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}")
+ 
+  if not os.path.exists(f"{args_juno.data_matrix_folder}/csv_{args_nd.stat_opt}"):
+      os.mkdir(f"{args_juno.data_matrix_folder}/csv_{args_nd.stat_opt}")
 
+    
   print(" # Run configuration:")
   print("   Statistics:   {} days".format(ndays) )
   print("   NMO opt NO: {}".format(args_juno.NMO_opt))
 
-  #   Energy resolution
-  a, b, c = args_juno.a, args_juno.b, args_juno.c
-  a_err, b_err, c_err =args_juno.a_err, args_juno.b_err, args_juno.c_err
 
-  if os.path.isfile(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not bool(args_juno.FORCE_CALC_RM):
-    resp_matrix = LoadRespMatrix(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-  else:
-    resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
-    resp_matrix.Save(f"{args_juno.data_matrix_folder}/rm_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  ene_leak_nd=None
 
-  if bool(args_juno.FORCE_CALC_RM):
-    resp_matrix.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/resp_matrix.csv")
+  if args_juno.fit_type == "PMOP_combined" and args_juno.nd == "TAO":
+      if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_nd_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_nd.FORCE_CALC_ENE_LEAK:
+          ene_leak_nd = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_nd_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      else:
+        ene_leak_nd = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
+        ene_leak_nd.Save(f"{args_juno.data_matrix_folder}/energy_leak_nd_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
-  if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_tao.FORCE_CALC_ENE_LEAK:
-    ene_leak_tao = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-  else:
-    ene_leak_tao = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
-    ene_leak_tao.Save(f"{args_juno.data_matrix_folder}/energy_leak_tao_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-
-  if args_tao.FORCE_CALC_ENE_LEAK:
-    ene_leak_tao.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/ene_leak_tao_matrix.csv")
-  #Create reactor spectra and get backgrounds spectra, function inside spectra.py
-  ensp_nom_juno  = spec.CreateSpectra(ndays=ndays,
+      if args_nd.FORCE_CALC_ENE_LEAK:
+        ene_leak_nd.Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/ene_leak_nd_matrix.csv")
+      #Create reactor spectra and get backgrounds spectra, function inside spectra.py
+  ensp_nom_juno, resp_matrix  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
-                                    detector="juno",
-                                    resp_matrix=resp_matrix,
+                                    detector="JUNO",
                                     args=args_juno)
-  if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
-      ensp_nom_tao  = spec.CreateSpectra(ndays=ndays,
-                                    ebins=ebins,
-                                    detector="tao",
-                                    resp_matrix=resp_matrix,
-                                    ene_leak_tao=ene_leak_tao,
-                                    args=args_tao)
+  
+  if args_juno.fit_type == 'PMOP_combined':
+      ensp_nom_nd, resp_matrix_nd  = spec.CreateSpectra(ndays=ndays_nd,
+                                    ebins=ebins_nd,
+                                    detector=args_juno.nd,
+                                    ene_leak_nd=ene_leak_nd,
+                                    args=args_nd)
 
   end_sp_time = datetime.now()
   print("Spectra production time: ", end_sp_time - start_sp_time)
@@ -149,31 +161,31 @@ def main(argv=None):
       if args_juno.PLOT_CM: cm_juno[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_juno_{u}.png")
       del cm_juno[u]
 
-  if args_juno.fit_type == 'NMO'and args_juno.include_TAO:
-      unc_max_tao = max(args_tao.unc_list_tao, key=len)
-      if '+' in unc_max_tao:
-          unc_list_tao = unc_max_tao.split('+')
+  if args_juno.fit_type == 'PMOP_combined' and args_juno.nd == "TAO":
+      unc_max_nd = max(args_nd.unc_list_nd, key=len)
+      if '+' in unc_max_nd:
+          unc_list_nd = unc_max_nd.split('+')
       else:
-          unc_list_tao = [unc_max_tao]
+          unc_list_nd = [unc_max_nd]
 
-      cm_tao = {}
+      cm_nd = {}
 
-      for u in unc_list_tao:
-          if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-              print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-              cm_tao[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      for u in unc_list_nd:
+          if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_nd_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+              print(" # Loading covariance matrix", f"{args_juno.data_matrix_folder}/cm_nd_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              cm_nd[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_nd_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
           else:
-              print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-              cm_tao[u] = mat.GetCM(ensp = ensp_nom_tao,
+              print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_nd_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              cm_nd[u] = mat.GetCM(ensp = ensp_nom_nd,
                  resp_matrix=resp_matrix,
                  ndays=ndays,
                  unc=u,
-                 ene_leak_tao=ene_leak_tao,
-                 detector="tao",
-                 args=args_tao)
-          cm_tao[u].Dump(f"{args_tao.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_juno_{u}.csv")
-          if args_juno.PLOT_CM: cm_tao[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_tao_{u}.png")
-          del cm_tao[u]
+                 ene_leak_nd=ene_leak_nd,
+                 detector="nd",
+                 args=args_nd)
+          cm_nd[u].Dump(f"{args_nd.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_juno_{u}.csv")
+          if args_juno.PLOT_CM: cm_nd[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_nd_{u}.png")
+          del cm_nd[u]
 
       if args_juno.unc_corr_dep:
           cm_corr_dep = {}
@@ -189,14 +201,14 @@ def main(argv=None):
               else:
                   print(f" # Constructing covariance matrices {args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
                   cm_corr_dep[u] = mat.GetCorrCM(ensp_juno = ensp_nom_juno,
-                            ensp_tao = ensp_nom_tao,
+                            ensp_nd = ensp_nom_nd,
                             resp_matrix=resp_matrix,
                             ndays=ndays,
                             unc=u,
-                            ene_leak_tao=ene_leak_tao,
+                            ene_leak_nd=ene_leak_nd,
                             args_juno=args_juno,
-                            args_tao=args_tao)
-              cm_corr_dep[u].Dump(f"{args_tao.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_corr_{u}.csv")
+                            args_nd=args_nd)
+              cm_corr_dep[u].Dump(f"{args_nd.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_corr_{u}.csv")
               if args_juno.PLOT_CM:
                   cm_temp = CovMatrix(data=cm_corr_dep[u].data, bins=ebins+ebins_temp)
                   cm_temp.Plot(f"{args_juno.cov_matrix_plots_folder}/cm_corr_{u}.png")
@@ -208,16 +220,16 @@ def main(argv=None):
           unc_list_corr_ind = args_juno.unc_corr_ind.split('+')
           for new_unc in unc_list_corr_ind:
               cm_corr[new_unc] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")\
-                                .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
-              #cm_juno[new_unc].Extend(cm_tao[new_unc])
-
-
+                                .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_nd_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
+              #cm_juno[new_unc].Extend(cm_nd[new_unc])
+  
+      
   end_cm_time = datetime.now()
   print("Covariance matrices production: ", end_cm_time - start_cm_time)
   start_scan_time = datetime.now()
 
   unc_list_new_juno = []
-  unc_list_new_tao = []
+  unc_list_new_nd = []
   #TODO: This is mainly for CNP when stat matrix is included by default, can be done better
   for unc in args_juno.unc_list_juno:
     unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
@@ -232,22 +244,22 @@ def main(argv=None):
       cm_juno[full_unc] += cm_juno[u]
 
 
-  if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
-      for unc in args_tao.unc_list_tao:
+  if args_juno.fit_type == 'PMOP_combined' and args_juno.nd == "TAO":
+      for unc in args_nd.unc_list_nd:
           unc = unc.replace('stat+', "") #stat is always directly calculated inside chi2 function
           if args_juno.fit_type == 'NMO':
-              unc_list_new_tao.append(unc.replace(args_juno.unc_corr_ind+'+', ''))
+              unc_list_new_nd.append(unc.replace(args_juno.unc_corr_ind+'+', ''))
           else:
-              unc_list_new_tao.append(unc)
-      for full_unc in unc_list_new_tao:
+              unc_list_new_nd.append(unc)
+      for full_unc in unc_list_new_nd:
           single_unc_list = full_unc.split("+")
-          cm_tao[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
+          cm_nd[full_unc] = CovMatrix(data=np.zeros((args_juno.bins-1, args_juno.bins-1)), bins=ebins)
           for u in single_unc_list:
-              cm_tao[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_tao_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-              #cm_tao[u]
+              cm_nd[full_unc] += LoadObject(f"{args_juno.data_matrix_folder}/cm_nd_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+              #cm_nd[u]
 
-      for key in unc_list_new_tao:
-          if not key in cm_tao.keys():
+      for key in unc_list_new_nd:
+          if not key in cm_nd.keys():
               print(" ### WARNING: Covariance matrix '{}' is not available".format(key))
               continue
       if args_juno.unc_corr_ind == args_juno.unc_corr_dep == 'stat':
@@ -283,10 +295,34 @@ def main(argv=None):
                       baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno)
           scan_res.get_results(args=args_juno)
       else:
-          #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc=unc, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_tao=args_tao) for unc in unc_list_new_juno)
-          if args_juno.fit_type == 'NMO' and args_juno.include_TAO:
-              if not args_juno.pull_all: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
-              else: minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_tao=unc_list_new_tao[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, ene_leak_tao=ene_leak_tao, cm_juno=cm_juno, cm_tao=cm_tao,cm_corr=cm_corr, args_juno=args_juno, args_tao=args_tao)
+          #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc=unc, rm=resp_matrix, ene_leak_nd=ene_leak_nd, cm_juno=cm_juno, cm_nd=cm_nd, args_juno=args_juno, args_nd=args_nd) for unc in unc_list_new_juno)
+          if args_juno.fit_type == 'PMOP_combined':
+              if args_juno.nd == "TAO":
+                  if not args_juno.pull_all: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_nd=unc_list_new_nd[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, rm_nd=resp_matrix_nd, ene_leak_nd=ene_leak_nd, cm_juno=cm_juno, cm_nd=cm_nd,cm_corr=cm_corr, args_juno=args_juno, args_nd=args_nd)
+                  else: minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_nd=unc_list_new_nd[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, rm_nd=resp_matrix_nd, ene_leak_nd=ene_leak_nd, cm_juno=cm_juno, cm_nd=cm_nd,cm_corr=cm_corr, args_juno=args_juno, args_nd=args_nd)
+              
+              else:
+                  dyb_V = np.loadtxt(args_nd.dyb_cm)
+                  DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_nd['rdet'].bins)
+                  
+                  dyb_spectrum = pd.read_csv(args_nd.dyb_spectrum, delim_whitespace=True, names=["Bin_Center", "Sigma", "Rel_Unc"])
+                  DYB_sp = Spectrum(bins=ensp_nom_nd['rdet'].bins, bin_cont=dyb_spectrum["Sigma"].to_numpy())
+
+                  dyb_rel_cm = GetRelCM(DYB_CM, DYB_sp)
+                  dyb.rel_cm.Plot("DYB_CM.png")
+                  # diag = np.diag(dyb_rel_cm.data)
+                  # sqrt_diag = np.sqrt(diag)
+                  # bins = dyb_rel_cm.bins
+                  # bin_centers = 0.5 * (bins[:-1] + bins[1:])
+            
+                  # plt.figure(figsize=(6,4))
+                  # plt.plot(bin_centers, sqrt_diag, linestyle='-')
+                  # plt.xlabel("Energy [MeV]")
+                  # plt.ylabel(r"$\sqrt{Q_{ii}}$")
+                  # plt.grid(True)
+                  # plt.savefig('Q.png')
+                  minuit_comb.run_minuit(ndays=ndays, ndays_nd=ndays_nd,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix, rm_nd = resp_matrix_nd, cm_juno=cm_juno, dyb_rel_cm=dyb_rel_cm, args_juno=args_juno, args_nd=args_nd)
+                      
           else:
               if bool(args_juno.toymc):
                   #if args_juno.geo_tnu_rate <= 20: ntoys = 5000
