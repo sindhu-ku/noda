@@ -309,7 +309,7 @@ def main(argv=None):
                   DYB_sp = Spectrum(bins=ensp_nom_nd['rdet'].bins, bin_cont=dyb_spectrum["Sigma"].to_numpy())
 
                   dyb_rel_cm = GetRelCM(DYB_CM, DYB_sp)
-                  dyb.rel_cm.Plot("DYB_CM.png")
+                  #dyb_rel_cm.Plot("DYB_CM.png")
                   # diag = np.diag(dyb_rel_cm.data)
                   # sqrt_diag = np.sqrt(diag)
                   # bins = dyb_rel_cm.bins
