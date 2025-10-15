@@ -294,42 +294,7 @@ class Spectrum:
     peb2 = int(np.around((pecrop[1]-pebins_full[0])/pebw))
     pebins_crop = pebins_full[peb1:peb2+1]
     return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
-  def ApplyDetRespNew(self, respMat, pecrop=None):
-    """
-    Apply detector response matrix (respMat) to this Spectrum.
-    Allows respMat to have finer binning than self.bins.
-    """
-
-    # --- True energy binning ---
-    ebins_coarse = self.bins                # coarse bins (spectrum)
-    ebins_fine   = respMat.ebins            # fine bins (matrix)
-    pebins_full  = respMat.pebins           # PE edges
-    n_pebins     = len(pebins_full) - 1     # number of PE bins
-
-    # --- Rebin respMat along the true-energy axis ---
-    rebinned_data = np.zeros((len(ebins_coarse) - 1, n_pebins))
-    for i in range(len(ebins_coarse) - 1):
-        # mask of fine bins fully inside this coarse bin
-        mask = (ebins_fine[:-1] >= ebins_coarse[i]) & (ebins_fine[1:] <= ebins_coarse[i+1])
-        if not np.any(mask):
-            continue
-        # sum fine rows into the coarse row
-        rebinned_data[i, :] = np.sum(respMat.data[mask, :], axis=0)
-
-    # --- Apply response ---
-    smeared = self.bin_cont.dot(rebinned_data)
-
-    # --- Handle cropping ---
-    if pecrop is not None:
-        # locate indices of crop range
-        pebw = (pebins_full[-1] - pebins_full[0]) / (len(pebins_full) - 1)
-        peb1 = int(np.around((pecrop[0] - pebins_full[0]) / pebw))
-        peb2 = int(np.around((pecrop[1] - pebins_full[0]) / pebw))
-        pebins_crop = pebins_full[peb1:peb2+1]
-        return Spectrum(smeared[peb1:peb2], bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
-
-    return Spectrum(smeared, bins=pebins_full, xlabel=r"$E_{\rm vis}$ (MeV)")
-
+ 
   def GetWithShiftedEnergy(self, eshift):
     Enu = self.bins
     Epos = Enu + eshift
@@ -696,10 +661,13 @@ class Spectrum:
     elif type(colors) == 'str':
       colors = [colors] + ['lightsteelblue']*len(extra_spectra)
     plt.figure(figsize=(8,6))
-    plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=2, color=colors[0], label=leg_labels[0], log=log_scale)
+
+    weights = self.bin_cont#/np.diff(self.bins)
+    plt.hist(self.bins[:-1], weights=weights, bins=self.bins, fill=False, histtype='step', linewidth=2, color=colors[0], label=leg_labels[0], log=log_scale)
     for i,s in enumerate(extra_spectra):
-      plt.hist(s.bins[:-1], weights=s.bin_cont, bins=s.bins, fill=False, histtype='step', linewidth=2, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
-    plt.hist(self.bins[:-1], weights=self.bin_cont, bins=self.bins, fill=False, histtype='step', linewidth=2, color=colors[0])
+      weights_extra = s.bin_cont #/  np.diff(s.bins)
+      plt.hist(s.bins[:-1], weights=weights_extra, bins=s.bins, fill=False, histtype='step', linewidth=2, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
+  
     if xmin is not None: plt.xlim(left=xmin)
     if xmax is not None: plt.xlim(right=xmax)
     if ymin is not None: plt.ylim(bottom=ymin)
@@ -1131,18 +1099,20 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
       stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
   if unc == "stat":
       cov_matrix = stat_cov_matrix
+  elif unc == "no stat":
+      cov_matrix = cm.data
   else:
       cov_matrix = stat_cov_matrix + cm.data
   
   obs = tot_obs.bin_cont
   exp = tot_exp.bin_cont
-  valid = (obs > 0) & (exp > 0)
+  #valid = (obs > 0) & (exp > 0)
   diff = obs - exp
-  cov_matrix = cov_matrix[np.ix_(valid, valid)]
+  cov_matrix = cov_matrix#[np.ix_(valid, valid)]
   #c_factor = cho_factor(cov_matrix)
   #chi2_term = cho_solve(c_factor, diff[valid])
   #chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty 
-  chi2 = diff[valid].T @ np.linalg.solve(cov_matrix, diff[valid]) + penalty
+  chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
   #denom = 3./((1./obs[valid]) + (2./exp[valid]))
   #nom = diff[valid]**2
   #chi2 = np.sum(nom/denom)
@@ -1251,3 +1221,63 @@ def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
         mask = (fine_bins[:-1] >= coarse_edges[i]) & (fine_bins[1:] <= coarse_edges[i+1])
         nuisance_fine[mask] = nuisance_coarse[i]
     return nuisance_fine
+def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
+    """
+    Read neutrino flux data from a .dat file with columns:
+    E_nu [keV], flux_235, flux_239, flux_241, flux_238 (#nu / fission / keV)
+    Convert energy to MeV and return Spectrum (same class as GetSpectrumFromROOT).
+    """
+    data = np.loadtxt(filename)
+
+    # Columns: E(keV), 235, 239, 241, 238
+    E_keV = data[:, 0]
+    E_MeV = E_keV / 1000.0  # convert keV → MeV
+    E_edges = centers_to_edges(E_MeV)
+    keV_to_MeV = 1000.0
+
+    total_flux = keV_to_MeV * (
+        data[:, 1] * scale_U235 +
+        data[:, 2] * scale_Pu239 +
+        data[:, 3] * scale_Pu241 +
+        data[:, 4] * scale_U238
+    )
+    # Create Spectrum
+    spec = Spectrum(
+        bin_cont=np.array(total_flux),
+        bins=np.array(E_edges)
+    )
+    return spec
+def centers_to_edges(centers):
+    edges = np.zeros(len(centers) + 1)
+    edges[1:-1] = 0.5 * (centers[:-1] + centers[1:])
+    # extrapolate first and last edges
+    edges[0] = centers[0] - 0.5 * (centers[1] - centers[0])
+    edges[-1] = centers[-1] + 0.5 * (centers[-1] - centers[-2])
+    return edges
+
+def compute_extrafactors(args):
+    """
+    Compute normalization scaling factor for reactor flux at given baselines.
+    
+    Handles 0 m baseline by removing 1/L^2 dependence (useful for near/fake detectors).
+    """
+    alpha_arr = np.array(args.alpha)
+    efission_arr = np.array(args.efission)
+    Pth_arr = np.array(args.Pth)
+    L_arr = np.array(args.L)
+#if np.any(L_arr == 0):
+    # Common prefactor
+    prefactor = args.detector_efficiency * args.veto * args.Np / (4 * np.pi)
+
+    # Compute normalization denominator (total weighted fission energy)
+    norm = np.sum(alpha_arr * efission_arr)
+
+    # Handle zero-baseline case safely
+    if np.any(L_arr == 0):
+        geo_term = np.sum(Pth_arr)  # no 1/L^2 factor
+    else:
+        geo_term = np.sum(Pth_arr / (L_arr * L_arr))
+
+    extrafactor = prefactor * geo_term / norm
+    return extrafactor
+

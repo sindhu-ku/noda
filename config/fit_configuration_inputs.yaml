@@ -38,9 +38,9 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
 
-  FORCE_CALC_RM: false # Force calculation of response matrix
+  FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
-  PLOT_CM: true # Plot covariance matrices
+  PLOT_CM: false # Plot covariance matrices
 
 
   input_data_file: /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #data file
@@ -55,7 +55,7 @@ fit_options:
 
   reactor_model: Huber-Mueller
 
-  main_data_folder: /junofs/users/sindhu/NODA/noda/DYB_test_Sep39_rebinCM
+  main_data_folder: /junofs/users/sindhu/NODA/noda/DYB_test_rebinCM
   cov_matrix_plots_folder: /junofs/users/sindhu/NODA/noda/CMplots #folder to store CM plots
   plots_folder: /junofs/users/sindhu/NODA/noda/Plots #folder to save plots of spectra
   data_matrix_folder: /junofs/users/sindhu/NODA/noda/DYB_test_rebinCM #folder to save or to use csv files of spectra and matrices
@@ -105,10 +105,6 @@ common_det_inputs:
   duty_cycle: 0.91666667
   alpha: [0.58, 0.07, 0.30, 0.05]
   efission: [202.36, 205.99, 211.12, 214.26]
-  U235_scale: 0.58
-  U238_scale: 0.07
-  Pu239_scale: 0.30
-  Pu241_scale: 0.05
 
   #b2b_unc: 0.0134
 
@@ -124,6 +120,7 @@ common_det_inputs:
 
   unc_corr_dep: crel+nl
 
+
 juno_inputs:
   stat_opt: 50days # time period for sensitivity studies
   bins: 561
@@ -133,7 +130,7 @@ juno_inputs:
     - 0.8
     - 12.0
     
-  rebin_nonuniform: True
+  rebin_nonuniform: true
   bins_nonuniform:
     # - [0.8, 1.0, 1]
     # - [1.0, 7.0, 300]
@@ -144,7 +141,10 @@ juno_inputs:
     - [1.0, 7.0, 60]
     - [7.0, 8.2, 4]
     - [8.2, 12.0, 1]
-
+  U235_scale: 0.58
+  U238_scale: 0.07
+  Pu239_scale: 0.30
+  Pu241_scale: 0.05
   # core_baselines_1: [52760.0]
   # core_powers_1: [4.6]
   # core_powers_12: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
@@ -177,7 +177,7 @@ juno_inputs:
   
   acc_rate: 0.8
   geo_rate: 1.2
-  lihe_rate: 0.8
+  lihe_rate: 47 #0.8
   fneu_rate: 0.1
   aneu_rate: 0.090 #0.05 #0.090
   atm_rate: 0.16
@@ -188,11 +188,11 @@ juno_inputs:
 
   acc_rate_unc: 0.01
 
-  geo_rate_unc: 0.3
-  geo_b2b_unc: 0.05
+  geo_rate_unc: 0.6 #0.3
+  geo_b2b_unc: 0.15 #0.05
 
-  lihe_rate_unc: 0.2
-  lihe_b2b_unc: 0.1
+  lihe_rate_unc: 0.4 #0.2
+  lihe_b2b_unc: 0.2 #0.1
 
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
@@ -222,33 +222,42 @@ juno_inputs:
     #- stat+nl
     #- stat+bg
     #- stat+me
-    - stat+eff+r2+crel+snf+noneq+bg+nl+abc
+    - stat+eff+crel+snf+noneq+bg+nl+abc
 
 nd_inputs:
-  bins: 147 # Number of bins
+  bins: 147 #241 # Number of bins
   ene_crop:
-    - 0.7
-    - 8.0
+    - 0.7 #0 #7
+    - 8.0 #8.0
     
-  min_ene: 0.7
-  max_ene: 8.0
-  stat_opt: 3158days #1958days # time period for sensitivity studies # time period for sensitivity studies
+  min_ene: 0.7 #0.7
+  max_ene: 8.0 #8.0
+  stat_opt: 3158days # time period for sensitivity studies # time period for sensitivity studies
   FORCE_CALC_ENE_LEAK: False
 
-  rebin_nonuniform: True
+  iav_matrix_file: data/dyb_iav_matrix.txt
+  rebin_nonuniform:  True
   bins_nonuniform:
     - [0.7, 1.0, 1]
     - [1.0, 8.0, 140]
-    
+  
+  U235_scale: 0.564
+  U238_scale: 0.076
+  Pu239_scale: 0.304
+  Pu241_scale: 0.056
+
   core_powers: [17.4]
-  core_baselines: [0.0001] #580.0] #[580.0]
+  core_baselines: [560.0] #580.0] #[580.0]
   Pth: [ 9.3809664e+27]
-  L: [0.1] #58000.0] #[58000.0] # Already in cm
+  L: [56000.0] #58000.0] #[58000.0] # Already in cm
   #Np: 7.1756099e+28
   Np: 3.0851810e+30 #2.00917077999192e+29
-  detector_efficiency: 1.0 #0.818
+  detector_efficiency: 0.803
   veto: 1.0
   nl_hist_name: positronScintNL
+  rea_rate_unc: 0.015
+
+  ff_b2b_unc: 0.0016
   acc_rate: 190
   lihe_rate: 54
   fneu_rate: 86
@@ -275,8 +284,8 @@ nd_inputs:
   ene_scale_unc: 0.085
 
       # Uncertainty list
-  unc_list_tao:
-     - stat+bg+eff+r2+nl+snf+noneq
+  unc_list_nd:
+     - stat+b2b_ff #stat+bg+eff+r2+nl+snf+noneq
 
   dyb_spectrum: /junofs/users/sindhu/NODA/noda/data/dyb_spectra.txt
   dyb_cm: /junofs/users/sindhu/NODA/noda/data/dyb_cov_matrix.txt
