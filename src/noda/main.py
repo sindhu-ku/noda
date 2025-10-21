@@ -83,7 +83,12 @@ def main(argv=None):
 
   ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins) #energy distributions/pdf binning
 
-  ebins_nd = np.linspace(args_nd.min_ene, args_nd.max_ene, args_nd.bins) #energy distributions/pdf binning
+
+  if args_nd.rebin_nonuniform:
+      ebins_nd = make_nonuniform_bins(args_nd.bins_nonuniform)
+  else:
+      ebins_nd = np.linspace(args_nd.min_ene, args_nd.max_ene, args_nd.bins) #energy distributions/pdf binning
+
 
   min_temp = args_juno.max_ene + ((args_juno.max_ene- args_juno.min_ene)/args_juno.bins-1) #for combined CM calculation
   max_temp = min_temp + (args_juno.max_ene- args_juno.min_ene)
@@ -105,18 +110,19 @@ def main(argv=None):
 
 
   ene_leak_nd=None
-  if args_juno.fit_type == "PMOP_combined":
-      if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_nd.FORCE_CALC_ENE_LEAK:
-          ene_leak_nd = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      else:
-        if args_juno.nd == "TAO": ene_leak_nd = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
-        if args_juno.nd == "DYB":
-            iav_data = np.loadtxt(args_nd.iav_matrix_file)  # shape should be (240, 240)
-            n_bins_iav = iav_data.shape[0]  # 240
-            Emin_iav, Emax_iav = args_nd.min_ene, args_nd.max_ene
-            ebins_iav = np.linspace(Emin_iav, Emax_iav, n_bins_iav+1)  
-            ene_leak_nd = RespMatrix(data=iav_data, ebins=ebins_iav, pebins=ebins_iav)
-        ene_leak_nd.Save(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+ # if args_juno.fit_type == "PMOP_combined":
+  #     if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_nd.FORCE_CALC_ENE_LEAK:
+  #         ene_leak_nd = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  #     else:
+    # if args_juno.nd == "TAO": ene_leak_nd = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
+    # if args_juno.nd == "DYB":
+    #     iav_data = np.loadtxt(args_nd.iav_matrix_file)  # shape should be (240, 240)
+    #     n_bins_iav = iav_data.shape[0]  # 240
+    #     Emin_iav, Emax_iav = args_nd.min_ene, args_nd.max_ene
+    #     ebins_iav = np.linspace(Emin_iav, Emax_iav, n_bins_iav+1) 
+    #     iav_data_rebinned = rebin_rows(iav_data, old_ebins=ebins_iav, new_ebins=ebins_nd)
+    #     ene_leak_nd = RespMatrix(data=iav_data, ebins=ebins_nd, pebins=np.linspace(0, 12, 241))#ebins_iav)
+    # ene_leak_nd.Save(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
 
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py

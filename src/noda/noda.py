@@ -293,8 +293,9 @@ class Spectrum:
     peb1 = int(np.around((pecrop[0]-pebins_full[0])/pebw))
     peb2 = int(np.around((pecrop[1]-pebins_full[0])/pebw))
     pebins_crop = pebins_full[peb1:peb2+1]
-    return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
- 
+    #return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+    return Spectrum(self.bin_cont.dot(respMat.data[:, peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+
   def GetWithShiftedEnergy(self, eshift):
     Enu = self.bins
     Epos = Enu + eshift
@@ -1280,4 +1281,20 @@ def compute_extrafactors(args):
 
     extrafactor = prefactor * geo_term / norm
     return extrafactor
+
+
+def rebin_rows(mat, old_ebins, new_ebins):
+    """
+    Rebin 2D matrix along rows (true-energy axis) to new binning.
+    mat: (n_old_true, n_reco)
+    old_ebins: original bin edges along rows
+    new_ebins: new bin edges along rows
+    """
+    old_centers = 0.5*(old_ebins[:-1] + old_ebins[1:])
+    new_centers = 0.5*(new_ebins[:-1] + new_ebins[1:])
+    mat_new = np.zeros((len(new_centers), mat.shape[1]))
+    for j in range(mat.shape[1]):  # iterate over reco bins
+        f = interpolate.interp1d(old_centers, mat[:, j], kind='linear', fill_value='extrapolate')
+        mat_new[:, j] = f(new_centers)
+    return mat_new
 

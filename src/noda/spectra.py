@@ -86,6 +86,7 @@ def CreateSpectra(ndays=10,
   ensp['rfis'].GetScaled(ndays)
   ensp['rfiss'].GetScaled(ndays)
   extrafactors = compute_extrafactors(args)
+
   print("extrafactors", extrafactors)
   ensp['rfis'].GetScaled(extrafactors) #correct normalization including fission fractions, mean energy per fission ... eq.13.5 YB
   ensp['rfiss'].GetScaled(extrafactors)
@@ -182,7 +183,8 @@ def CreateSpectra(ndays=10,
   # if detector != "JUNO":
   #     #ensp['rosc_pos'] = ensp['rosc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2) #only for plotting
   #     #ensp['rosc_eneleak'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop) #only for plotting
-
+  #     print(ensp['rvis_nonl'].bin_cont.shape)       # (141,)
+  #     print(ene_leak_nd.data.shape)     
   #     ensp['rvis_nonl'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
   #     ensp['rvis_nonl1'] = ensp['rvis_nonl1'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
   #     ensp['snf_osc_nonl'] = ensp['snf_osc_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
@@ -240,7 +242,7 @@ def CreateSpectra(ndays=10,
   if os.path.isfile(f"{args.data_matrix_folder}/rm_{detector}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat") and not bool(args.FORCE_CALC_RM):
     resp_matrix = LoadRespMatrix(f"{args.data_matrix_folder}/rm_{detector}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
   else:
-    resp_matrix = CalcRespMatrix_abc(args.a, args.b, args.c, escale=1, ebins=ensp["ribd"].bins, pebins=ensp["ribd"].bins)# CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
+    resp_matrix = CalcRespMatrix_abc(args.a, args.b, args.c, escale=1, ebins=ebins, pebins=np.linspace(args.min_ene, args.max_ene, args.bins))# CalcRespMatrix_abc(a, b, c, escale=1, ebins=ebins, pebins=ebins)
     resp_matrix.Save(f"{args.data_matrix_folder}/rm_{detector}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat")
 
   if bool(args.FORCE_CALC_RM):
@@ -248,7 +250,8 @@ def CreateSpectra(ndays=10,
 
 
 
-  ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+  ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop) 
+  print(ensp['rdet'].GetIntegral())
   ensp['rdet1'] = ensp['rvis1'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
   ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
@@ -340,6 +343,7 @@ def CreateSpectra(ndays=10,
       leg_labels = ['+ NL + energy res', '+ flux and cross-sec', '+ energy leak', 'Accidentals', 'Li9/He8', 'Fast neutrons']
       colors=['grey', 'magenta', 'darkred', 'green', 'navy', 'orange']
   #ensp['rdet'].GetScaled(15769.66875/ensp['rdet'].GetIntegral())
+  print(ensp['rvis_nonl'].GetIntegral(), ensp['rvis'].GetIntegral(), ensp['rdet'].GetIntegral())
   if args.rebin_nonuniform: 
       ensp['rdet'].Rebin_nonuniform(args.bins_nonuniform)
       ensp['rdet1'].Rebin_nonuniform(args.bins_nonuniform)
