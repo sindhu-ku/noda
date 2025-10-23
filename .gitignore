@@ -1,3 +1,5 @@
 *.root
 *.txt
 *.csv
+*checkpoint.py
+*pyc
