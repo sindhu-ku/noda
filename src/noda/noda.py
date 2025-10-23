@@ -1283,18 +1283,45 @@ def compute_extrafactors(args):
     return extrafactor
 
 
-def rebin_rows(mat, old_ebins, new_ebins):
-    """
-    Rebin 2D matrix along rows (true-energy axis) to new binning.
-    mat: (n_old_true, n_reco)
-    old_ebins: original bin edges along rows
-    new_ebins: new bin edges along rows
-    """
-    old_centers = 0.5*(old_ebins[:-1] + old_ebins[1:])
-    new_centers = 0.5*(new_ebins[:-1] + new_ebins[1:])
-    mat_new = np.zeros((len(new_centers), mat.shape[1]))
-    for j in range(mat.shape[1]):  # iterate over reco bins
-        f = interpolate.interp1d(old_centers, mat[:, j], kind='linear', fill_value='extrapolate')
-        mat_new[:, j] = f(new_centers)
-    return mat_new
 
+def rebin_matrix(mat, old_row_bins, old_col_bins, new_row_bins, new_col_bins):
+    """
+    Rebin a 2D matrix along both rows and columns.
+
+    Parameters
+    ----------
+    mat : np.ndarray
+        Original matrix of shape (n_old_rows, n_old_cols)
+    old_row_bins : array-like
+        Original row (true-energy) bin edges
+    old_col_bins : array-like
+        Original column (visible-energy) bin edges
+    new_row_bins : array-like
+        Desired new row bin edges
+    new_col_bins : array-like
+        Desired new column bin edges
+
+    Returns
+    -------
+    mat_new : np.ndarray
+        Re-binned matrix of shape (len(new_row_bins)-1, len(new_col_bins)-1)
+    """
+    # Step 1: Rebin rows (true-energy axis)
+    old_row_centers = 0.5 * (old_row_bins[:-1] + old_row_bins[1:])
+    new_row_centers = 0.5 * (new_row_bins[:-1] + new_row_bins[1:])
+    temp_mat = np.zeros((len(new_row_centers), mat.shape[1]))
+
+    for j in range(mat.shape[1]):  # iterate over columns
+        f_row = interpolate.interp1d(old_row_centers, mat[:, j], kind='linear', fill_value='extrapolate')
+        temp_mat[:, j] = f_row(new_row_centers)
+
+    # Step 2: Rebin columns (visible-energy axis)
+    old_col_centers = 0.5 * (old_col_bins[:-1] + old_col_bins[1:])
+    new_col_centers = 0.5 * (new_col_bins[:-1] + new_col_bins[1:])
+    mat_new = np.zeros((len(new_row_centers), len(new_col_centers)))
+
+    for i in range(temp_mat.shape[0]):  # iterate over rows
+        f_col = interpolate.interp1d(old_col_centers, temp_mat[i, :], kind='linear', fill_value='extrapolate')
+        mat_new[i, :] = f_col(new_col_centers)
+
+    return mat_new

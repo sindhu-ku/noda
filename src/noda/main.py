@@ -110,19 +110,27 @@ def main(argv=None):
 
 
   ene_leak_nd=None
- # if args_juno.fit_type == "PMOP_combined":
-  #     if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_nd.FORCE_CALC_ENE_LEAK:
-  #         ene_leak_nd = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-  #     else:
-    # if args_juno.nd == "TAO": ene_leak_nd = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
-    # if args_juno.nd == "DYB":
-    #     iav_data = np.loadtxt(args_nd.iav_matrix_file)  # shape should be (240, 240)
-    #     n_bins_iav = iav_data.shape[0]  # 240
-    #     Emin_iav, Emax_iav = args_nd.min_ene, args_nd.max_ene
-    #     ebins_iav = np.linspace(Emin_iav, Emax_iav, n_bins_iav+1) 
-    #     iav_data_rebinned = rebin_rows(iav_data, old_ebins=ebins_iav, new_ebins=ebins_nd)
-    #     ene_leak_nd = RespMatrix(data=iav_data, ebins=ebins_nd, pebins=np.linspace(0, 12, 241))#ebins_iav)
-    # ene_leak_nd.Save(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  # if args_juno.fit_type == "PMOP_combined":
+  # #     if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_nd.FORCE_CALC_ENE_LEAK:
+  # #         ene_leak_nd = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  # #     else:
+  #     if args_juno.nd == "TAO": ene_leak_nd = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
+  #     if args_juno.nd == "DYB":
+  #         iav_data = np.loadtxt(args_nd.iav_matrix_file)  # shape should be (240, 240)
+  #         Emin_crop, Emax_crop = args_nd.min_ene, args_nd.max_ene
+  #         n_crop_bins = args_nd.bins
+
+  #         ebins_crop = np.linspace(Emin_crop, Emax_crop, n_crop_bins)
+
+
+  #         old_ebins = np.linspace(0, 12, 240 + 1)
+  #         i_start = np.searchsorted(old_ebins, Emin_crop)
+  #         i_stop  = np.searchsorted(old_ebins, Emax_crop)
+
+  #         iav_data_crop = iav_data[i_start:i_stop, i_start:i_stop]
+  #         iav_data_rebinned = rebin_matrix(iav_data_crop, old_row_bins=ebins_crop, old_col_bins=ebins_crop, new_row_bins=ebins_nd, new_col_bins=ebins_nd)
+  #         ene_leak_nd = RespMatrix(data=iav_data_rebinned, ebins=ebins_nd, pebins=ebins_nd)
+  #         ene_leak_nd.Save(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
 
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
@@ -131,7 +139,7 @@ def main(argv=None):
                                     detector="JUNO",
                                     args=args_juno)
 
-  if args_juno.fit_type == 'PMOP_combined':
+  if args_juno.fit_type == 'PMOP_combined' and not args_juno.use_dagflow:
       ensp_nom_nd, resp_matrix_nd  = spec.CreateSpectra(ndays=ndays_nd,
                                     ebins=ebins_nd,
                                     detector=args_juno.nd,
@@ -248,7 +256,7 @@ def main(argv=None):
     cm_juno[full_unc] = CovMatrix(data=np.zeros((len(ensp_nom_juno['rdet'].bins)-1, len(ensp_nom_juno['rdet'].bins)-1)), bins=ebins)
     for u in single_unc_list:
       cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-      print(u)
+      #print(u)
       cm_juno[full_unc] += cm_juno[u]
 
 
@@ -310,41 +318,28 @@ def main(argv=None):
                   else: minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_nd=unc_list_new_nd[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, rm_nd=resp_matrix_nd, ene_leak_nd=ene_leak_nd, cm_juno=cm_juno, cm_nd=cm_nd,cm_corr=cm_corr, args_juno=args_juno, args_nd=args_nd)
               
               else:
-                  dyb_V = np.loadtxt(args_nd.dyb_cm)
-                  DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_nd['rdet'].bins)
-
-                  DYB_spectrum = pd.read_csv(args_nd.dyb_spectrum, delim_whitespace=True, names=["Bin_Center", "Sigma", "Rel_Unc"])
-                  DYB_sp = Spectrum(bins=ensp_nom_nd['rdet'].bins, bin_cont=DYB_spectrum["Sigma"].to_numpy())
-
-                  DYB_rel_cm = GetRelCM(DYB_CM, DYB_sp)
-
-                  obs = ensp_nom_nd['rdet'].bin_cont
-                  DYB_abs_CM = DYB_rel_cm.data * np.outer(obs, obs)
-
-                  cm_nd = {}
+                  if not args_juno.use_dagflow:
+                      dyb_V = np.loadtxt(args_nd.dyb_cm)
+                      DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_nd['rdet'].bins)
+    
+                      DYB_spectrum = pd.read_csv(args_nd.dyb_spectrum, delim_whitespace=True, names=["Bin_Center", "Sigma", "Rel_Unc"])
+                      DYB_sp = Spectrum(bins=ensp_nom_nd['rdet'].bins, bin_cont=DYB_spectrum["Sigma"].to_numpy())
+    
+                      DYB_rel_cm = GetRelCM(DYB_CM, DYB_sp)
+    
+                      obs = ensp_nom_nd['rdet'].bin_cont
+                      DYB_abs_CM = DYB_rel_cm.data * np.outer(obs, obs)
+    
+                      cm_nd = {}
+    
+                      cm_nd['all'] = DYB_abs_CM 
                   
-                  # cm_nd['b2b_ff'] = mat.GetCM(ensp = ensp_nom_nd,
-                  #                   resp_matrix=resp_matrix_nd,
-                  #                   ndays=ndays_nd,
-                  #                   unc='b2b_ff',
-                  #                   ene_leak_nd=ene_leak_nd,
-                  #                   detector="nd",
-                  #                   args=args_nd)
-                  cm_nd['all'] = DYB_abs_CM #+cm_nd['b2b_ff']
-                  #dyb_rel_cm.Plot("DYB_CM.png")
-                  # diag = np.diag(dyb_rel_cm.data)
-                  # sqrt_diag = np.sqrt(diag)
-                  # bins = dyb_rel_cm.bins
-                  # bin_centers = 0.5 * (bins[:-1] + bins[1:])
-            
-                  # plt.figure(figsize=(6,4))
-                  # plt.plot(bin_centers, sqrt_diag, linestyle='-')
-                  # plt.xlabel("Energy [MeV]")
-                  # plt.ylabel(r"$\sqrt{Q_{ii}}$")
-                  # plt.grid(True)
-                  # plt.savefig('Q.png')
+                      minuit_comb.run_minuit(ndays=ndays, ndays_nd=ndays_nd,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix, rm_nd = resp_matrix_nd, cm_juno=cm_juno,cm_nd=cm_nd, ene_leak_nd=ene_leak_nd, args_juno=args_juno, args_nd=args_nd)
                   
-                  minuit_comb.run_minuit(ndays=ndays, ndays_nd=ndays_nd,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix, rm_nd = resp_matrix_nd, cm_juno=cm_juno,cm_nd=cm_nd, ene_leak_nd=ene_leak_nd, args_juno=args_juno, args_nd=args_nd)
+                  else:    
+                      from .DYB_model import make_dyb_model
+                      dyb_model = make_dyb_model(args_nd)
+                      minuit_comb.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model)
                       
           else:
               if bool(args_juno.toymc):

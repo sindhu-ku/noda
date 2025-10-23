@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: noda
+Version: 2.1.0
+Summary: Neutrino Oscillation Data Analysis: fitting framework for JUNO
+Author: Sindhujha Kumaran
+Author-email: s.kumaran@uci.edu
+Requires-Python: >=3.9
+Requires-Dist: matplotlib
+Requires-Dist: scipy
+Requires-Dist: joblib
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: emcee
+Requires-Dist: ptemcee
+Requires-Dist: xarray
+Requires-Dist: arviz
+Requires-Dist: corner
+Requires-Dist: iminuit
+Requires-Dist: uproot
+Requires-Dist: h5py
+Requires-Dist: pyyaml
+Dynamic: author
+Dynamic: author-email
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

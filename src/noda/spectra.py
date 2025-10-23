@@ -183,8 +183,6 @@ def CreateSpectra(ndays=10,
   # if detector != "JUNO":
   #     #ensp['rosc_pos'] = ensp['rosc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2) #only for plotting
   #     #ensp['rosc_eneleak'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop) #only for plotting
-  #     print(ensp['rvis_nonl'].bin_cont.shape)       # (141,)
-  #     print(ene_leak_nd.data.shape)     
   #     ensp['rvis_nonl'] = ensp['rvis_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
   #     ensp['rvis_nonl1'] = ensp['rvis_nonl1'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
   #     ensp['snf_osc_nonl'] = ensp['snf_osc_nonl'].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
@@ -212,7 +210,8 @@ def CreateSpectra(ndays=10,
   else:
       ensp['rvis'] = ensp['rvis_nonl']
       ensp['rvis1'] = ensp['rvis_nonl1']
-      
+
+  print(ensp['rvis'].bin_cont.shape)       
   ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
   ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
@@ -251,7 +250,7 @@ def CreateSpectra(ndays=10,
 
 
   ensp['rdet'] = ensp['rvis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop) 
-  print(ensp['rdet'].GetIntegral())
+
   ensp['rdet1'] = ensp['rvis1'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
   ensp['rdet_temp'] = ensp['rvis_temp'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
@@ -342,8 +341,7 @@ def CreateSpectra(ndays=10,
       extra_spectra=[ensp['rosc_pos'], ensp['rosc_eneleak'], ensp['acc'], ensp['lihe'], ensp['fneu']]
       leg_labels = ['+ NL + energy res', '+ flux and cross-sec', '+ energy leak', 'Accidentals', 'Li9/He8', 'Fast neutrons']
       colors=['grey', 'magenta', 'darkred', 'green', 'navy', 'orange']
-  #ensp['rdet'].GetScaled(15769.66875/ensp['rdet'].GetIntegral())
-  print(ensp['rvis_nonl'].GetIntegral(), ensp['rvis'].GetIntegral(), ensp['rdet'].GetIntegral())
+
   if args.rebin_nonuniform: 
       ensp['rdet'].Rebin_nonuniform(args.bins_nonuniform)
       ensp['rdet1'].Rebin_nonuniform(args.bins_nonuniform)

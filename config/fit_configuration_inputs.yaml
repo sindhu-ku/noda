@@ -23,6 +23,7 @@ fit_options:
   geo_fit_type: total #UThfree , mantle or total (default)
   mantle_model: GD  
   nd: DYB
+  use_dagflow: True
   geo_OPfixed: false
   toymc: false      
   ntoys: 1000 
@@ -177,7 +178,7 @@ juno_inputs:
   
   acc_rate: 0.8
   geo_rate: 1.2
-  lihe_rate: 47 #0.8
+  lihe_rate: 0.8
   fneu_rate: 0.1
   aneu_rate: 0.090 #0.05 #0.090
   atm_rate: 0.16
@@ -188,11 +189,11 @@ juno_inputs:
 
   acc_rate_unc: 0.01
 
-  geo_rate_unc: 0.6 #0.3
-  geo_b2b_unc: 0.15 #0.05
+  geo_rate_unc: 0.3
+  geo_b2b_unc: 0.05
 
-  lihe_rate_unc: 0.4 #0.2
-  lihe_b2b_unc: 0.2 #0.1
+  lihe_rate_unc: 0.2
+  lihe_b2b_unc: 0.1
 
   fneu_rate_unc: 1.0
   fneu_b2b_unc: 0.2
@@ -223,6 +224,7 @@ juno_inputs:
     #- stat+bg
     #- stat+me
     - stat+eff+crel+snf+noneq+bg+nl+abc
+    #- stat+eff+bg+nl+abc
 
 nd_inputs:
   bins: 147 #241 # Number of bins
@@ -236,6 +238,8 @@ nd_inputs:
   FORCE_CALC_ENE_LEAK: False
 
   iav_matrix_file: data/dyb_iav_matrix.txt
+  dagflow_data: "../dayabay-model-official/data/"
+  custom_bin_edges: "../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv"
   rebin_nonuniform:  True
   bins_nonuniform:
     - [0.7, 1.0, 1]
@@ -247,10 +251,11 @@ nd_inputs:
   Pu241_scale: 0.056
 
   core_powers: [17.4]
-  core_baselines: [560.0] #580.0] #[580.0]
+  core_baselines: [560.0] #[560.0] #580.0] #[580.0]
   Pth: [ 9.3809664e+27]
-  L: [56000.0] #58000.0] #[58000.0] # Already in cm
+  L: [56000.0] #[56000.0] #58000.0] #[58000.0] # Already in cm
   #Np: 7.1756099e+28
+  #Np: 3.0851810e+30 
   Np: 3.0851810e+30 #2.00917077999192e+29
   detector_efficiency: 0.803
   veto: 1.0
