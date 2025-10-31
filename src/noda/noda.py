@@ -19,8 +19,12 @@ from scipy.integrate import quad
 from numpy.linalg import solve, slogdet
 from array import array
 from scipy.linalg import cho_solve, cho_factor
+from numba import njit4 
+from .nl_geant import Geant4Model
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
+
+G4model = Geant4Model(particle="e+")
 
 #TODO: Do this better in main
 osc_formula_options = {'default': nuosc.AntiNueSurvProb,
@@ -439,7 +443,7 @@ class Spectrum:
     s_new.ModifyEnergy(**kwargs)
     return s_new
 
-  def ModifyEnergy(self, mode="lin", scale=1., spline=None, spectrum=None):
+  def ModifyEnergy(self, mode="lin", scale=1., spline=None, spectrum=None, kB=0.0, fC=0.0):
     if mode == 'lin':
       bins_new = self.bins*scale
     elif mode == 'spline': # TODO vectorize it
@@ -450,6 +454,8 @@ class Spectrum:
         bins_new.append(e)
     elif mode == "spectrum":
       bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])
+    elif mode == "G4":  
+      bins_new = self.bins*np.array([G4model.eval(e, kB, fC=fC) for e in self.bins])
     old_bins = self.bins
     self.bins = bins_new
     self.Rebin(old_bins, mode='simple')
@@ -1088,6 +1094,12 @@ def GetSpectrumFromROOT(fname, hname, toy=False, xlabel="Energy (MeV)", scale=1.
 #     chi2 = chi2_term + logdet_term + penalty
 #     return chi2
 
+@njit
+def chi2_val(obs, exp, cov_matrix, penalty):
+  diff = obs - exp
+  chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
+
+  return chi2
 
 def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
   penalty = 0.
@@ -1107,16 +1119,12 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
   
   obs = tot_obs.bin_cont
   exp = tot_exp.bin_cont
-  #valid = (obs > 0) & (exp > 0)
-  diff = obs - exp
-  cov_matrix = cov_matrix#[np.ix_(valid, valid)]
-  #c_factor = cho_factor(cov_matrix)
-  #chi2_term = cho_solve(c_factor, diff[valid])
-  #chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty 
-  chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
-  #denom = 3./((1./obs[valid]) + (2./exp[valid]))
-  #nom = diff[valid]**2
-  #chi2 = np.sum(nom/denom)
+  valid = (obs > 0) & (exp > 0)
+  
+  cov_matrix = cov_matrix[np.ix_(valid, valid)]
+  #chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
+
+  chi2 = chi2_val(obs, exp,cov_matrix, penalty)
   return chi2
 
 def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, nd="TAO"):
@@ -1222,6 +1230,8 @@ def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
         mask = (fine_bins[:-1] >= coarse_edges[i]) & (fine_bins[1:] <= coarse_edges[i+1])
         nuisance_fine[mask] = nuisance_coarse[i]
     return nuisance_fine
+
+    
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
     """
     Read neutrino flux data from a .dat file with columns:
@@ -1325,3 +1335,4 @@ def rebin_matrix(mat, old_row_bins, old_col_bins, new_row_bins, new_col_bins):
         mat_new[i, :] = f_col(new_col_centers)
 
     return mat_new
+

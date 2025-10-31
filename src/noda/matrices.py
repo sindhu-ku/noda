@@ -7,9 +7,10 @@ def GetCM(ensp = {},
       resp_matrix=[],
       ndays=10,
       unc='',
-      detector="juno",
+      detector="JUNO",
       ene_leak_nd=[],
-      args=None):
+      args=None,
+      backgrounds=None):
   ebins = ensp['rdet'].bins
   nbins = len(ebins)
   unc_map = {
@@ -26,7 +27,7 @@ def GetCM(ensp = {},
     'nl': lambda: get_NL_CM() if not args.pull_all else CovMatrix(data=np.zeros((nbins-1, nbins-1)), bins=ebins),
     'abc': lambda: get_abc_CM(),
     'crel': lambda: get_core_flux_CM(),
-    'bg': lambda: get_bckg_CM() if not args.pull_all else get_bckg_CM_pull()
+    'bg': lambda: get_bckg_CM(pull=args.pull_all)
   }
 
 
@@ -183,56 +184,36 @@ def GetCM(ensp = {},
       del ensp['rdet_crel_flu']
       return cm_temp
 
-  def get_bckg_CM():
-    cm['acc'] = ensp['acc'].GetRateCovMatrix(args.acc_rate_unc) #+ ensp['acc'].GetStatCovMatrix()
-    cm['lihe'] = ensp['lihe'].GetRateCovMatrix(float(args.lihe_rate_unc)) + ensp['lihe'].GetB2BCovMatrix(float(args.lihe_b2b_unc)) #+ ensp['lihe'].GetStatCovMatrix()
-    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(float(args.fneu_b2b_unc)) #+ ensp['fneu'].GetStatCovMatrix()
-    if detector != "TAO":
-        cm['fneu'] += ensp['fneu'].GetRateCovMatrix(float(args.fneu_rate_unc))
-        if not args.fit_type == 'geo':
-            cm['geo'] = ensp['geo'].GetRateCovMatrix(float(args.geo_rate_unc)) + ensp['geo'].GetB2BCovMatrix(float(args.geo_b2b_unc)) #+ ensp['geo'].GetStatCovMatrix()
-            cm['geou'] = ensp['geou'].GetRateCovMatrix(float(args.geo_rate_unc)) + ensp['geou'].GetB2BCovMatrix(float(args.geo_b2b_unc)) #+ ensp['geou'].GetStatCovMatrix()
-            cm['geoth'] = ensp['geoth'].GetRateCovMatrix(float(args.geo_rate_unc)) + ensp['geoth'].GetB2BCovMatrix(float(args.geo_b2b_unc)) #+ ensp['geoth'].GetStatCovMatrix()
-        else:
-            cm['geo'] = ensp['geo'].GetB2BCovMatrix(args.geo_b2b_unc)
-            cm['geou'] = ensp['geou'].GetB2BCovMatrix(args.geo_b2b_unc)
-            cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(args.geo_b2b_unc)
-            if args.geo_fit_type == 'mantle':
-                cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(args.geo_b2b_unc) + ensp['geocrust'].GetRateCovMatrix(float(args.crust_rate_unc)) #+ ensp['geocrust'].GetStatCovMatrix()
-                cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(args.geo_b2b_unc)
+  def get_bckg_CM(pull=False):
+      total_cm = None
+      bckg_cm = {}
+      for key, info in backgrounds[detector].items():
+          b2b_unc = float(info["b2b_unc"])
+          bckg_cm[key] = CovMatrix(data=np.zeros((nbins-1, nbins-1)), bins=ebins)
+          if not pull:
+              rate_unc = float(info["rate_unc"])
+              if rate_unc > 0:
+                  bckg_cm[key] += ensp[key].GetRateCovMatrix(rate_unc)
+          if b2b_unc > 0:
+             bckg_cm[key] += ensp[key].GetB2BCovMatrix(b2b_unc)
 
-        cm['aneu'] = ensp['aneu'].GetRateCovMatrix(args.aneu_rate_unc) + ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc) #+ ensp['aneu'].GetStatCovMatrix()
-        #cm['nn'] = ensp['nn'].GetRateCovMatrix(float(args.nn_rate_unc)) + ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc)) #+ ensp['aneu'].GetStatCovMatrix()
-        cm['atm'] = ensp['atm'].GetRateCovMatrix(args.atm_rate_unc) + ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc) #+ ensp['atm'].GetStatCovMatrix()
-        cm['rea300'] = ensp['rea300'].GetRateCovMatrix(args.rea300_rate_unc) + ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc) #+ ensp['rea300'].GetStatCovMatrix()
+ 
+          if key== "geo":
+              if args.fit_type == "geo":
+                  if args.geo_fit_type == "UThfree":
+                      bckg_cm['geou'] = ensp['geou'].GetB2BCovMatrix(b2b_unc)
+                      bckg_cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(b2b_unc)
+                      bckg_cm["geo"] = bckg_cm["geou"] + bckg_cm["geoth"]
+                  if args.geo_fit_type == "mantle":
+                      bckg_cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(b2b_unc) + ensp['geocrust'].GetB2BCovMatrix(args.crust_rate_unc)
+                      bckg_cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(b2b_unc)
+                      bckg_cm["geo"] = bckg_cm["geocrust"] + bckg_cm["geomantle"]
 
-    if detector != "TAO":
-        if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
-        if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
-        return cm['acc'] + cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] #+cm['nn']
-    else: return cm['acc'] + cm['lihe'] + cm['fneu']
-
-  def get_bckg_CM_pull():
-    cm['lihe'] = ensp['lihe'].GetB2BCovMatrix(float(args.lihe_b2b_unc)) 
-    cm['fneu'] = ensp['fneu'].GetB2BCovMatrix(float(args.fneu_b2b_unc))
-    if detector != "TAO":
-        cm['geo'] = ensp['geo'].GetB2BCovMatrix(float(args.geo_b2b_unc))
-        cm['geou'] = ensp['geou'].GetB2BCovMatrix(float(args.geo_b2b_unc))
-        cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(float(args.geo_b2b_unc))
-        if args.geo_fit_type == 'mantle' and args.fit_type == 'geo':
-            cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(args.geo_b2b_unc)
-            cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(args.geo_b2b_unc)
-
-        cm['aneu'] = ensp['aneu'].GetB2BCovMatrix(args.aneu_b2b_unc)
-        #cm['nn'] =  ensp['nn'].GetB2BCovMatrix(float(args.nn_b2b_unc))
-        cm['atm'] = ensp['atm'].GetB2BCovMatrix(args.atm_b2b_unc)
-        cm['rea300'] = ensp['rea300'].GetB2BCovMatrix(args.rea300_b2b_unc)
-
-    if detector != "TAO":
-        if args.fit_type == 'geo' and args.geo_fit_type == 'UThfree': cm['geo'] = cm['geou'] + cm['geoth']
-        if args.fit_type == 'geo' and args.geo_fit_type == 'mantle': cm['geo'] = cm['geocrust'] + cm['geomantle']
-        return cm['geo'] + cm['lihe'] + cm['fneu'] + cm['aneu'] + cm['atm'] +cm['rea300'] #+cm['nn']
-    else: return cm['lihe'] + cm['fneu']
+          if total_cm is None:
+              total_cm = bckg_cm[key]
+          else:
+              total_cm += bckg_cm[key]
+      return total_cm
 
 
  # # Initialize the cm dictionary

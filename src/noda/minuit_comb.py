@@ -9,6 +9,7 @@ from datetime import datetime
 from iminuit import Minuit
 import matplotlib.pyplot as plt
 import time
+from numba import njit
 
 
 
@@ -92,6 +93,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         flux_params = dyb_model.storage["parameters.free.neutrino_per_fission_factor"]
         chi2_dyb_func = make_fcn(dyb_model.storage[f"outputs.statistic.full.pull.chi2cnp"], parameters=[par for par in flux_params.walkvalues()], safe=False)
 
+    
     def chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, Nrea_nd, *nuisance, Ngeo=1.0,  NU=1.0, NTh=1.0, Nmantle=1.0, opp=False): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0, me_rho=args_juno.me_rho):
 
         pulls=[]
@@ -224,6 +226,8 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                     chi2_dyb =  Chi2(cm_nd['all'], sp_obs_nd, s_tot_nd, sp_obs_nd, s_tot_nd, 'no stat', args_juno.stat_method_opt, pulls=[Nrea_nd], pull_unc=[args_nd.rea_rate_unc])
                 else:
                     nuisance_nd = expand_nuisances_to_fine(DYB_edges, E_edges, nuisance_coarse)
+   
+                        
                     chi2_dyb = chi2_dyb_func(*nuisance_nd)[0]
                 #print(chi2_juno, chi2_dyb)
                 chi2 = chi2_juno + chi2_dyb
@@ -285,11 +289,11 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
 
     def PMOP_combined_chi2(*all_params):
         sin2_th12, sin2_th13, dm2_21, dm2_31, Nrea, Nrea_nd,*nuisance = all_params
-        return chi2(sin2_th12, sin2_th13, dm2_21, dm2_31, Nrea, Nrea_nd, nuisance, opp=False)
+        return chi2(sin2_th12, sin2_th13, dm2_21, dm2_31, Nrea, Nrea_nd, nuisance,  Ngeo=1.0, NU=1.0, NTh=1.0, Nmantle=1.0, opp=False)
         
     def PMOP_combined_chi2_opp(*all_params):
         sin2_th12, sin2_th13, dm2_21, dm2_31, *nuisance = all_params
-        return chi2(sin2_th12, sin2_th13, dm2_21, dm2_31, nuisance, opp=True)
+        return chi2(sin2_th12, sin2_th13, dm2_21, dm2_31, nuisance,  Ngeo=1.0, NU=1.0, NTh=1.0, Nmantle=1.0, opp=True)
 
     def chi2_geo(sin2_12=0, sin2_13=0, dm2_21=0, dm2_31=0, Nrea=1.0, Ngeo=1.0): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0):
        return chi2(sin2_12=sin2_12, sin2_13=sin2_13, dm2_21=dm2_21, dm2_31=dm2_31, Ngeo=Ngeo, Nrea=Nrea,  NU=1.0, NTh=1.0,Nmantle=1.0, opp=False) #eff=float(args_juno.detector_efficiency), me_rho=args_juno.me_rho, a1=0.0, a2=0.0, a3=0.0, a4=0.0)
@@ -371,7 +375,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             m_opp = Minuit(PMOP_combined_chi2_opp, *all_params)
             m_opp.migrad()
     
-        for p in m.parameters[4:4+len(n_params)+2]:
+        for p in m.parameters[4:4+len(all_params)]:
             m.limits[p] = [-1, None]
 
         if args_juno.nd == "DYB" and args_juno.use_dagflow:
@@ -389,11 +393,25 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         
     start_time = time.time()
     max_time = args_juno.minuit_timeout
+  
+    # for p in m.parameters[5:5+len(n_params)]:
+    #     m.fixed[p] = True
 
-    m.simplex()
+    # m.migrad()
 
+    # print(m.fmin.is_valid) 
+
+    # for p in m.parameters[:4]:
+    #     m.values[p] = m.values[p]
+    # for p in m.parameters[5:5+len(n_params)]:
+    #     m.fixed[p] = False
+        
+    # m.strategy = 0   
+    # m.tol = 1e-2  
     m.migrad()
-    #print(m)
+    
+
+    
 
 
     #plot_fit_spectrum(m.values[0], m.values[1], m.values[2], m.values[3], m.values[4], m.values[5], m.values[5:5+len(n_params)])

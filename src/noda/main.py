@@ -17,6 +17,7 @@ from . import grid_scan_results as scan_res
 from . import minuit as minuit
 from . import minuit_pull as minuit_pull
 from . import minuit_comb as minuit_comb
+from . import minuit_new as minuit_new
 from .toymc import run_toy, save_batch_results
 
 def main(argv=None):
@@ -134,15 +135,22 @@ def main(argv=None):
 
 
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
+
+  
+  with open("config/backgrounds.yaml", "r") as f:
+      backgrounds = yaml.safe_load(f)
+      
   ensp_nom_juno, resp_matrix  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
                                     detector="JUNO",
+                                    backgrounds=backgrounds,
                                     args=args_juno)
 
   if args_juno.fit_type == 'PMOP_combined' and not args_juno.use_dagflow:
       ensp_nom_nd, resp_matrix_nd  = spec.CreateSpectra(ndays=ndays_nd,
                                     ebins=ebins_nd,
                                     detector=args_juno.nd,
+                                    backgrounds=backgrounds,
                                     ene_leak_nd=ene_leak_nd,
                                     args=args_nd)
 
@@ -160,21 +168,22 @@ def main(argv=None):
   cm_juno = {}
 
   for u in unc_list_juno:
-      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
-          print(" # Loading covariance matriix", f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-          cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      if os.path.isfile(f"{args_juno.data_matrix_folder}/cm_JUNO_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_juno.FORCE_CALC_CM:
+          print(" # Loading covariance matriix", f"{args_juno.data_matrix_folder}/cm_JUNO_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_JUNO_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
 
       else:
-          print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+          print(f" # Constructing covariance matrix {args_juno.data_matrix_folder}/cm_JUNO_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
           cm_juno[u] = mat.GetCM(ensp = ensp_nom_juno,
             resp_matrix=resp_matrix,
             ndays=ndays,
             unc=u,
-            detector="juno",
-            args=args_juno)
+            detector="JUNO",
+            args=args_juno,
+            backgrounds=backgrounds)
 
       cm_juno[u].Dump(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_juno_{u}.csv")
-      if args_juno.PLOT_CM: cm_juno[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_juno_{u}.png")
+      if args_juno.PLOT_CM: cm_juno[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_JUNO_{u}.png")
       del cm_juno[u]
 
   if args_juno.fit_type == 'PMOP_combined' and args_juno.nd == "TAO":
@@ -198,7 +207,8 @@ def main(argv=None):
                  unc=u,
                  ene_leak_nd=ene_leak_nd,
                  detector="nd",
-                 args=args_nd)
+                 args=args_nd,
+                 backgrounds=backgrounds)
           cm_nd[u].Dump(f"{args_nd.data_matrix_folder}/csv_{args_juno.stat_opt}/cov_mat_juno_{u}.csv")
           if args_juno.PLOT_CM: cm_nd[u].Plot(f"{args_juno.cov_matrix_plots_folder}/cm_nd_{u}.png")
           del cm_nd[u]
@@ -235,7 +245,7 @@ def main(argv=None):
       if args_juno.unc_corr_ind:
           unc_list_corr_ind = args_juno.unc_corr_ind.split('+')
           for new_unc in unc_list_corr_ind:
-              cm_corr[new_unc] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")\
+              cm_corr[new_unc] = LoadObject(f"{args_juno.data_matrix_folder}/cm_JUNO_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")\
                                 .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_nd_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
               #cm_juno[new_unc].Extend(cm_nd[new_unc])
   
@@ -255,7 +265,7 @@ def main(argv=None):
     single_unc_list = full_unc.split("+")
     cm_juno[full_unc] = CovMatrix(data=np.zeros((len(ensp_nom_juno['rdet'].bins)-1, len(ensp_nom_juno['rdet'].bins)-1)), bins=ebins)
     for u in single_unc_list:
-      cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_juno_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+      cm_juno[u] = LoadObject(f"{args_juno.data_matrix_folder}/cm_JUNO_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
       #print(u)
       cm_juno[full_unc] += cm_juno[u]
 
@@ -339,7 +349,10 @@ def main(argv=None):
                   else:    
                       from .DYB_model import make_dyb_model
                       dyb_model = make_dyb_model(args_nd)
-                      minuit_comb.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model)
+                      minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds)
+                      #minuit_comb.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model)
+                      
+
                       
           else:
               if bool(args_juno.toymc):
@@ -355,11 +368,11 @@ def main(argv=None):
                       if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
               else:
                   for unc in unc_list_new_juno: 
-                      if not args_juno.pull_all:
-                          minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
-                      else:
-                          minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
-
+                      # if not args_juno.pull_all:
+                      #     minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+                      # else:
+                      #     minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
+                      minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)
 
   end_scan_time = datetime.now()
