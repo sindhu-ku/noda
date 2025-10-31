@@ -1,0 +1,73 @@
+# background_rates.yaml
+
+JUNO:
+  acc:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "AccBkgHistogramAD"
+    rate: 0.8
+    rate_unc: 0.01
+    b2b_unc: 0.0
+
+  geo:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "GeoNuHistogramAD"
+    rate: 1.2
+    rate_unc: 0.3
+    b2b_unc: 0.05
+
+  lihe:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "Li9BkgHistogramAD"
+    rate: 0.8
+    rate_unc: 0.2
+    b2b_unc: 0.1
+
+  fneu:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "FnBkgHistogramAD"
+    rate: 0.1
+    rate_unc: 1.0
+    b2b_unc: 0.2
+
+  aneu:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "AlphaN_MC" #AlphaNBkgHistogramAD"
+    rate: 0.09
+    rate_unc: 0.25
+    b2b_unc: 0.25
+
+  atm:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "AtmosphericNeutrinoModelGENIE2"
+    rate: 0.16
+    rate_unc: 0.5
+    b2b_unc: 0.5
+
+  rea300:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "OtherReactorSpectrum_L300km"
+    rate: 1.3
+    rate_unc: 0.1
+    b2b_unc: 0.05
+
+TAO:
+  lihe:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "Li9BkgHistogramAD"
+    rate: 54
+    rate_unc: 0.2
+    b2b_unc: 0.1
+
+  fneu:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "FnBkgHistogramAD"
+    rate: 86
+    rate_unc: 1.0
+    b2b_unc: 0.2
+
+  acc:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root"
+    histname: "AccBkgHistogramAD"
+    rate: 190
+    rate_unc: 0.01
+    b2b_unc: 0.0
