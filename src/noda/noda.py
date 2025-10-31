@@ -19,8 +19,8 @@ from scipy.integrate import quad
 from numpy.linalg import solve, slogdet
 from array import array
 from scipy.linalg import cho_solve, cho_factor
-from numba import njit4 
-from .nl_geant import Geant4Model
+# from numba import njit4 
+from .nl_geant4 import Geant4Model
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -1094,7 +1094,7 @@ def GetSpectrumFromROOT(fname, hname, toy=False, xlabel="Energy (MeV)", scale=1.
 #     chi2 = chi2_term + logdet_term + penalty
 #     return chi2
 
-@njit
+#@njit
 def chi2_val(obs, exp, cov_matrix, penalty):
   diff = obs - exp
   chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
