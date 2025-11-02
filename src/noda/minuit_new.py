@@ -11,35 +11,99 @@ import matplotlib.pyplot as plt
 import time
 import inspect
 
-def plot_fit_residuals(s_tot_juno, s_obs):
-    bin_centers = (E_edges[:-1] + E_edges[1:]) / 2
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+
+def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays):
+    """
+    Plot observed vs. fitted spectra with residuals in σ units, 
+    including reactor and all background components.
+
+    Parameters
+    ----------
+    s_tot_juno : Spectrum
+        Total fitted spectrum (reactor + all backgrounds)
+    s_obs : Spectrum
+        Observed spectrum (data)
+    s_juno : Spectrum
+        Reactor-only fitted spectrum
+    bckgs : dict[str, Spectrum]
+        Dictionary of background spectra (key = name, value = Spectrum instance)
+    ndays : float
+        Number of live days (used for cpd display)
+    """
+
+    os.makedirs("Plots", exist_ok=True)
+
+    bin_centers = 0.5 * (s_tot_juno.bins[:-1] + s_tot_juno.bins[1:])
+
+    # --- Extract data ---
+    obs_vals = s_obs.bin_cont
+    obs_err = np.sqrt(np.maximum(obs_vals, 1e-12))  # Poisson uncertainties
     fit_vals = s_tot_juno.bin_cont
-    obs_vals = sp_obs.bin_cont
-    obs_err = np.sqrt(obs_vals)  # Poisson uncertainties
+    fit_err = np.sqrt(np.maximum(fit_vals, 1e-12))  # approximate model uncertainty
 
-    residuals = (obs_vals - fit_vals) / np.maximum(fit_vals, 1e-12)
+    # --- Compute residuals (in σ units) ---
+    residuals = (obs_vals - fit_vals) / np.maximum(obs_err, 1e-12)
+    residual_err = np.ones_like(residuals)  # 1σ uncertainty (unit pulls)
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(8,6),
-                                   gridspec_kw={'height_ratios':[3,1]})
-    
-    # Observed spectrum with error bars
-    ax1.errorbar(bin_centers, obs_vals, yerr=obs_err, fmt='o', color='black', label='Observed')
-    
-    # Fit spectrum
-    ax1.step(bin_centers, fit_vals, where='mid', color='red', label='Fit')
-    
+    # --- Prepare figure ---
+    fig, (ax1, ax2) = plt.subplots(
+        2, 1, sharex=True, figsize=(8, 6),
+        gridspec_kw={'height_ratios': [3, 1]}
+    )
+
+    # === Top panel: Data and Fit ===
+    ax1.errorbar(bin_centers, obs_vals, yerr=obs_err, fmt='o', color='black',
+                 markersize=3, label='Observed data')
+
+    # Total fit (reactor + backgrounds)
+    ax1.step(bin_centers, fit_vals, where='mid', color='blue', lw=1.5, label='Total Fit')
+    ax1.fill_between(bin_centers, fit_vals - fit_err, fit_vals + fit_err,
+                     color='blue', alpha=0.25, label='Fit uncertainty ±1σ')
+
+    # Reactor-only component
+    ax1.step(bin_centers, s_juno.bin_cont, where='mid', color='red', lw=1.2,
+             linestyle='-', label='Reactor expectation')
+
+    # Background components
+    colors = plt.cm.tab10.colors
+    for i, (key, spec) in enumerate(bckgs.items()):
+        cpd = spec.GetIntegral() / ndays
+        ax1.step(bin_centers, spec.bin_cont, where='mid',
+                 color=colors[i % len(colors)], linestyle='--', lw=1,
+                 label=f'{key}: {cpd:.3f} cpd')
+
+    # --- Labels and legend ---
     ax1.set_ylabel("Events")
-    ax1.legend()
-    ax1.set_title("NODA fit results")
+    #ax1.set_title("Fit Results with Reactor and Background Components")
+    ax1.legend(fontsize=8, ncol=2)
+    ax1.grid(True, alpha=0.3)
 
-    # Residuals (obs - fit) / fit
-    ax2.errorbar(bin_centers, residuals, yerr=obs_err/np.maximum(fit_vals,1e-12), fmt='o', color='blue')
-    ax2.axhline(0, color='k', linestyle='--')
+    # === Bottom panel: Residuals (in σ) ===
+    ax2.errorbar(bin_centers, residuals, yerr=residual_err,
+                 fmt='o', color='blue', markersize=3, label='Residuals')
+    ax2.axhline(0, color='k', linestyle='--', lw=1)
+
+    # --- Blue σ bands (±1, ±2, ±3σ) ---
+    sigma_colors = ['#1f77b4', '#5fa8d3', '#a6cee3']  # dark → light blue
+    sigmas = [1, 2, 3]
+    for nsigma, color, alpha in zip(sigmas, sigma_colors, [0.25, 0.2, 0.15]):
+        ax2.fill_between(bin_centers, -nsigma, nsigma, color=color, alpha=alpha,
+                         label=f'±{nsigma}σ')
+
+    # --- Axes labels and styling ---
     ax2.set_xlabel("Reconstructed Energy [MeV]")
-    ax2.set_ylabel("Residuals\n(obs-fit)/fit")
+    ax2.set_ylabel("Residuals [σ]")
+    #ax2.legend(loc='upper right', fontsize=8)
+    ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("Plots/fit_residuals.png")
+    plt.savefig("Plots/fit_residuals.png", dpi=200)
+    plt.close(fig)
+
+
 
 def write_results(m, filename, extra, merrors=True, silent=False): #writes out fit results m for a given filename and uncertainty
     values = []
@@ -106,8 +170,7 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
 def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='', unc_nd='', unc_corr='', rm= [], rm_nd=[], ene_leak_nd =[], cm_juno ={}, cm_nd={}, cm_corr='', args_juno='', args_nd='', dyb_model=None, backgrounds=None):
 
     
-    E_edges = make_nonuniform_bins(args_juno.bins_nonuniform)
-
+    E_edges = make_nonuniform_bins(args_juno.seg_bins_nonuniform)
     fine_bins = ensp_nom_juno["rfis0"].bins
         
     s_ibd = sp.interpolate.interp1d(ensp_nom_juno['sibd'].GetBinCenters(), ensp_nom_juno['sibd'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp_nom_juno['sibd'].bin_cont[0], ensp_nom_juno['sibd'].bin_cont[-1]))
@@ -117,17 +180,26 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         DYB_edges = make_nonuniform_bins(args_nd.bins_nonuniform)
         from dag_modelling.tools.make_fcn import make_fcn
         flux_params = dyb_model.storage["parameters.free.neutrino_per_fission_factor"]
-        chi2_dyb_func = make_fcn(dyb_model.storage[f"outputs.statistic.full.pull.chi2cnp"], parameters=[par for par in flux_params.walkvalues()], safe=False)
+        chi2_dyb_func = make_fcn(dyb_model.storage[f"outputs.statistic.full.covmat.chi2cnp"], parameters=[par for par in flux_params.walkvalues()], safe=False)
 
+    resp_matrix_cache = {}
+    def get_resp_matrix(a, b, c):
+        key = (a,b,c)
+        if key not in resp_matrix_cache:
+            resp_matrix_cache[key] = CalcRespMatrix_abc(a,b,c, escale=1, ebins=fine_bins, pebins=fine_bins)
+        return resp_matrix_cache[key]
+
+    fit_bckgs_spectra = {}
     def chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=0.0, Nrea_nd =0.0,\
-             NL=False,nuisance=None, bckgs=None, Ngeo=0.0, NU=0.0, NTh=0.0,Nmantle=0.0,\
+             NL=None, abc=None, nuisance=None, bckgs=None,\
+             rea_norm=None, eff_nuis=None,
+             Ngeo=0.0, NU=0.0, NTh=0.0,Nmantle=0.0,\
              opp=False, plot_fit=False): #,  me_rho=args_juno.me_rho):
         pulls=[]
         pull_unc = []
         if args_juno.sin2_th13_opt=="pull":
-            sin2_th13_pull_unc = nuosc.op_nom["sin2_th13_err"]/nuosc.op_nom["sin2_th13"]
             pulls.append(sin2_13 - nuosc.op_nom['sin2_th13'])
-            pull_unc.append(sin2_th13_pull_unc * nuosc.op_nom['sin2_th13'])
+            pull_unc.append(nuosc.op_nom['sin2_th13_err'])
 
 
         if Nrea:
@@ -150,54 +222,92 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             rfis_param.WeightWithFunction(s_ibd)
     
             # # Apply bump correction if needed
-            rfis_bparam = rfis_param.GetWeightedWithFunction(s_bump_lin)
-            rfis_bparam.GetScaled(ndays)
-    
-            rfis_bparam.GetScaled(compute_extrafactors(args_juno))
+            #rfis_param = rfis_param.GetWeightedWithFunction(s_bump_lin)
+            rfis_param.GetScaled(ndays)
+
+            if eff_nuis:
+                rfis_param.GetScaled(compute_extrafactors(args_juno, eff_nuis=eff_nuis))
+                pulls.append(eff_nuis)
+                pull_unc.append(args_juno.eff_unc)       
+                
+            else:
+                rfis_param.GetScaled(compute_extrafactors(args_juno))
             
     
-            ibd = rfis_bparam + ensp_nom_juno["snf"] + ensp_nom_juno["noneq"]
+            ibd = rfis_param
             
         else:
-            ibd = ensp_nom_juno["ribd"]
+            ibd = ensp_nom_juno["rfis"]
 
-        s_juno =ibd.GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
+        if rea_norm:
+            Nsnf=rea_norm[0], Nnoneq=rea_norm[1]
+            ibd_tot = ibd + ensp_nom_juno["snf"].GetScaledFit(1+Nsnf) + ensp_nom_juno["noneq"].GetScaledFit(1+Nnoneq)
+            pulls.extend([Nsnf, Nnoneq])
+            pull_unc.extend([args_juno.snf_unc, args_juno.noneq_unc])
+
+        else:
+            ibd_tot = ibd + ensp_nom_juno["snf"] + ensp_nom_juno["noneq"]
+
+        s_juno =ibd_tot.GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
                                           dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers,
                                           me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_juno)
         s_juno = s_juno.GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)  # Shift to positron energy
 
+        #print(NL)
         if NL:
-            new_nonl =  Spectrum(bins = ensp_nom_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_nom_juno['scintNL'].bin_cont)))
-            new_nonl.bin_cont = ensp_nom_juno['scintNL'].bin_cont\
-                                +NL[0]*(ensp_nom_juno['NL_pull'][0].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
-                                +NL[1]*(ensp_nom_juno['NL_pull'][1].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
-                                +NL[2]*(ensp_nom_juno['NL_pull'][2].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
-                                +NL[3]*(ensp_nom_juno['NL_pull'][3].bin_cont - ensp_nom_juno['scintNL'].bin_cont)
-            pulls.extend([NL[0], NL[1], NL[2], NL[3]])
-            pull_unc.extend([args_juno.NL_sd]*4)
-            s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) 
-            # kB = NL[0], fC = NL[1]
-            # s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
-            # pulls.extend([kB, fC])
-            # pull_unc.extend([args_juno.kB_err, args_juno.fC_err])
+            # new_nonl =  Spectrum(bins = ensp_nom_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_nom_juno['scintNL'].bin_cont)))
+            # new_nonl.bin_cont = ensp_nom_juno['scintNL'].bin_cont\
+            #                     +NL[0]*(ensp_nom_juno['NL_pull'][0].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+            #                     +NL[1]*(ensp_nom_juno['NL_pull'][1].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+            #                     +NL[2]*(ensp_nom_juno['NL_pull'][2].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+            #                     +NL[3]*(ensp_nom_juno['NL_pull'][3].bin_cont - ensp_nom_juno['scintNL'].bin_cont)
+            # s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) 
+            # pulls.extend([NL[0], NL[1], NL[2], NL[3]])
+            # pull_unc.extend([args_juno.NL_sd]*4)
+            kB = NL[0]
+            fC = NL[1]
+            s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
+            pulls.extend([kB-args_juno.kB, fC-args_juno.fC])
+            pull_unc.extend([args_juno.kB_err, args_juno.fC_err])
         else:
-            s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])
-            #s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args_juno.kB, fC=args_juno.fC)
-    
-        s_juno = s_juno.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
+            #s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])
+            s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args_juno.kB, fC=args_juno.fC)
+
+        if abc:
+            resp_matrix = get_resp_matrix(abc[0], abc[1], abc[2])
+            s_juno = s_juno.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
+            pulls.extend([abc[0]-args_juno.a, abc[1]-args_juno.b, abc[2]-args_juno.c])
+            pull_unc.extend([args_juno.a_err, args_juno.b_err, args_juno.c_err])
+        else:
+            s_juno = s_juno.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
 
         if args_juno.rebin_nonuniform: s_juno.Rebin_nonuniform(args_juno.bins_nonuniform)
 
 
         s_tot_juno = s_juno.GetScaledFit(1+Nrea) 
-        
+
         for key, info in bckgs.items():
             if args_juno.fit_type == "geo" and key=="geo": continue
+            # if key=="geo" and NL:
+            #     bckgU = ensp_nom_juno[f'rvis_geou'].GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
+            #     bckgTh = ensp_nom_juno[f'rvis_geoth'].GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
+            #     bckgU.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
+            #     bckgTh.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
+            #     bckgU.Rebin_nonuniform(args_juno.bins_nonuniform)
+            #     bckgTh.Rebin_nonuniform(args_juno.bins_nonuniform)
+            #     bckg = bckgU+bckgTh
+            #     s_tot_juno += bckg.GetScaledFit(1+info["pull"])
+            # else:
             s_tot_juno += ensp_nom_juno[key].GetScaledFit(1+info["pull"])
             if info["sigma"] != 0 and bckgs[key]:
                 pulls.append(info["pull"])
                 pull_unc.append(info["sigma"])
-                
+            if plot_fit: 
+                # if key == "geo":
+                #     fit_bckgs_spectra[key] = bckg.GetScaledFit(1+info["pull"])
+                # else:
+                fit_bckgs_spectra[key] = ensp_nom_juno[key].GetScaledFit(1+info["pull"])
+         
         if args_juno.fit_type == 'geo':
             if args_juno.geo_fit_type == 'UThfree':
                 geo_sp =  ensp_nom_juno["geou"].GetScaledFit(1+NU)+ensp_nom_juno["geoth"].GetScaledFit(1+NTh)
@@ -259,7 +369,6 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                       s_obs_nd, s_tot_nd,  unc=unc,
                       stat_meth=args_juno.stat_method_opt, pulls=pulls, pull_unc=pull_unc, nd=args_juno.nd)
             else:
-                
                 chi2_juno = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=pulls, pull_unc=pull_unc)
                
                 if not args_juno.use_dagflow:
@@ -270,7 +379,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                 chi2 = chi2_juno + chi2_dyb           
 
         if plot_fit:
-            plot_fit_residuals(s_tot_juno, s_obs_tot)
+            plot_fit_residuals(s_tot_juno, sp_obs_tot, s_juno, fit_bckgs_spectra, ndays)
             
         else:
             chi2 = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=pulls, pull_unc=pull_unc) 
@@ -301,35 +410,63 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         if args_juno.pull_all: bckgs[key] = {"pull": 0.0, "sigma": info["rate_unc"]}
         else: bckgs[key] = {"pull": 0.0, "sigma": 0.0}
 
-    bckgs_keys = [k for k, v in bckgs.items() if v["sigma"] != 0.0]
+    bckgs_keys = [k for k, v in bckgs.items()]# if v["sigma"] != 0.0]
 
-    NL = [0.0] * 4 if args_juno.pull_all else []
+    NL = [args_juno.kB, args_juno.fC] if args_juno.pull_all else []
 
+    abc = [args_juno.a, args_juno.b, args_juno.c] if args_juno.pull_all else []
+
+    rea_norm = [0.0]*2
+    eff_nuis = 0.0
     nuisance = [0.0] * (len(E_edges) - 1) if args_juno.fit_type == "PMOP_combined" else []
 
-    def chi2_wrapper(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, *all_nuisance_params):
-        n_NL = len(NL)
-        n_bckgs = len(bckgs_keys)
-        n_nuis = len(all_nuisance_params) - n_NL - n_bckgs
+    n_NL = len(NL)
+    n_abc = len(abc)
+    n_bckgs = len(bckgs_keys)
     
+    # def chi2_wrapper(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, *all_nuisance_params):
+
+    #     n_nuis = len(all_nuisance_params) - n_NL -n_abc - n_bckgs
+    #     NL_vals = all_nuisance_params[:n_NL]
+    #     abc_vals = all_nuisance_params[n_NL:n_NL + n_abc]
+    #     bckgs_vals = all_nuisance_params[n_NL + n_abc:n_NL + n_abc + n_bckgs]
+    #     nuisance_vals = all_nuisance_params[n_NL + n_abc + n_bckgs:]
+
+    #     for i, key in enumerate(bckgs_keys):
+    #         bckgs[key]["pull"] = bckgs_vals[i]
+    
+    #     return chi2(
+    #         sin2_12=sin2_12,
+    #         sin2_13=sin2_13,
+    #         dm2_21=dm2_21,
+    #         dm2_31=dm2_31,
+    #         Nrea=Nrea,
+    #         NL=NL_vals,
+    #         abc=abc_vals,
+    #         nuisance=nuisance_vals,
+    #         bckgs=bckgs,
+    #     )
+    def chi2_wrapper(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, *all_nuisance_params, plot_fit=False):
+        n_nuis = len(all_nuisance_params) - n_NL -n_abc - n_bckgs
         NL_vals = all_nuisance_params[:n_NL]
-        bckgs_vals = all_nuisance_params[n_NL:n_NL + n_bckgs]
-        nuisance_vals = all_nuisance_params[n_NL + n_bckgs:]
-    
+        abc_vals = all_nuisance_params[n_NL:n_NL + n_abc]
+        bckgs_vals = all_nuisance_params[n_NL + n_abc:n_NL + n_abc + n_bckgs]
+        nuisance_vals = all_nuisance_params[n_NL + n_abc + n_bckgs:]
+
         for i, key in enumerate(bckgs_keys):
             bckgs[key]["pull"] = bckgs_vals[i]
-    
         return chi2(
-            sin2_12=sin2_12,
-            sin2_13=sin2_13,
-            dm2_21=dm2_21,
-            dm2_31=dm2_31,
-            Nrea=Nrea,
-            NL=NL_vals,
-            nuisance=nuisance_vals,
-            bckgs=bckgs,
+        sin2_12=sin2_12,
+        sin2_13=sin2_13,
+        dm2_21=dm2_21,
+        dm2_31=dm2_31,
+        Nrea=Nrea,
+        NL=NL_vals,
+        abc=abc_vals,
+        nuisance=nuisance_vals,
+        bckgs=bckgs,
+        plot_fit=plot_fit,   # pass this flag down
         )
-  
     def make_chi2_func(n_fixed=5, n_total=None):
         def f(*params):
             return chi2_wrapper(*params[:n_fixed], *params[n_fixed:])
@@ -347,12 +484,13 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         nuosc.op_nom["dm2_21"],
         nuosc.op_nom["dm2_31"],
         0.0,  # Nrea
-    ] + NL + [bckgs[k]["pull"] for k in bckgs_keys] + nuisance
+    ] + NL + abc + [bckgs[k]["pull"] for k in bckgs_keys] + nuisance
 
     print("Parameters length: ", len(start_values))
     param_names = (
         ["sin2_th12", "sin2_th13", "dm2_21", "dm2_31", "Nrea"]
         + [f"NL{i}" for i in range(len(NL))]
+        + [f"abc{i}" for i in range(len(abc))]
         + [f"bkg_{k}" for k in bckgs_keys]
         + [f"nuis{i}" for i in range(len(nuisance))]
     )
@@ -360,19 +498,30 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     chi2_func = make_chi2_func(n_fixed=5, n_total=len(start_values))
     m = Minuit(chi2_func, *start_values, name=param_names)
 
-    m.migrad()
-    
-    
 
+    m.migrad()  
+    # m.tol = 1e-4
+    # m.migrad()
+    if not args_juno.silent_print: print(m)
     #plot_fit_spectrum(m.values[0], m.values[1], m.values[2], m.values[3], m.values[4], m.values[5], m.values[5:5+len(n_params)])
+ 
+    print("Function minimum value: ", m.fval)
+    print("chi2/ndf: ", m.fval/(66-4))
+    print("-----Good things, should be True-----")
+    print("FMin valid?             ", m.fmin.is_valid)
+    print("Has covariance?         ", m.fmin.has_covariance)
+    print("Covariance accurate?    ", m.fmin.has_accurate_covar)
+    print("Minos valid?            ", m.fmin.is_valid)
 
-
-    print('FMin valid? ', m.fmin.is_valid)  
-    print('FMin value: ', m.fmin.fval)    
-    print('Call limit? ', m.fmin.has_reached_call_limit)
-    print('Above edm? ', m.fmin.is_above_max_edm)
+    print("-----Bad things, should be False-----")
+    print("Above EDM threshold?    ", m.fmin.is_above_max_edm)
+    print("Has reached call limit? ", m.fmin.has_reached_call_limit)
+    print("Hesse failed?           ", m.fmin.hesse_failed)
 
     
+
+    best_params = [m.values[name] for name in m.parameters]
+    chi2_wrapper(*best_params, plot_fit=True) 
     merrors=bool(args_juno.calc_minuit_errors)
     if merrors:
         m.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31") #(params=['x0', 'x1', 'x2', 'x3']) #m.minos() #get minos errors
@@ -399,7 +548,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
 
     #         dchi2 = abs(chi2_min-chi2_min_opp)
     #         print(f"NMO: delta chi2 between NO and IO assuming {args_juno.NMO_opt}: {dchi2} and corresponding significance: {np.sqrt(dchi2)}")
-        
+
     if not args_juno.silent_print:
         print("************Oscillation parameter fit results************")
         for i in range(4): #len(m.values)):
@@ -409,9 +558,24 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                 err = m.errors[i]
                 
             print(f"{m.parameters[i]}: {m.values[i]} +/- {err}; rel unc: {err/m.values[i]}")
-        #print(m)
     print("************Other parameter fit results************")
-    for i in range(4, len(m.values)): print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]};")
+    for i in range(4, len(m.values)): 
+        print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
+  
+    print("************Background rates************")
+        
+    for j, key in enumerate(bckgs_keys):
+        i = n_NL + n_abc + j              
+        nuis = m.values[i]
+        nuis_err = m.errors[i]
+        start_rate = backgrounds["JUNO"][key]["rate"]
+        rate_fit = start_rate * (1 + nuis)
+        rate_err = start_rate * nuis_err
+        N_fit = rate_fit * ndays
+        N_err = rate_err * ndays
+    
+        print(f"{key}: {rate_fit:.4e} ± {rate_err:.4e} cpd"
+              f"({N_fit:.4e} ± {N_err:.4e} events)")
 
     #chi2_min = chi2_geo(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4], Ngeo=m.values[5])
     #print(chi2_min)

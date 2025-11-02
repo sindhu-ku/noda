@@ -11,5 +11,5 @@ def make_dyb_model(args):
                               override_indices=override_indices,\
                               final_erec_bin_edges=ebins_nd, \
                               override_cfg_files={"antineutrino_spectrum_segment_edges": args.custom_bin_edges})
-    
+    if args.is_data: dyb_model.switch_data("real")
     return dyb_model

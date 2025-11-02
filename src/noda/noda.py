@@ -455,7 +455,7 @@ class Spectrum:
     elif mode == "spectrum":
       bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])
     elif mode == "G4":  
-      bins_new = self.bins*np.array([G4model.eval(e, kB, fC=fC) for e in self.bins])
+      bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC)
     old_bins = self.bins
     self.bins = bins_new
     self.Rebin(old_bins, mode='simple')
@@ -889,32 +889,55 @@ def LoadRespMatrix(fname):
   m = pickle.load(f)
   f.close()
   return m
-
+    
 def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_MeV", verbose=True):
-  evis = 0.5*(ebins[1:]+ebins[:-1]) + eshift
+    evis = 0.5*(ebins[1:] + ebins[:-1]) + eshift
+    rel_res = np.sqrt(a**2 / evis + b**2 + c**2 / evis**2)  # in fraction
+
+    loc = escale * evis                     # shape (N_e,)
+    scale = escale * rel_res * evis         # shape (N_e,)
+    
+    pe = 0.5*(pebins[1:] + pebins[:-1])    # shape (N_pe,)
+    pe_bin_width = pebins[1] - pebins[0]
+
+    # Vectorized PDF calculation using broadcasting
+    # pe shape -> (1, N_pe), loc & scale -> (N_e, 1)
+    pe_grid = pe[np.newaxis, :]             # shape (1, N_pe)
+    loc_grid = loc[:, np.newaxis]           # shape (N_e, 1)
+    scale_grid = scale[:, np.newaxis]       # shape (N_e, 1)
+
+    rm_data = (1 / (np.sqrt(2*np.pi) * scale_grid)) * \
+              np.exp(-0.5 * ((pe_grid - loc_grid)/scale_grid)**2)
+    
+    # multiply by bin width
+    rm_data *= pe_bin_width
+
+    return RespMatrix(rm_data, ebins=ebins, pebins=pebins)
+# def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_MeV", verbose=True):
+#   evis = 0.5*(ebins[1:]+ebins[:-1]) + eshift
 
 
-  rel_res = 100.*(np.sqrt(a*a/evis + b*b + c*c/evis/evis))
-  if type(rel_res) == float:
-    rel_res = rel_res*np.sqrt(evis)
+#   rel_res = 100.*(np.sqrt(a*a/evis + b*b + c*c/evis/evis))
+#   if type(rel_res) == float:
+#     rel_res = rel_res*np.sqrt(evis)
 
-  pe = 0.5*(pebins[1:]+pebins[:-1])
-  pe_bin_width = pebins[1]-pebins[0] # assuming equally sized bins
+#   pe = 0.5*(pebins[1:]+pebins[:-1])
+#   pe_bin_width = pebins[1]-pebins[0] # assuming equally sized bins
 
-  rm_data = np.zeros(shape=(len(ebins)-1,len(pebins)-1))
-  #gaussian_distribution = [*map(lambda a, b: sp.stats.norm(loc=escale*a, scale=escale*b/100.*a), evis, rel_res)]
-  #rm_data = [*map(lambda a: a.pdf(pe)*pe_bin_width, gaussian_distribution)]
+#   rm_data = np.zeros(shape=(len(ebins)-1,len(pebins)-1))
+#   #gaussian_distribution = [*map(lambda a, b: sp.stats.norm(loc=escale*a, scale=escale*b/100.*a), evis, rel_res)]
+#   #rm_data = [*map(lambda a: a.pdf(pe)*pe_bin_width, gaussian_distribution)]
 
-  gaussian_distribution = []
-  for i in range(len(evis)):
-    loc = escale * evis[i]
-    scale = escale * rel_res[i] / 100. * evis[i]
-    gaussian_distribution.append(sp.stats.norm(loc=loc, scale=scale))
+#   gaussian_distribution = []
+#   for i in range(len(evis)):
+#     loc = escale * evis[i]
+#     scale = escale * rel_res[i] / 100. * evis[i]
+#     gaussian_distribution.append(sp.stats.norm(loc=loc, scale=scale))
 
-  for i in range(len(evis)):
-      rm_data[i,:] = gaussian_distribution[i].pdf(pe) * pe_bin_width
+#   for i in range(len(evis)):
+#       rm_data[i,:] = gaussian_distribution[i].pdf(pe) * pe_bin_width
 
-  return RespMatrix(rm_data, ebins=ebins, pebins=pebins)
+#   return RespMatrix(rm_data, ebins=ebins, pebins=pebins)
 # import numpy as np
 # import scipy.stats as sp
 
@@ -1119,7 +1142,7 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
   
   obs = tot_obs.bin_cont
   exp = tot_exp.bin_cont
-  valid = (obs > 0) & (exp > 0)
+  valid = (obs > 0) &(exp > 0)
   
   cov_matrix = cov_matrix[np.ix_(valid, valid)]
   #chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
@@ -1224,13 +1247,52 @@ def make_nonuniform_bins(bins_nonuniform):
         edges.extend(part)
     return np.array(edges)
 
-def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
-    nuisance_fine = np.zeros(len(fine_bins)-1)
-    for i in range(len(coarse_edges)-1):
-        mask = (fine_bins[:-1] >= coarse_edges[i]) & (fine_bins[1:] <= coarse_edges[i+1])
-        nuisance_fine[mask] = nuisance_coarse[i]
-    return nuisance_fine
+# def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
+#     nuisance_fine = np.zeros(len(fine_bins)-1)
+#     for i in range(len(coarse_edges)-1):
+#         mask = (fine_bins[:-1] >= coarse_edges[i]) & (fine_bins[1:] <= coarse_edges[i+1])
+#         nuisance_fine[mask] = nuisance_coarse[i]
+#     return nuisance_fine
 
+
+def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
+    """
+    Expand coarse-bin nuisance values to fine bins using overlap weighting.
+
+    Parameters
+    ----------
+    fine_bins : array-like
+        Edges of fine bins (length N+1)
+    coarse_edges : array-like
+        Edges of coarse bins (length M+1)
+    nuisance_coarse : array-like
+        Nuisance parameter values per coarse bin (length M)
+
+    Returns
+    -------
+    nuisance_fine : np.ndarray
+        Nuisance parameter values per fine bin (length N),
+        weighted by the fractional overlap between bins.
+    """
+    fine_bins = np.asarray(fine_bins)
+    coarse_edges = np.asarray(coarse_edges)
+    nuisance_coarse = np.asarray(nuisance_coarse)
+
+    nuisance_fine = np.zeros(len(fine_bins) - 1)
+    fine_left, fine_right = fine_bins[:-1], fine_bins[1:]
+
+    for i in range(len(coarse_edges) - 1):
+        cmin, cmax = coarse_edges[i], coarse_edges[i + 1]
+        mask = (fine_right > cmin) & (fine_left < cmax)
+
+        # For fine bins overlapping this coarse bin, compute fractional overlap
+        overlap = np.minimum(fine_right[mask], cmax) - np.maximum(fine_left[mask], cmin)
+        width = fine_right[mask] - fine_left[mask]
+        frac = np.clip(overlap / width, 0, 1)
+
+        nuisance_fine[mask] += nuisance_coarse[i] * frac
+
+    return nuisance_fine
     
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
     """
@@ -1266,7 +1328,7 @@ def centers_to_edges(centers):
     edges[-1] = centers[-1] + 0.5 * (centers[-1] - centers[-2])
     return edges
 
-def compute_extrafactors(args):
+def compute_extrafactors(args, eff_nuis=None):
     """
     Compute normalization scaling factor for reactor flux at given baselines.
     
@@ -1278,7 +1340,12 @@ def compute_extrafactors(args):
     L_arr = np.array(args.L)
 #if np.any(L_arr == 0):
     # Common prefactor
-    prefactor = args.detector_efficiency * args.veto * args.Np / (4 * np.pi)
+
+    if not eff_nuis:
+        eff = args.detector_efficiency
+    else:
+        eff = (1+eff_nuis)*args.detector_efficiency
+    prefactor = eff * args.veto * args.Np / (4 * np.pi)
 
     # Compute normalization denominator (total weighted fission energy)
     norm = np.sum(alpha_arr * efission_arr)

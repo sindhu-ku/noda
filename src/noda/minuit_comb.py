@@ -394,8 +394,8 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     start_time = time.time()
     max_time = args_juno.minuit_timeout
   
-    # for p in m.parameters[5:5+len(n_params)]:
-    #     m.fixed[p] = True
+    for p in m.parameters[5:5+len(n_params)]:
+        m.fixed[p] = True
 
     # m.migrad()
 

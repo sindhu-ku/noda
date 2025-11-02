@@ -373,6 +373,7 @@ def main(argv=None):
                       # else:
                       #     minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
                       minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
+                     
           #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)
 
   end_scan_time = datetime.now()
