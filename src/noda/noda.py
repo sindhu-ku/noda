@@ -21,6 +21,7 @@ from array import array
 from scipy.linalg import cho_solve, cho_factor
 # from numba import njit4 
 from .nl_geant4 import Geant4Model
+import hashlib
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -1118,38 +1119,85 @@ def GetSpectrumFromROOT(fname, hname, toy=False, xlabel="Energy (MeV)", scale=1.
 #     return chi2
 
 #@njit
-def chi2_val(obs, exp, cov_matrix, penalty):
-  diff = obs - exp
-  chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
+# def chi2_val(obs, exp, cov_matrix, penalty):
+#   diff = obs - exp
+#   chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
 
-  return chi2
+#   return chi2
 
-def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
-  penalty = 0.
-  if pulls and pull_unc:
-      for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
-  chi2 = 0.0
-  if stat_meth == "NorP":
-      stat_cov_matrix = rea_obs.GetStatCovMatrix().data
-  else:
-      stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
-  if unc == "stat":
-      cov_matrix = stat_cov_matrix
-  elif unc == "no stat":
-      cov_matrix = cm.data
-  else:
-      cov_matrix = stat_cov_matrix + cm.data
+# def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None):
+#   penalty = 0.
+#   if pulls and pull_unc:
+#       for p, u in zip(pulls, pull_unc): penalty += (p/u)**2
+#   chi2 = 0.0
+#   if stat_meth == "NorP":
+#       stat_cov_matrix = rea_obs.GetStatCovMatrix().data
+#   else:
+#       stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
+#   if unc == "stat":
+#       cov_matrix = stat_cov_matrix
+#   elif unc == "no stat":
+#       cov_matrix = cm.data
+#   else:
+#       cov_matrix = stat_cov_matrix + cm.data
   
-  obs = tot_obs.bin_cont
-  exp = tot_exp.bin_cont
-  valid = (obs > 0) &(exp > 0)
+#   obs = tot_obs.bin_cont
+#   exp = tot_exp.bin_cont
+#   valid = (obs > 0) &(exp > 0)
   
-  cov_matrix = cov_matrix[np.ix_(valid, valid)]
-  #chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
+#   cov_matrix = cov_matrix[np.ix_(valid, valid)]
+#   #chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
 
-  chi2 = chi2_val(obs, exp,cov_matrix, penalty)
-  return chi2
+#   chi2 = chi2_val(obs, exp,cov_matrix, penalty)
+#   return chi2
 
+def chi2_val(obs, exp, cov_matrix, penalty=0.0):
+    """Compute chi2 = (obs - exp)^T V^-1 (obs - exp) + penalty."""
+    diff = obs - exp
+    chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
+    return chi2
+
+
+def chi2_plus_logV(obs, exp, cov_matrix, penalty=0.0):
+    """Compute chi2 + log(det(V))."""
+    chi2 = chi2_val(obs, exp, cov_matrix, penalty)
+    sign, logdet = np.linalg.slogdet(cov_matrix)
+    if sign <= 0:
+        raise np.linalg.LinAlgError("Covariance matrix not positive definite")
+    return chi2 + logdet
+
+
+def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, include_logV=False):
+    penalty = 0.0
+    if pulls and pull_unc:
+        for p, u in zip(pulls, pull_unc):
+            penalty += (p / u) ** 2
+
+    if stat_meth == "NorP" or include_logV:
+        stat_cov_matrix = rea_obs.GetStatCovMatrix().data
+    else:
+        stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
+
+    if unc == "stat":
+        cov_matrix = stat_cov_matrix
+    elif unc == "no stat":
+        cov_matrix = cm.data
+    else:
+        cov_matrix = stat_cov_matrix + cm.data
+
+    obs = tot_obs.bin_cont
+    exp = tot_exp.bin_cont
+    valid = (obs > 0) & (exp > 0)
+    cov_matrix = cov_matrix[np.ix_(valid, valid)]
+    obs = obs[valid]
+    exp = exp[valid]
+
+    if include_logV:
+        chi2 = chi2_plus_logV(obs, exp, cov_matrix, penalty)
+    else:
+        chi2 = chi2_val(obs, exp, cov_matrix, penalty)
+
+    return chi2
 def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, nd="TAO"):
   penalty = 0.0
   if pulls and pull_unc:
@@ -1248,52 +1296,146 @@ def make_nonuniform_bins(bins_nonuniform):
     return np.array(edges)
 
 # def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
-#     nuisance_fine = np.zeros(len(fine_bins)-1)
-#     for i in range(len(coarse_edges)-1):
-#         mask = (fine_bins[:-1] >= coarse_edges[i]) & (fine_bins[1:] <= coarse_edges[i+1])
+#     nuisance_fine = np.zeros(len(fine_bins) - 1)
+#     for i in range(len(coarse_edges) - 1):
+#         mask = (fine_bins[1:] > coarse_edges[i]) & (fine_bins[:-1] < coarse_edges[i + 1])
 #         nuisance_fine[mask] = nuisance_coarse[i]
 #     return nuisance_fine
 
-
-def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
+def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
     """
-    Expand coarse-bin nuisance values to fine bins using overlap weighting.
-
-    Parameters
-    ----------
-    fine_bins : array-like
-        Edges of fine bins (length N+1)
-    coarse_edges : array-like
-        Edges of coarse bins (length M+1)
-    nuisance_coarse : array-like
-        Nuisance parameter values per coarse bin (length M)
-
-    Returns
-    -------
-    nuisance_fine : np.ndarray
-        Nuisance parameter values per fine bin (length N),
-        weighted by the fractional overlap between bins.
+    coarse_edges: bin edges for coarse DYB bins
+    fine_edges: bin edges for fine bins
+    nuisance_coarse: length = len(coarse_edges)-1
     """
-    fine_bins = np.asarray(fine_bins)
-    coarse_edges = np.asarray(coarse_edges)
-    nuisance_coarse = np.asarray(nuisance_coarse)
-
-    nuisance_fine = np.zeros(len(fine_bins) - 1)
-    fine_left, fine_right = fine_bins[:-1], fine_bins[1:]
-
-    for i in range(len(coarse_edges) - 1):
-        cmin, cmax = coarse_edges[i], coarse_edges[i + 1]
-        mask = (fine_right > cmin) & (fine_left < cmax)
-
-        # For fine bins overlapping this coarse bin, compute fractional overlap
-        overlap = np.minimum(fine_right[mask], cmax) - np.maximum(fine_left[mask], cmin)
-        width = fine_right[mask] - fine_left[mask]
-        frac = np.clip(overlap / width, 0, 1)
-
-        nuisance_fine[mask] += nuisance_coarse[i] * frac
-
-    return nuisance_fine
+    nuisance_fine = np.zeros(len(fine_edges) - 1)
     
+    for i, (lo, hi) in enumerate(zip(coarse_edges[:-1], coarse_edges[1:])):
+        # mask for fine bins inside coarse bin
+        mask = (fine_edges[:-1] >= lo) & (fine_edges[1:] <= hi)
+        nuisance_fine[mask] = nuisance_coarse[i]
+    
+    return nuisance_fine
+# def expand_nuisances_to_fine(fine_bins, coarse_edges, nuisance_coarse):
+#     nuisance_fine = np.zeros(len(fine_bins) - 1)
+#     for j in range(len(fine_bins) - 1):
+#         fine_left, fine_right = fine_bins[j], fine_bins[j + 1]
+#         weights = []
+#         values = []
+#         for i in range(len(coarse_edges) - 1):
+#             coarse_left, coarse_right = coarse_edges[i], coarse_edges[i + 1]
+#             # Calculate overlap length
+#             overlap = max(0.0, min(fine_right, coarse_right) - max(fine_left, coarse_left))
+#             if overlap > 0:
+#                 weights.append(overlap)
+#                 values.append(nuisance_coarse[i])
+#         if weights:
+#             nuisance_fine[j] = np.average(values, weights=weights)
+#         else:
+#             nuisance_fine[j] = 0.0
+#     return nuisance_fine
+
+# def _edge_fingerprint(edges):
+#     a = np.asarray(edges, dtype=float)
+#     return hashlib.md5(a.tobytes()).hexdigest()
+
+# def expand_nuisances_to_fine(fine_bins, seg_definition, nuisance_coarse, mode="auto"):
+#     """
+#     Map coarse nuisances to fine bins.
+
+#     Parameters
+#     ----------
+#     fine_bins : array-like (length N+1)
+#         Fine bin edges.
+#     seg_definition : array-like
+#         Either coarse bin edges (length M+1) or segment centers (length M).
+#         Use `mode` to force interpretation.
+#     nuisance_coarse : array-like (length M)
+#         Nuisance values per coarse segment.
+#     mode : {"auto","edges","centers"}
+#         - "edges": treat seg_definition as coarse edges.
+#         - "centers": treat seg_definition as segment centers (nuisance defined at centers).
+#         - "auto": try to infer (will prefer edges if len(seg_def)==len(nuisance)+1).
+
+#     Returns
+#     -------
+#     nuisance_fine : np.ndarray length N (one value per fine bin)
+#     """
+#     fine_bins = np.asarray(fine_bins, dtype=float)
+#     seg_def = np.asarray(seg_definition, dtype=float)
+#     nuis = np.asarray(nuisance_coarse, dtype=float)
+
+#     if fine_bins.ndim != 1:
+#         raise ValueError("fine_bins must be 1D edges")
+#     if seg_def.ndim != 1:
+#         raise ValueError("seg_definition must be 1D")
+#     if nuis.ndim != 1:
+#         raise ValueError("nuisance_coarse must be 1D")
+
+#     Nfine = len(fine_bins) - 1
+#     if Nfine <= 0:
+#         raise ValueError("fine_bins must have length >= 2")
+
+#     # decide interpretation
+#     if mode == "auto":
+#         if len(seg_def) == len(nuis) + 1:
+#             interp = "edges"
+#         elif len(seg_def) == len(nuis):
+#             interp = "centers"
+#         else:
+#             # fallback heuristic: compare step sizes
+#             d_f = np.mean(np.diff(fine_bins))
+#             d_s = np.mean(np.diff(seg_def)) if len(seg_def) > 1 else np.inf
+#             interp = "edges" if d_s > d_f else "centers"
+#     elif mode in ("edges", "centers"):
+#         interp = mode
+#     else:
+#         raise ValueError("mode must be one of 'auto','edges','centers'")
+
+#     # build coarse_left/right arrays (length M)
+#     if interp == "edges":
+#         if len(seg_def) != len(nuis) + 1:
+#             raise ValueError(f"seg_definition length {len(seg_def)} inconsistent with nuisance length {len(nuis)} in edges mode")
+#         coarse_left = seg_def[:-1]
+#         coarse_right = seg_def[1:]
+#     else:  # centers
+#         if len(seg_def) != len(nuis):
+#             raise ValueError(f"seg_definition length {len(seg_def)} inconsistent with nuisance length {len(nuis)} in centers mode")
+#         centers = seg_def
+#         if len(centers) == 1:
+#             # single center -> span full fine range
+#             coarse_left = np.array([fine_bins[0]])
+#             coarse_right = np.array([fine_bins[-1]])
+#         else:
+#             mid = 0.5 * (centers[:-1] + centers[1:])
+#             coarse_left = np.empty(len(centers))
+#             coarse_right = np.empty(len(centers))
+#             coarse_left[0] = fine_bins[0]
+#             coarse_right[-1] = fine_bins[-1]
+#             coarse_left[1:] = mid
+#             coarse_right[:-1] = mid
+
+#     # compute overlap-weighted nuisance for each fine bin
+#     fine_left = fine_bins[:-1]
+#     fine_right = fine_bins[1:]
+#     fine_width = fine_right - fine_left
+#     if np.any(fine_width <= 0):
+#         raise ValueError("fine_bins must be strictly increasing")
+
+#     nuisance_fine = np.zeros(Nfine, dtype=float)
+
+#     for i, (cmin, cmax, val) in enumerate(zip(coarse_left, coarse_right, nuis)):
+#         # overlap with all fine bins
+#         overlap = np.minimum(fine_right, cmax) - np.maximum(fine_left, cmin)
+#         overlap = np.clip(overlap, 0.0, None)
+#         mask = overlap > 0
+#         if not np.any(mask):
+#             continue
+#         # contribution proportional to fraction of fine bin covered by this coarse bin
+#         nuisance_fine[mask] += val * (overlap[mask] / fine_width[mask])
+
+#     return nuisance_fine
+
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
     """
     Read neutrino flux data from a .dat file with columns:

@@ -216,15 +216,21 @@ def CreateSpectra(ndays=10,
       ensp['rvis'] = ensp['rvis_nonl']
       ensp['rvis1'] = ensp['rvis_nonl1']
 
-  print(ensp['rvis'].bin_cont.shape)       
-  # ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-  # ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-  # ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
- 
-  ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-  ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-  ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+  print(ensp['rvis'].bin_cont.shape)      
+  
+  if not detector == "DYB": 
+      # ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      # ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      # ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+     
+      ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
 
+  else:
+      ensp['rvis_temp'] = ensp['rvis_nonl_temp']
+      ensp['snf_osc_vis'] = ensp['snf_osc_nonl']
+      ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl']
   del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
@@ -286,8 +292,7 @@ def CreateSpectra(ndays=10,
         ensp[key].GetScaled(scale)
         ensp[key].Trim(args.ene_crop)
         # ensp[key].Rebin(ebins, mode="spline-not-keep-norm")
-        # if args.rebin_nonuniform:
-        if key == "rea300": 
+        if args.rebin_nonuniform: 
             ensp[key].Rebin_nonuniform(args.bins_nonuniform)
         if ensp['bckg'] is None:
             ensp['bckg'] = ensp[key]
@@ -308,6 +313,8 @@ def CreateSpectra(ndays=10,
 
       ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(ndays*rate/((1+ratio)*args.duty_cycle*ensp['rfis0_geou'].GetIntegral()))
       ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ndays*rate*ratio/((1+ratio)*args.duty_cycle*ensp['rfis0_geoth'].GetIntegral()))
+      # ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(1./((1+ratio)*ensp['rfis0_geou'].GetIntegral()))
+      # ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ratio/((1+ratio)*ensp['rfis0_geoth'].GetIntegral()))
 
       ensp[f'rvis_{name}u'] = ensp[f'rfis_{name}u'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       ensp[f'rvis_{name}th'] = ensp[f'rfis_{name}th'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
@@ -332,10 +339,12 @@ def CreateSpectra(ndays=10,
       else:
           ensp['geo_ana'] = make_ana_geo_spectra(float(args.geo_rate), args.Th_U_ratio, 'geo')
 
-      ensp['bckg'] = ensp['bckg'] - ensp['geo'] + ensp['geo_ana']
-      ensp['geo'] = ensp['geo_ana']
+          # scale = float(args.geo_rate)*ndays / (args.duty_cycle*ensp['geo_ana'].GetIntegral())
+          # ensp['geo_ana'].GetScaled(scale)
 
-  geo_edep = ensp[f'rvis_geou'] +  ensp[f'rvis_geoth']
+          ensp['bckg'] = ensp['bckg'] - ensp['geo'] + ensp['geo_ana']
+          ensp['geo'] = ensp['geo_ana']
+  #geo_edep = ensp[f'rvis_geou'] +  ensp[f'rvis_geoth']
 
   #geo_edep.WritetoROOT("geo", "Geo_edep_Nov1.root")   
   if args.rebin_nonuniform: 
@@ -347,8 +356,14 @@ def CreateSpectra(ndays=10,
   events['rdet'] = ensp['rdet'].GetIntegral()
 
   if detector=="DYB":
-      ensp['rtot'] =  ensp['rdet']
-
+      #ensp['rtot'] =  ensp['rdet']
+      # DYB_spectrum = pd.read_csv(args.dyb_spectrum, delim_whitespace=True, names=["Bin_Center", "Sigma", "Rel_Unc"])
+      # ensp['rtot'] = Spectrum(bins=ensp['rdet'].bins, bin_cont=DYB_spectrum["Sigma"].to_numpy())
+      # ensp['rtot'].WeightWithFunction(s_ibd)
+      ensp['rtot'] = ensp['rdet']
+      extra_spectra = []
+      leg_labels = ['DYB expectation']
+      colors = ['brown']
   else:
       ensp['rtot'] = ensp['rdet'] + ensp['bckg']
 
@@ -389,6 +404,7 @@ def CreateSpectra(ndays=10,
           leg_labels = ['+ NL + energy res', '+ flux and cross-sec', '+ energy leak', 'Accidentals', 'Li9/He8', 'Fast neutrons']
           colors=['grey', 'magenta', 'darkred', 'green', 'navy', 'orange']
 
+      
       ensp['rdet'].Plot(f"{args.plots_folder}/det_spectra_{detector}.png",
                   xlabel="Reconstructed energy (MeV)",
                   ylabel=f"", #Events per {binw:0.1f} keV",
@@ -433,15 +449,19 @@ def CreateSpectra(ndays=10,
   print(" # Initialization completed")
     #
   print(" # Dumping data")
-  for key in ensp.keys():
-      if type(ensp[key]) != list:
-          ensp[key].Dump(f"{args.data_matrix_folder}/csv_{args.stat_opt}/ensp_{detector}_{key}.csv")
+  # for key in ensp.keys():
+  #     if type(ensp[key]) != list:
+  #         ensp[key].Dump(f"{args.data_matrix_folder}/csv_{args.stat_opt}/ensp_{detector}_{key}.csv")
 
   
 #  ensp['rdet'].WritetoROOT("Rea", "Geo_test/Spectra_Sep2_25.root")
 #  for key in bg_keys:
 #      ensp[key].WritetoROOT(key, "Geo_test/Spectra_Sep2_25.root")
-  if args.is_data: ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, "ibd")
+  if args.is_data: 
+      ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, "ibd")
+      if args.rebin_nonuniform: 
+          ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
+    
   #ensp["data"] = ensp['rtot'] - ensp['rdet'] + ensp['data_rea']
   #rf = uproot.open(args.input_data_file) 
   return ensp, resp_matrix

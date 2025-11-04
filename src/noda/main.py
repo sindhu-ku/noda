@@ -345,7 +345,7 @@ def main(argv=None):
                       cm_nd['all'] = DYB_abs_CM 
                   
                       minuit_comb.run_minuit(ndays=ndays, ndays_nd=ndays_nd,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix, rm_nd = resp_matrix_nd, cm_juno=cm_juno,cm_nd=cm_nd, ene_leak_nd=ene_leak_nd, args_juno=args_juno, args_nd=args_nd)
-                  
+                      #minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix,rm_nd = resp_matrix_nd, cm_juno=cm_juno, cm_nd=cm_nd,args_juno=args_juno, args_nd=args_nd, backgrounds=backgrounds)
                   else:    
                       from .DYB_model import make_dyb_model
                       dyb_model = make_dyb_model(args_nd)

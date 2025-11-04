@@ -91,7 +91,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         DYB_edges = make_nonuniform_bins(args_nd.bins_nonuniform)
         from dag_modelling.tools.make_fcn import make_fcn
         flux_params = dyb_model.storage["parameters.free.neutrino_per_fission_factor"]
-        chi2_dyb_func = make_fcn(dyb_model.storage[f"outputs.statistic.full.pull.chi2cnp"], parameters=[par for par in flux_params.walkvalues()], safe=False)
+        chi2_dyb_func = make_fcn(dyb_model.storage[f"outputs.statistic.full.covmat.chi2cnp"], parameters=[par for par in flux_params.walkvalues()], safe=False)
 
     
     def chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea, Nrea_nd, *nuisance, Ngeo=1.0,  NU=1.0, NTh=1.0, Nmantle=1.0, opp=False): #, a1=0.0, a2=0.0, a3=0.0, a4=0.0, me_rho=args_juno.me_rho):
@@ -121,19 +121,19 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         rfis_param.WeightWithFunction(s_ibd)
 
         # # Apply bump correction if needed
-        rfis_bparam = rfis_param.GetWeightedWithFunction(s_bump_lin)
+        rfis_bparam = rfis_param#.GetWeightedWithFunction(s_bump_lin)
         rfis_bparam.GetScaled(ndays)
 
         rfis_bparam.GetScaled(compute_extrafactors(args_juno))
         
 
-        ibd = rfis_bparam + ensp_nom_juno["snf"] + ensp_nom_juno["noneq"]
+        ibd = rfis_param + ensp_nom_juno["snf"] + ensp_nom_juno["noneq"]
 
         s_juno =ibd.GetOscillated(L=args_juno.core_baselines, sin2_th12=sin2_12, sin2_th13=sin2_13,
                                           dm2_21=dm2_21, dm2_31=dm2_31, core_powers=args_juno.core_powers,
                                           me_rho=args_juno.me_rho, ene_mode='true', opp=opp, args=args_juno)
         s_juno = s_juno.GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)  # Shift to positron energy
-        s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])  # Apply non-linearity
+        s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args_juno.kB, fC=args_juno.fC) #GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])  # Apply non-linearity
  
         s_juno = s_juno.ApplyDetResp(rm, pecrop=args_juno.ene_crop)  # Apply energy resolution
 
@@ -165,7 +165,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             sp_exp = s_juno.GetScaledFit(1+Nrea)
             s_tot_juno = s_juno.GetScaledFit(1+Nrea) + ensp_nom_juno['acc'] + ensp_nom_juno['fneu'] + ensp_nom_juno['lihe'] + \
                          ensp_nom_juno['aneu'] + ensp_nom_juno['geo'] + ensp_nom_juno['atm'] + \
-                         ensp_nom_juno['rea300'] #+ ensp_nom_juno['nn']
+                         ensp_nom_juno['rea300'] + ensp_nom_juno['nn']
 
         if bool(args_juno.toymc):
             sp_obs_tot = ensp_nom_juno["rtot_toy"]
@@ -223,13 +223,13 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                 chi2_juno = Chi2(cm_juno[unc_juno], sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=pulls, pull_unc=pull_unc)
                
                 if not args_juno.use_dagflow:
-                    chi2_dyb =  Chi2(cm_nd['all'], sp_obs_nd, s_tot_nd, sp_obs_nd, s_tot_nd, 'no stat', args_juno.stat_method_opt, pulls=[Nrea_nd], pull_unc=[args_nd.rea_rate_unc])
+                    chi2_dyb =  Chi2(cm_nd['all'], sp_obs_nd, s_tot_nd, sp_obs_nd, s_tot_nd, 'all', args_juno.stat_method_opt, pulls=[Nrea_nd], pull_unc=[args_nd.rea_rate_unc])
                 else:
                     nuisance_nd = expand_nuisances_to_fine(DYB_edges, E_edges, nuisance_coarse)
    
-                        
+                    #nuisance_nd = np.zeros(len(DYB_edges)-1)
                     chi2_dyb = chi2_dyb_func(*nuisance_nd)[0]
-                #print(chi2_juno, chi2_dyb)
+                #sprint(chi2_juno, chi2_dyb)
                 chi2 = chi2_juno + chi2_dyb
                 
             

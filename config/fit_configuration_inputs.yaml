@@ -25,7 +25,7 @@ fit_options:
   nd: DYB
   pull_shape: True
   pull_shape_unc: 3.0
-  use_dagflow: True
+  use_dagflow: true
   geo_OPfixed: false
   toymc: false      
   ntoys: 1000 
@@ -54,10 +54,10 @@ fit_options:
 
   reactor_model: Huber-Mueller
 
-  main_data_folder: /junofs/users/sindhu/NODA/noda/corepower_test_Oct31
+  main_data_folder: /junofs/users/sindhu/NODA/noda/wobump_test_Oct31
   cov_matrix_plots_folder: /junofs/users/sindhu/NODA/noda/CMplots #folder to store CM plots
   plots_folder: /junofs/users/sindhu/NODA/noda/Plots #folder to save plots of spectra
-  data_matrix_folder: /junofs/users/sindhu/NODA/noda/corepower_test_Oct31 #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: /junofs/users/sindhu/NODA/noda/wobump_test_Oct31 #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: /junofs/users/sindhu/NODA/noda/Bayesian/npz_files
   bayes_plots_folder: /junofs/users/sindhu/NODA/noda/Bayesian/Plots
 
@@ -131,7 +131,7 @@ juno_inputs:
   ene_crop:
     - 0.7
     - 12.0
-  is_data: False
+  is_data: true
   data_spectrum:  /junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root
   rebin_nonuniform: true
   bins_nonuniform:
@@ -160,10 +160,11 @@ juno_inputs:
     # - [1.0, 7.0, 20]
     # - [7.0, 8.2, 4]
     # - [8.2, 12.0, 1]
-    # - [2.823, 8.9823, 23]
-    # - [8.9823, 12.0, 1]
-    - [0.7, 8.2, 25]
-    - [8.2, 12, 1]
+    - [2.823, 8.9823, 23]
+    - [8.9823, 12.0, 1]
+    # - [0.7, 1.0, 1]
+    # - [1.0, 10.0, 30]
+    # - [10.0, 12.0, 1]
     
   U235_scale: 0.58
   U238_scale: 0.07
@@ -182,6 +183,7 @@ juno_inputs:
   #Pth: [1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 2.4800256e+27, 2.4800256e+27, 9.3809664e+27]  #Pth*6.24e21*60*60*24**6.24e21 # MeV per s
   L: [5274000.0, 5282000.0, 5241000.0, 5249000.0, 5211000.0, 5219000.0, 5277000.0, 5264000.0, 21500000.0] # Already in cm from core baselines
   Np:  1.4351802862903064e+33 #20.*12.01/1.0079*1e7*constants.Avogadro
+  #Np: 1.442e+33 
   detector_efficiency: 0.717 #0.822 #0.906 #0.822
   veto: 1.0
   nl_hist_name: J22rc0_positronScintNL
@@ -222,7 +224,7 @@ juno_inputs:
     #- stat+nl
     #- stat+bg
     #- stat+me
-    - stat+eff+snf+noneq+bg+crel+me
+    - stat+eff+crel+me
     #- stat+eff+bg+nl+abc
 
 nd_inputs:
@@ -237,13 +239,14 @@ nd_inputs:
   FORCE_CALC_ENE_LEAK: False
 
   iav_matrix_file: data/dyb_iav_matrix.txt
-  is_data: True
+  is_data: true
   dagflow_data: "../dayabay-model-official/data/"
   custom_bin_edges: "../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv"
   rebin_nonuniform:  True
   bins_nonuniform:
     - [0.7, 1.0, 1]
     - [1.0, 8.0, 140]
+    - [8.0, 12.0, 1]
 
   
   U235_scale: 0.564
