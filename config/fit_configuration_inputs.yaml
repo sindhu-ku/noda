@@ -15,7 +15,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
-  calc_minuit_errors: true
+  calc_minuit_errors: false
   write_results: false
   silent_print: false
   geo_spectra: ana
@@ -40,6 +40,7 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
+  write_output: True
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -100,6 +101,7 @@ common_det_inputs:
   geo_tnu_rate: 40.0
   tnu_to_cpd: 0.032387707
   geo_rate: 1.147
+  rea300_rate: 1.185
 
   me_rho: 2.45 #2.45
   me_rho_scale: 0.15
@@ -109,11 +111,12 @@ common_det_inputs:
 
   #b2b_unc: 0.0134
 
-  eff_unc: 0.025
-  r2_unc: 0.02
-  snf_unc: 0.3
-  noneq_unc: 0.3
-  core_flux_unc: 0.008
+  eff_unc: 0.025 #rel
+  r2_unc: 0.02 #rel
+  snf_unc: 0.3 #rel
+  me_rho_unc: 0.061
+  noneq_unc: 0.3 #rel
+  core_flux_unc: 0.008 #rel
   ff: 0.0005
   posE_shift: ana
   pos_ene_TF2: Epositron_Enu_cos_StrumiaVissani
@@ -182,8 +185,8 @@ juno_inputs:
   core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
   #Pth: [1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 2.4800256e+27, 2.4800256e+27, 9.3809664e+27]  #Pth*6.24e21*60*60*24**6.24e21 # MeV per s
   L: [5274000.0, 5282000.0, 5241000.0, 5249000.0, 5211000.0, 5219000.0, 5277000.0, 5264000.0, 21500000.0] # Already in cm from core baselines
-  Np:  1.4351802862903064e+33 #20.*12.01/1.0079*1e7*constants.Avogadro
-  #Np: 1.442e+33 
+  #Np:  1.4351802862903064e+33 #20.*12.01/1.0079*1e7*constants.Avogadro
+  Np: 1.442e+33 
   detector_efficiency: 0.717 #0.822 #0.906 #0.822
   veto: 1.0
   nl_hist_name: J22rc0_positronScintNL
@@ -224,7 +227,7 @@ juno_inputs:
     #- stat+nl
     #- stat+bg
     #- stat+me
-    - stat+eff+crel+me
+    - stat
     #- stat+eff+bg+nl+abc
 
 nd_inputs:

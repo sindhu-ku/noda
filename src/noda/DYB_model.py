@@ -10,6 +10,7 @@ def make_dyb_model(args):
     dyb_model = model_dayabay(path_data=args.dagflow_data, \
                               override_indices=override_indices,\
                               final_erec_bin_edges=ebins_nd, \
+                              concatenation_mode="detector",\
                               override_cfg_files={"antineutrino_spectrum_segment_edges": args.custom_bin_edges})
     if args.is_data: dyb_model.switch_data("real")
     return dyb_model

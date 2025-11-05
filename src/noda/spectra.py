@@ -54,6 +54,7 @@ def CreateSpectra(ndays=10,
   
 
   ensp['rfis0'].Rebin(ebins, mode='spline-not-keep-norm')
+
   ensp['rfis0'].ScaleByBinWidth()
 
 
@@ -77,8 +78,7 @@ def CreateSpectra(ndays=10,
   ensp['rfis_b1'].WeightWithFunction(s_ibd)
 
 
-
-  #ensp['rfis_b'] = ensp['rfis_b'].GetWeightedWithFunction(s_bump_lin)
+  ensp['rfis_b'] = ensp['rfis_b'].GetWeightedWithFunction(s_bump_lin)
   #ensp['rfis_b1'] = ensp['rfis_b1'].GetWeightedWithFunction(s_bump_lin)
   del s_bump_lin
   #
@@ -285,9 +285,10 @@ def CreateSpectra(ndays=10,
     for key, info in backgrounds[detector].items():
         ensp[key] = GetSpectrumFromROOT(info["rootfile"], info["histname"])
         if key == "rea300":
-            ensp['rea300_vis'] = ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
-            ensp['rea300_nonl'] = ensp['rea300_vis'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-            ensp[key] = ensp['rea300_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            ensp['rfis_rea300'] = ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
+            ensp['rfis_rea300_pos'] = ensp['rfis_rea300'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+            ensp['rvis_rea300'] = ensp['rfis_rea300_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+            ensp[key] = ensp['rvis_rea300'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         scale = float(info["rate"])*ndays / (args.duty_cycle*ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
         ensp[key].Trim(args.ene_crop)
@@ -311,23 +312,31 @@ def CreateSpectra(ndays=10,
       ensp['rfis0_geou'].WeightWithFunction(s_ibd)
       ensp['rfis0_geoth'].WeightWithFunction(s_ibd)
 
-      ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(ndays*rate/((1+ratio)*args.duty_cycle*ensp['rfis0_geou'].GetIntegral()))
-      ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ndays*rate*ratio/((1+ratio)*args.duty_cycle*ensp['rfis0_geoth'].GetIntegral()))
-      # ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(1./((1+ratio)*ensp['rfis0_geou'].GetIntegral()))
-      # ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ratio/((1+ratio)*ensp['rfis0_geoth'].GetIntegral()))
+      # ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(ndays*rate/((1+ratio)*args.duty_cycle*ensp['rfis0_geou'].GetIntegral()))
+      # ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ndays*rate*ratio/((1+ratio)*args.duty_cycle*ensp['rfis0_geoth'].GetIntegral()))
+      ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(1./((1+ratio)*ensp['rfis0_geou'].GetIntegral()))
+      ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ratio/((1+ratio)*ensp['rfis0_geoth'].GetIntegral()))
+
+      ensp['rfis_geo'] =  ensp['rfis0_geou'] + ensp['rfis0_geoth']
 
       ensp[f'rvis_{name}u'] = ensp[f'rfis_{name}u'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       ensp[f'rvis_{name}th'] = ensp[f'rfis_{name}th'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      ensp['rvis_geo'] = ensp['rfis_geo'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
 
       ensp[f'rvis_{name}u_nonl'] = ensp[f'rvis_{name}u'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC) #GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       ensp[f'rvis_{name}th_nonl'] = ensp[f'rvis_{name}th'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC) #GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp['rvis_geo_nonl'] = ensp['rvis_geo'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
 
       ensp[f'{name}u'] = ensp[f'rvis_{name}u_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
       ensp[f'{name}th'] = ensp[f'rvis_{name}th_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+
+      ensp['geo_full'] = ensp['rvis_geo_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
       
       if args.rebin_nonuniform: 
           ensp[f'{name}u'].Rebin_nonuniform(args.bins_nonuniform)
           ensp[f'{name}th'].Rebin_nonuniform(args.bins_nonuniform)
+          ensp['geo_full'].Rebin_nonuniform(args.bins_nonuniform)
+          
       del ensp['rfis0_geou'], ensp['rfis0_geoth'], ensp[f'rfis_{name}u'], ensp[f'rfis_{name}th']
       return ensp[f'{name}u'] + ensp[f'{name}th']
 
@@ -338,12 +347,12 @@ def CreateSpectra(ndays=10,
           ensp['geo_ana'] = ensp['geocrust'] + ensp['geomantle']
       else:
           ensp['geo_ana'] = make_ana_geo_spectra(float(args.geo_rate), args.Th_U_ratio, 'geo')
-
-          # scale = float(args.geo_rate)*ndays / (args.duty_cycle*ensp['geo_ana'].GetIntegral())
-          # ensp['geo_ana'].GetScaled(scale)
-
-          ensp['bckg'] = ensp['bckg'] - ensp['geo'] + ensp['geo_ana']
-          ensp['geo'] = ensp['geo_ana']
+          scale = float(args.geo_rate)*ndays / (args.duty_cycle*ensp['geo_full'].GetIntegral())
+          ensp['geo_full'].GetScaled(scale)
+          ensp['geo_ana'].GetScaled(scale)
+          
+          ensp['bckg'] = ensp['bckg'] - ensp['geo'] + ensp['geo_full']
+          ensp['geo'] = ensp['geo_full']
   #geo_edep = ensp[f'rvis_geou'] +  ensp[f'rvis_geoth']
 
   #geo_edep.WritetoROOT("geo", "Geo_edep_Nov1.root")   
@@ -453,8 +462,11 @@ def CreateSpectra(ndays=10,
   #     if type(ensp[key]) != list:
   #         ensp[key].Dump(f"{args.data_matrix_folder}/csv_{args.stat_opt}/ensp_{detector}_{key}.csv")
 
-  
-#  ensp['rdet'].WritetoROOT("Rea", "Geo_test/Spectra_Sep2_25.root")
+
+  if args.write_output:
+      ensp['rdet'].WritetoROOT("rea_prefit", "Post_fit_NODA_Nov4.root")
+      ensp['geo_ana'].WritetoROOT("geo", "Geo_Nov4.root")
+      ensp['rea300'].WritetoROOT("rea300", "rea300_Nov4.root")
 #  for key in bg_keys:
 #      ensp[key].WritetoROOT(key, "Geo_test/Spectra_Sep2_25.root")
   if args.is_data: 

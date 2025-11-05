@@ -6,14 +6,14 @@ JUNO:
     histname: "acc" #AccBkgHistogramAD"
     rate: 0.094
     rate_unc: 0.017
-    b2b_unc: 0.35
+    b2b_unc: 0.14
     name: "Accidentals"
 
   geo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
     histname: "geo" #GeoNuHistogramAD"
     rate: 1.147
-    rate_unc: 1.
+    rate_unc: 1.0
     b2b_unc: 0.05
     name: "Geoneutrinos"
 
@@ -21,7 +21,7 @@ JUNO:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
     histname: "lihe" #Li9BkgHistogramAD"
     rate: 7.7
-    rate_unc: 1.0
+    rate_unc: 0.47
     b2b_unc: 0.35
     name: "LiHe"
 
@@ -36,7 +36,7 @@ JUNO:
   doublen:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
     histname: "doublen" #FnBkgHistogramAD"
-    rate: 2
+    rate: 0.5
     rate_unc: 0.0
     b2b_unc: 1.0
     name: "Double neutrons"
@@ -58,7 +58,7 @@ JUNO:
     name: "Atmospheric neutrinos"
 
   rea300:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/ShapeUncWR.root" #IBD_bckgs_groupC_Oct31.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/ShapeUncWR.root" 
     histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
     rate: 1.185
     rate_unc: 0.1
