@@ -316,7 +316,18 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         
         osc_cache[key] = s_juno_temp
         return s_juno_temp
-        
+
+    nuisance_fine_cache= {}
+    def get_nuisance_fine(nuisance_coarse):
+        key = (
+            tuple(np.round(nuisance_coarse, 8))
+        )
+        for key in nuisance_fine_cache:
+            return nuisance_fine_cache[key]
+
+        nuisance_fine[cache] = expand_nuisances_to_fine(E_segments, fine_bins, nuisance_coarse)
+        return nuisance_fine_cache
+               
     def chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=0.0, Nrea_nd =0.0,\
              NL=None, abc=None, nuisance=None, bckgs=None,\
              rea_norm=None, eff_nuis=0.0,me_rho=0.0,
@@ -332,7 +343,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
 
         if args_juno.fit_type == "PMOP_combined":   
             nuisance_coarse = np.array(nuisance)  
-            nuisance_fine = expand_nuisances_to_fine(E_segments, fine_bins,nuisance_coarse)
+            nuisance_fine = get_nuisance_fine(nuisance_coarse)
             rfis_param = Spectrum(bins=ensp_nom_juno["rfis0"].bins, bin_cont=ensp_nom_juno["rfis0"].bin_cont * (1+nuisance_fine))
     
         else:
