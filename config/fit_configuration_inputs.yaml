@@ -18,8 +18,8 @@ fit_options:
   calc_minuit_errors: false
   write_results: false
   silent_print: false
-  geo_spectra: ana
-  fit_type: PMOP_combined #PMOP_combined #PMOP_combined #geo or PMOP or PMOP_combined (default)
+  geo_spectra: false
+  fit_type: PMOP #PMOP_combined #PMOP_combined #geo or PMOP or PMOP_combined (default)
   geo_fit_type: total #UThfree , mantle or total (default)
   mantle_model: GD  
   nd: DYB
@@ -111,7 +111,7 @@ common_det_inputs:
 
   #b2b_unc: 0.0134
 
-  eff_unc: 0.025 #rel
+  eff_unc: 0.02 #rel
   r2_unc: 0.02 #rel
   snf_unc: 0.3 #rel
   me_rho_unc: 0.061
@@ -127,7 +127,7 @@ common_det_inputs:
 
 
 juno_inputs:
-  stat_opt: 46.05days # time period for sensitivity studies
+  stat_opt: 46.6155days #46.05days # time period for sensitivity studies
   bins: 501
   min_ene: 0.7  # Minimum energy
   max_ene: 12 
@@ -135,7 +135,7 @@ juno_inputs:
     - 0.7
     - 12.0
   is_data: true
-  data_spectrum:  /junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root
+  data_spectrum:  /junofs/users/sindhu/NODA/noda/data/prefit_allgroups.root
   rebin_nonuniform: true
   bins_nonuniform:
     # - [0.8, 1.0, 1]
@@ -187,21 +187,21 @@ juno_inputs:
   L: [5274000.0, 5282000.0, 5241000.0, 5249000.0, 5211000.0, 5219000.0, 5277000.0, 5264000.0, 21500000.0] # Already in cm from core baselines
   #Np:  1.4351802862903064e+33 #20.*12.01/1.0079*1e7*constants.Avogadro
   Np: 1.442e+33 
-  detector_efficiency: 0.717 #0.822 #0.906 #0.822
+  detector_efficiency: 0.703500 #0.717 #0.822 #0.906 #0.822
   veto: 1.0
-  nl_hist_name: J22rc0_positronScintNL
+  nl_hist_name: positronScintNL
   NL_sd: 1.0
-  # a: 0.02614
-  # b: 0.0064
-  # c: 0.012
+  a: 0.02614
+  b: 0.0064
+  c: 0.012
 
-  a: 0.033
-  b: 0.009
-  c: 0.000
+  # a: 0.033
+  # b: 0.009
+  # c: 0.000
   
-  # a_err: 0.00005
-  # b_err: 0.00003
-  # c_err: 0.0001
+  a_err: 0.00005
+  b_err: 0.00003
+  c_err: 0.0001
 
   kB: 0.0162
   fC: 0.42
@@ -209,9 +209,9 @@ juno_inputs:
   kB_err: 0.0021
   fC_err: 0.19
 
-  a_err: 0.001
-  b_err: 0.002
-  c_err: 0.004
+  # a_err: 0.001
+  # b_err: 0.002
+  # c_err: 0.004
 
 #  # Uncertainty list
   unc_list_juno:

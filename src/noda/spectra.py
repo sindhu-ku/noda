@@ -78,7 +78,9 @@ def CreateSpectra(ndays=10,
   ensp['rfis_b1'].WeightWithFunction(s_ibd)
 
 
-  #ensp['rfis_b'] = ensp['rfis_b'].GetWeightedWithFunction(s_bump_lin)
+  if detector=="JUNO" and not args.fit_type == "PMOP_combined":
+      ensp['rfis_b'] = ensp['rfis_b'].GetWeightedWithFunction(s_bump_lin)
+
   #ensp['rfis_b1'] = ensp['rfis_b1'].GetWeightedWithFunction(s_bump_lin)
   del s_bump_lin
   #
@@ -94,7 +96,7 @@ def CreateSpectra(ndays=10,
   print("extrafactors", extrafactors)
   ensp['rfis'].GetScaled(extrafactors) #correct normalization including fission fractions, mean energy per fission ... eq.13.5 YB
   ensp['rfiss'].GetScaled(extrafactors)
-  ensp['rfiss'].GetScaled(ensp['rfis'].GetIntegral()/ensp['rfiss'].GetIntegral())
+  #ensp['rfiss'].GetScaled(ensp['rfis'].GetIntegral()/ensp['rfiss'].GetIntegral())
  
   print(" ")
   print("NUMBER OF IBD")
@@ -208,10 +210,10 @@ def CreateSpectra(ndays=10,
 
   print("applying non-linearity")
   if not detector == "DYB": 
-      # ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-      # ensp['rvis1'] = ensp['rvis_nonl1'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-      ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-      ensp['rvis1'] = ensp['rvis_nonl1'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp['rvis1'] = ensp['rvis_nonl1'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      # ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      # ensp['rvis1'] = ensp['rvis_nonl1'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
   else:
       ensp['rvis'] = ensp['rvis_nonl']
       ensp['rvis1'] = ensp['rvis_nonl1']
@@ -219,13 +221,13 @@ def CreateSpectra(ndays=10,
   print(ensp['rvis'].bin_cont.shape)      
   
   if not detector == "DYB": 
-      # ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-      # ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-      # ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
      
-      ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-      ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-      ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      # ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      # ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      # ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
 
   else:
       ensp['rvis_temp'] = ensp['rvis_nonl_temp']
@@ -284,17 +286,18 @@ def CreateSpectra(ndays=10,
   if not detector == "DYB":
     for key, info in backgrounds[detector].items():
         ensp[key] = GetSpectrumFromROOT(info["rootfile"], info["histname"])
-        if key == "rea300":
-            ensp['rfis_rea300'] = ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
-            ensp['rfis_rea300_pos'] = ensp['rfis_rea300'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-            ensp['rvis_rea300'] = ensp['rfis_rea300_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-            ensp[key] = ensp['rvis_rea300'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        # if key == "rea300":
+        #     ensp['rfis_rea300'] = ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
+        #     ensp['rfis_rea300_pos'] = ensp['rfis_rea300'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+        #     ensp['rvis_rea300'] = ensp['rfis_rea300_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+        #     ensp[key] = ensp['rvis_rea300'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         scale = float(info["rate"])*ndays / (args.duty_cycle*ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
-        ensp[key].Trim(args.ene_crop)
-        # ensp[key].Rebin(ebins, mode="spline-not-keep-norm")
-        if args.rebin_nonuniform: 
-            ensp[key].Rebin_nonuniform(args.bins_nonuniform)
+        print(key, ensp[key].GetIntegral(), info["rate"])
+        # ensp[key].Trim(args.ene_crop)
+        # # ensp[key].Rebin(ebins, mode="spline-not-keep-norm")
+        # if args.rebin_nonuniform: 
+        #     ensp[key].Rebin_nonuniform(args.bins_nonuniform)
         if ensp['bckg'] is None:
             ensp['bckg'] = ensp[key]
         else:
@@ -466,13 +469,13 @@ def CreateSpectra(ndays=10,
 
 
   if args.write_output:
-      ensp['rdet'].WritetoROOT("rea_prefit", "Post_fit_NODA_Nov4.root")
-      ensp['geo_ana'].WritetoROOT("geo", "Geo_Nov4.root")
-      ensp['rea300'].WritetoROOT("rea300", "rea300_Nov4.root")
+      ensp['rdet'].WritetoROOT("rea_prefit", "Pre_fit_NODA_GroupB_JUNO-only.root")
+      #ensp['geo_ana'].WritetoROOT("geo", "Geo_Nov4.root")
+      #ensp['rea300'].WritetoROOT("rea300", "rea300_Nov4.root")
 #  for key in bg_keys:
 #      ensp[key].WritetoROOT(key, "Geo_test/Spectra_Sep2_25.root")
   if args.is_data: 
-      ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, "ibd")
+      ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, "GroupB/h_data_B")
       if args.rebin_nonuniform: 
           ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
   print("rea_precorr", ensp['rfis'].GetIntegral())

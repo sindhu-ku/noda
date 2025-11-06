@@ -29,7 +29,7 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
     """
 
     if write_output:
-        s_juno.WritetoROOT("rea_postfit", "Post_fit_NODA_Nov4.root")
+        s_juno.WritetoROOT("rea_postfit", "Post_fit_NODA_Nov5_JUNO-only.root")
 
     os.makedirs("Plots", exist_ok=True)
     bin_centers = s_tot_juno.bins
@@ -89,7 +89,7 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
                  color=colors[i % len(colors)], lw=1,
                  label=f'{key}: {cpd:.3f} cpd')
         if write_output:
-            spec.WritetoROOT(f"{name_to_key.get(key)}_postfit" , "Post_fit_NODA_Nov4.root")
+            spec.WritetoROOT(f"{name_to_key.get(key)}_postfit" , "Post_fit_NODA_GroupB_JUNO-only.root")
 
     ax1.set_ylabel("Events")
     ax1.legend(fontsize=8, loc="upper right")
@@ -343,7 +343,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
 
         if args_juno.fit_type == "PMOP_combined":   
             nuisance_coarse = np.array(nuisance)  
-            nuisance_fine = get_nuisance_fine(nuisance_coarse)
+            nuisance_fine = expand_nuisances_to_fine(E_segments, fine_bins, nuisance_coarse) #get_nuisance_fine(nuisance_coarse)
             rfis_param = Spectrum(bins=ensp_nom_juno["rfis0"].bins, bin_cont=ensp_nom_juno["rfis0"].bin_cont * (1+nuisance_fine))
     
         else:
@@ -354,7 +354,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
          
         #if plot_fit:
 
-        #rfis_param.GetWeightedWithFunction(s_bump_lin)
+        if not args_juno.fit_type == "PMOP_combined": rfis_param.GetWeightedWithFunction(s_bump_lin)
         rfis_param.GetScaled(ndays)
 
         if core_powers:
@@ -411,14 +411,24 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         s_juno = s_juno.GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)  # Shift to positron energy
 
         if NL:
-            kB = NL[0]
-            fC = NL[1]
-            s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC)  #GetWithModifiedEnergy(mode='fit', fit_bins=get_NL(s_juno.bins, kB=kB, fC=fC)) 
-            pulls.extend([kB-args_juno.kB, fC-args_juno.fC])
-            pull_unc.extend([args_juno.kB_err, args_juno.fC_err])
+            new_nonl =  Spectrum(bins = ensp_nom_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_nom_juno['scintNL'].bin_cont)))
+            new_nonl.bin_cont = ensp_nom_juno['scintNL'].bin_cont\
+                                +NL[0]*(ensp_nom_juno['NL_pull'][0].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+                                +NL[1]*(ensp_nom_juno['NL_pull'][1].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+                                +NL[2]*(ensp_nom_juno['NL_pull'][2].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+                                +NL[3]*(ensp_nom_juno['NL_pull'][3].bin_cont - ensp_nom_juno['scintNL'].bin_cont)
+            s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) 
+            pulls.extend([NL[0], NL[1], NL[2], NL[3]])
+            pull_unc.extend([args_juno.NL_sd]*4)
+
+            # kB = NL[0]
+            # fC = NL[1]
+            # s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC)  #GetWithModifiedEnergy(mode='fit', fit_bins=get_NL(s_juno.bins, kB=kB, fC=fC)) 
+            # pulls.extend([kB-args_juno.kB, fC-args_juno.fC])
+            # pull_unc.extend([args_juno.kB_err, args_juno.fC_err])
         else:
-            #s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])
-            s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args_juno.kB, fC=args_juno.fC)
+            s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])
+            #s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args_juno.kB, fC=args_juno.fC)
 
         if abc:
             resp_matrix = get_resp_matrix(abc[0], abc[1], abc[2])
@@ -437,24 +447,24 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
 
         #s_tot_juno = s_tot_juno + ensp_nom_juno['bckg']
         for key, info in bckgs.items():
-            if key=="geo":
-                bckg = ensp_nom_juno[f'rvis_{key}'].GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
-                bckg.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
-                bckg.Rebin_nonuniform(args_juno.bins_nonuniform)
-                if key=="geo": rate = args_juno.geo_rate
-                if key=="rea300": rate = args_juno.rea300_rate
-                scale = rate*ndays / (args_juno.duty_cycle*bckg.GetIntegral())
-                bckg.GetScaled(scale)
-            else:
-                bckg = ensp_nom_juno[key]
+            # if key=="geo":
+            #     bckg = ensp_nom_juno[f'rvis_{key}'].GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
+            #     bckg.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
+            #     bckg.Rebin_nonuniform(args_juno.bins_nonuniform)
+            #     if key=="geo": rate = args_juno.geo_rate
+            #     if key=="rea300": rate = args_juno.rea300_rate
+            #     scale = rate*ndays / (args_juno.duty_cycle*bckg.GetIntegral())
+            #     bckg.GetScaled(scale)
+            # else:
+            bckg = ensp_nom_juno[key]
                 
             bckg = bckg.GetScaledFit(1+info["pull"])
-            
-            if cm_bckg is None:
-                cm_bckg = bckg.GetB2BCovMatrix(info["b2b"])
-            else:
-                cm_bckg += bckg.GetB2BCovMatrix(info["b2b"])
-          
+            if info["b2b"] >0:
+                if cm_bckg is None:
+                    cm_bckg = bckg.GetB2BCovMatrix(info["b2b"])
+                else:
+                    cm_bckg += bckg.GetB2BCovMatrix(info["b2b"])
+              
             s_tot_juno += bckg
             
             if info["sigma"] != 0 and bckgs[key]:
@@ -590,7 +600,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     bckgs_keys = list(bckgs.keys())
     
     # --- Parameter initialization ---
-    NL = [args_juno.kB, args_juno.fC]
+    NL = [0.0]*4 #[args_juno.kB, args_juno.fC]
     abc = [args_juno.a, args_juno.b, args_juno.c]
     rea_norm = [0.0, 0.0]
     eff_nuis = 0.0

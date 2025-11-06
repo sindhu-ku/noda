@@ -137,7 +137,7 @@ def main(argv=None):
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
 
   
-  with open("config/backgrounds.yaml", "r") as f:
+  with open("config/backgrounds_groupB.yaml", "r") as f:
       backgrounds = yaml.safe_load(f)
       
   ensp_nom_juno, resp_matrix  = spec.CreateSpectra(ndays=ndays,

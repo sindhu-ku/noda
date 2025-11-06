@@ -268,7 +268,7 @@ class Spectrum:
       core_shares = [p/(l*l) for p, l in zip(core_powers, L)]
       core_shares = [p/sum(core_shares) for p in core_shares]
     eshift = 0
-    if ene_mode == 'vis':
+    if ene_mode == 'vis': #nt used
       eshift = -0.511+1.293
     for l, share in zip(L, core_shares):
       if osc_formula == nuosc.AntiNueSurvProb:
@@ -1340,9 +1340,8 @@ def make_nonuniform_bins(bins_nonuniform):
 #     inds = np.clip(inds, 0, len(nuisance_coarse)-1)
 
 #     return nuisance_coarse[inds]
-import numpy as np
 
-def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse, mode='exp'):
+def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse, mode='interp'):
     """
     Map nuisance_coarse -> nuisance_fine with multiple interpolation modes.
 
