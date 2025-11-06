@@ -1541,8 +1541,7 @@ def compute_extrafactors(args, core_powers=None):
     else:
         Pth_arr = np.array(core_powers)*power_conv
     L_arr = np.array(args.L)
-#if np.any(L_arr == 0):
-    # Common prefactor
+
 
     prefactor = args.detector_efficiency * args.veto * args.Np / (4 * np.pi)
 

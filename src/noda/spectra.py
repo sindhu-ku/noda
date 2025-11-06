@@ -78,7 +78,7 @@ def CreateSpectra(ndays=10,
   ensp['rfis_b1'].WeightWithFunction(s_ibd)
 
 
-  ensp['rfis_b'] = ensp['rfis_b'].GetWeightedWithFunction(s_bump_lin)
+  #ensp['rfis_b'] = ensp['rfis_b'].GetWeightedWithFunction(s_bump_lin)
   #ensp['rfis_b1'] = ensp['rfis_b1'].GetWeightedWithFunction(s_bump_lin)
   del s_bump_lin
   #
@@ -299,6 +299,7 @@ def CreateSpectra(ndays=10,
             ensp['bckg'] = ensp[key]
         else:
             ensp['bckg'] += ensp[key]
+        print(key, ensp[key].GetIntegral())
   
   def make_ana_geo_spectra(rate, ratio, name):
       ensp['rfis0_geou'] = GetSpectrumFromROOT(args.geo_file, 'geoU')
@@ -353,6 +354,7 @@ def CreateSpectra(ndays=10,
           
           ensp['bckg'] = ensp['bckg'] - ensp['geo'] + ensp['geo_full']
           ensp['geo'] = ensp['geo_full']
+          print('geo', ensp['geo'].GetIntegral())
   #geo_edep = ensp[f'rvis_geou'] +  ensp[f'rvis_geoth']
 
   #geo_edep.WritetoROOT("geo", "Geo_edep_Nov1.root")   
@@ -473,6 +475,11 @@ def CreateSpectra(ndays=10,
       ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, "ibd")
       if args.rebin_nonuniform: 
           ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
+  print("rea_precorr", ensp['rfis'].GetIntegral())
+  print("snf", ensp['snf'].GetIntegral())
+  print("noneq", ensp['noneq'].GetIntegral())
+  print("rea_preosc", ensp['ribd'].GetIntegral())
+  print("rea", ensp['rdet'].GetIntegral())
     
   #ensp["data"] = ensp['rtot'] - ensp['rdet'] + ensp['data_rea']
   #rf = uproot.open(args.input_data_file) 

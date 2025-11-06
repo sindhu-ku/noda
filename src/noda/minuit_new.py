@@ -325,8 +325,8 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         for key in nuisance_fine_cache:
             return nuisance_fine_cache[key]
 
-        nuisance_fine[cache] = expand_nuisances_to_fine(E_segments, fine_bins, nuisance_coarse)
-        return nuisance_fine_cache
+        nuisance_fine_cache[key] = expand_nuisances_to_fine(E_segments, fine_bins, nuisance_coarse)
+        return nuisance_fine_cache[key]
                
     def chi2(sin2_12, sin2_13, dm2_21, dm2_31, Nrea=0.0, Nrea_nd =0.0,\
              NL=None, abc=None, nuisance=None, bckgs=None,\
@@ -354,7 +354,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
          
         #if plot_fit:
 
-        rfis_param.GetWeightedWithFunction(s_bump_lin)
+        #rfis_param.GetWeightedWithFunction(s_bump_lin)
         rfis_param.GetScaled(ndays)
 
         if core_powers:
