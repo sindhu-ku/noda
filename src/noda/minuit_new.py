@@ -38,7 +38,7 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
     """
 
     if write_output:
-        s_juno.WritetoROOT("rea_postfit", "Post_fit_NODA_GroupB_JUNO-only.root")
+        s_juno.WritetoROOT("rea_postfit", "Post_fit_NODA_GroupB_JUNO+DYB_check2_CNP_expCM.root")
 
     os.makedirs("Plots", exist_ok=True)
     bin_centers = s_tot_juno.bins
@@ -78,30 +78,32 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
                  markersize=3, label='Observed data')
     ax1.step(bin_centers, np.append(fit_vals, fit_vals[-1]), where='mid', color='blue', lw=1.5, label='Total Fit')
     ax1.step(bin_centers, np.append(s_juno.bin_cont, s_juno.bin_cont[-1]), where='mid', color='red', lw=1.2,
-             linestyle='-', label='Reactor expectation')
+             linestyle='-', label=f'Reactor $\\bar{{\\nu}}_e$ expectation: {s_juno.GetIntegral()/ndays:.2f} cpd') # ± {np.sqrt(s_juno.GetIntegral())/ndays:.2f} cpd')
 
     colors = plt.cm.tab10.colors
     name_to_key = {
-    "Accidentals": "acc",
-    "Geoneutrinos": "geo",
-    "LiHe": "lihe",
-    "Fast neutrons": "fastn",
-    "Double neutrons": "doublen",
-    "(alpha, n)": "alphan",
-    "Atmospheric neutrinos": "atm",
-    "World reactors": "worldrea"
+        "Accidentals": "acc",
+        "Geoneutrinos": "geo",
+        r"$^{9}$Li / $^{8}$He": "lihe",
+        "Fast neutrons": "fastn",
+        "Double neutrons": "doublen",
+        r"$^{13}$C ($\alpha$, n) $^{16}$O": "alphan",
+        "Atmospheric neutrinos$": "atm",
+        "World reactor neutrinos": "worldrea",
+        r"$^{214}$Bi": "bipo"
     }
 
     for i, (key, spec) in enumerate(bckgs.items()):
         cpd = spec.GetIntegral() / ndays
         ax1.step(bin_centers, np.append(spec.bin_cont, spec.bin_cont[-1]), where='mid',
                  color=colors[i % len(colors)], lw=1,
-                 label=f'{key}: {cpd:.3f} cpd')
+                 label=f'{key}: {cpd:.2f} cpd')
         if write_output:
-            spec.WritetoROOT(f"{name_to_key.get(key)}_postfit" , "Post_fit_NODA_GroupB_JUNO-only.root")
+            spec.WritetoROOT(f"{name_to_key.get(key)}_postfit" , "Post_fit_NODA_GroupB_JUNO+DYB_check2_CNP_expCM.root")
 
     ax1.set_ylabel("Events")
-    ax1.legend(fontsize=8, loc="upper right")
+    leg = ax1.legend(fontsize=9, loc="upper right", frameon=True, edgecolor="black")
+    leg.get_frame().set_linewidth(1.0)
     ax1.grid(True, alpha=0.3)
     ax1.set_xlim(0.7, 12.0)
 
@@ -145,9 +147,9 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
     
     textstr = (
         f"Livetime = {ndays:.2f} days\n"
-        f"χ²/ndf = {FULL_CHI2:2f}/{ndf} = {chi2_ndf:.3f}\n"
+        f"χ²/ndf = {FULL_CHI2:.2f}/{ndf} = {chi2_ndf:.2f}"
         #f"p-value (from toys) = {p_val:.3f}\n"
-        f"Reactor rate = {s_juno.GetIntegral()/ndays:.3f} ± {np.sqrt(s_juno.GetIntegral())/ndays:.3f} cpd"
+        #f"Reactor $\\bar{{\\nu}}_e$ rate = {s_juno.GetIntegral()/ndays:.2f} ± {np.sqrt(s_juno.GetIntegral())/ndays:.2f} cpd"
     )
     ax1.text(
         0.02, 0.9, textstr,                   # (x=0.9 → right side, y=0.5 → vertical center)
@@ -186,6 +188,45 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
     plt.savefig("Plots/cumulative_chi2.png", dpi=200)
     plt.close(fig2)
 
+
+def compute_jitter(m, param_names, jitter_frac=0.01, min_abs=1e-6):
+    """
+    Compute per-parameter jitter for Minuit parameters.
+
+    Parameters
+    ----------
+    m : iminuit.Minuit
+        Minuit object with current fit values and errors.
+    param_names : list
+        List of parameter names.
+    jitter_frac : float
+        Relative fraction of sigma to use as jitter.
+    min_abs : float
+        Minimum absolute jitter for very small parameters or unknown sigma.
+
+    Returns
+    -------
+    jitter : dict
+        Dictionary mapping parameter names to jitter scales.
+    """
+    jitter = {}
+    for pname in param_names:
+        if m.fixed[pname]:
+            jitter[pname] = 0.0
+            continue
+
+        # Use Minuit error if available
+        sigma = m.errors[pname] if pname in m.errors and m.errors[pname] is not None else None
+
+        val = m.values[pname]
+        if sigma is not None and sigma > 0:
+            jitter[pname] = jitter_frac * sigma
+        elif abs(val) > min_abs:
+            jitter[pname] = jitter_frac * abs(val)
+        else:
+            jitter[pname] = min_abs  # fallback for tiny/unknown parameters
+
+    return jitter
 
 
 def write_results(m, filename, extra, merrors=True, silent=False): #writes out fit results m for a given filename and uncertainty
@@ -250,9 +291,10 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
     plt.savefig(plotname)
     plt.close()
 
-def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='', unc_nd='', unc_corr='', rm= [], rm_nd=[], ene_leak_nd =[], cm_juno ={}, cm_nd={}, cm_corr='', args_juno='', args_nd='', dyb_model=None, backgrounds=None):
+def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='', unc_nd='', unc_corr='', rm= [], rm_nd=[], ene_leak_nd =[], cm_juno ={}, cm_nd={}, cm_corr='', args_juno='', args_nd='', dyb_model=None, backgrounds=None, toy=False, fix_param=None):
     
     E_segments = make_nonuniform_bins(args_juno.seg_bins_nonuniform)
+    print("DYB segments: ", E_segments)
     fine_bins = ensp_nom_juno["rfis0"].bins
 
     s_ibd = sp.interpolate.interp1d(ensp_nom_juno['sibd'].GetBinCenters(), ensp_nom_juno['sibd'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp_nom_juno['sibd'].bin_cont[0], ensp_nom_juno['sibd'].bin_cont[-1]))
@@ -297,8 +339,27 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         extrafactor_cache[key] = compute_extrafactors(args_juno, core_powers=core_powers)
         return  extrafactor_cache[key]
 
+    geo_spectrum_cache = {}
+    def get_geo_spectrum(resp_matrix, ratio, kB, fC, a,b, c):
+        key = (ratio, kB, fC, a,b, c)
+        if key in geo_spectrum_cache:
+            return geo_spectrum_cache[key]
+            
+        Th = ensp_nom_juno['rfis0_geou'].GetScaledFit(1./((1+ratio)*ensp_nom_juno['rfis0_geou'].GetIntegral()))
+        U = ensp_nom_juno['rfis0_geoth'].GetScaledFit(ratio/((1+ratio)*ensp_nom_juno['rfis0_geoth'].GetIntegral()))
+        geo =  U + Th
+        geo = geo.GetWithPositronEnergy(type=args_juno.posE_shift, inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)
+        geo.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
+        geo.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
+        geo.Rebin_nonuniform(args_juno.bins_nonuniform)
+        rate = args_juno.geo_rate
+        scale = rate*ndays / (args_juno.duty_cycle*geo.GetIntegral())
+        geo.GetScaled(scale)
+        geo_spectrum_cache[key] = geo
+        
+        return geo
+        
     osc_cache = {}
-    
     def get_oscillated_with_cache(core_powers, sin2_12, sin2_13, dm2_21, dm2_31, rho, args_juno, ibd_tot_sp, opp):
         # Make a hashable key
         key = (
@@ -347,8 +408,8 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
              rea_norm=None, eff_nuis=0.0,me_rho=0.0,
              core_powers=None,
              Ngeo=0.0, NU=0.0, NTh=0.0,Nmantle=0.0,\
-             opp=False, plot_fit=False): #,  me_rho=args_juno.me_rho):
-        
+             opp=False, plot_fit=False, ThU_ratio=args_juno.Th_U_ratio): #,  me_rho=args_juno.me_rho):
+
         pulls=[]
         pull_unc = []
         if args_juno.sin2_th13_opt=="pull":
@@ -356,10 +417,9 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             pull_unc.append(nuosc.op_nom['sin2_th13_err'])
 
         if args_juno.fit_type == "PMOP_combined":   
-            nuisance_coarse = np.array(nuisance)  
+            nuisance_coarse = np.array(nuisance) 
             nuisance_fine = get_nuisance_fine(nuisance_coarse)
             rfis_param = Spectrum(bins=ensp_nom_juno["rfis0"].bins, bin_cont=ensp_nom_juno["rfis0"].bin_cont * (1+nuisance_fine))
-
         else:
             rfis_param = Spectrum(bins=ensp_nom_juno["rfis0"].bins, bin_cont=ensp_nom_juno["rfis0"].bin_cont)
 
@@ -423,24 +483,27 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         s_juno = s_juno.GetWithPositronEnergy(inputfile=args_juno.input_data_file, tf2name=args_juno.pos_ene_TF2)  # Shift to positron energy
 
         if NL:
-            new_nonl =  Spectrum(bins = ensp_nom_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_nom_juno['scintNL'].bin_cont)))
-            new_nonl.bin_cont = ensp_nom_juno['scintNL'].bin_cont\
-                                +NL[0]*(ensp_nom_juno['NL_pull'][0].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
-                                +NL[1]*(ensp_nom_juno['NL_pull'][1].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
-                                +NL[2]*(ensp_nom_juno['NL_pull'][2].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
-                                +NL[3]*(ensp_nom_juno['NL_pull'][3].bin_cont - ensp_nom_juno['scintNL'].bin_cont)
-            s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) 
-            pulls.extend([NL[0], NL[1], NL[2], NL[3]])
-            pull_unc.extend([args_juno.NL_sd]*4)
-
-            # kB = NL[0]
-            # fC = NL[1]
-            # s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC)  #GetWithModifiedEnergy(mode='fit', fit_bins=get_NL(s_juno.bins, kB=kB, fC=fC)) 
-            # pulls.extend([kB-args_juno.kB, fC-args_juno.fC])
-            # pull_unc.extend([args_juno.kB_err, args_juno.fC_err])
+            if args_juno.NL == "NMO":
+                new_nonl =  Spectrum(bins = ensp_nom_juno['scintNL'].bins, bin_cont=np.zeros(len(ensp_nom_juno['scintNL'].bin_cont)))
+                new_nonl.bin_cont = ensp_nom_juno['scintNL'].bin_cont\
+                                    +NL[0]*(ensp_nom_juno['NL_pull'][0].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+                                    +NL[1]*(ensp_nom_juno['NL_pull'][1].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+                                    +NL[2]*(ensp_nom_juno['NL_pull'][2].bin_cont - ensp_nom_juno['scintNL'].bin_cont)\
+                                    +NL[3]*(ensp_nom_juno['NL_pull'][3].bin_cont - ensp_nom_juno['scintNL'].bin_cont)
+                s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) 
+                pulls.extend([NL[0], NL[1], NL[2], NL[3]])
+                pull_unc.extend([args_juno.NL_sd]*4)
+            else:
+                kB = NL[0]
+                fC = NL[1]
+                s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC)  #GetWithModifiedEnergy(mode='fit', fit_bins=get_NL(s_juno.bins, kB=kB, fC=fC)) 
+                pulls.extend([kB-args_juno.kB, fC-args_juno.fC])
+                pull_unc.extend([args_juno.kB_err, args_juno.fC_err])
         else:
-            s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])
-            #s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args_juno.kB, fC=args_juno.fC)
+            if args_juno.NL == "NMO":
+                s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum', spectrum=ensp_nom_juno['scintNL'])
+            else:
+                s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args_juno.kB, fC=args_juno.fC)
 
         if abc:
             resp_matrix = get_resp_matrix(abc[0], abc[1], abc[2])
@@ -458,28 +521,33 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         cm_bckg = None
 
 
+        
         for key, info in bckgs.items():
-            # if key=="geo":
-            #     bckg = ensp_nom_juno[f'rvis_{key}'].GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
-            #     bckg.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
-            #     bckg.Rebin_nonuniform(args_juno.bins_nonuniform)
-            #     if key=="geo": rate = args_juno.geo_rate
-            #     if key=="rea300": rate = args_juno.rea300_rate
-            #     scale = rate*ndays / (args_juno.duty_cycle*bckg.GetIntegral())
-            #     bckg.GetScaled(scale)
-            # else:
-            bckg = ensp_nom_juno[key]
-                        
-            pulls.append(info["pull"])
-            pull_unc.append(info["sigma"])
+            if key=="geo":
+                pulls.append(ThU_ratio-args_juno.Th_U_ratio)
+                pull_unc.append(args_juno.Th_U_ratio_err)
+                bckg = get_geo_spectrum(resp_matrix, ThU_ratio, kB, fC, abc[0], abc[1], abc[2])
+            elif key=="rea300":
+                bckg = ensp_nom_juno[f'rvis_{key}'].GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC) 
+                bckg.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
+                bckg.Rebin_nonuniform(args_juno.bins_nonuniform)
+                rate = args_juno.rea300_rate
+                scale = rate*ndays / (args_juno.duty_cycle*bckg.GetIntegral())
+                bckg.GetScaled(scale)
+            else:
+                bckg = ensp_nom_juno[key]
+            
+            if info["sigma"] > 0.0:
+                pulls.append(info["pull"])
+                pull_unc.append(info["sigma"])
             bckg = bckg.GetScaledFit(1+info["pull"])
             
             if info["b2b"] >0:
                 if cm_bckg is None:
-                    cm_bckg = bckg.GetB2BCovMatrix(info["b2b"], 0.1, pred=ensp_nom_juno[key].bin_cont)
+                    cm_bckg = bckg.GetB2BCovMatrix(info["b2b"], 0.1)
 
                 else:
-                    cm_bckg += bckg.GetB2BCovMatrix(info["b2b"], 0.1, pred=ensp_nom_juno[key].bin_cont)
+                    cm_bckg += bckg.GetB2BCovMatrix(info["b2b"], 0.1)
 
             s_tot_juno += bckg
             
@@ -534,7 +602,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                       stat_meth=args_juno.stat_method_opt, pulls=pulls, pull_unc=pull_unc, nd=args_juno.nd)
             else:
 
-                chi2_nolog, chi2_juno = Chi2(cm_bckg, sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=pulls, pull_unc=pull_unc, include_logV=True)
+                chi2_nolog, chi2_juno = Chi2(cm_bckg, sp_obs_tot, s_tot_juno, sp_obs_tot, s_tot_juno, unc_juno, args_juno.stat_method_opt, pulls=pulls, pull_unc=pull_unc, include_logV=False)
                
                 if not args_juno.use_dagflow:
                     chi2_dyb =  Chi2(cm_nd['all'], sp_obs_nd, s_tot_nd, sp_obs_nd, s_tot_nd, 'all', args_juno.stat_method_opt, pulls=[Nrea_nd], pull_unc=[args_nd.rea_rate_unc])
@@ -595,11 +663,15 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     bckgs_keys = list(bckgs.keys())
     
     # --- Parameter initialization ---
-    NL = [0.0]*4 #[args_juno.kB, args_juno.fC]
+    if args_juno.NL =="NMO":
+        NL = [0.0]*4 
+    else:
+        NL = [args_juno.kB, args_juno.fC]
     abc = [args_juno.a, args_juno.b, args_juno.c]
     rea_norm = [0.0, 0.0]
     eff_nuis = 0.0
     me_rho = args_juno.me_rho
+    ThU_ratio=args_juno.Th_U_ratio
     core_powers = list(args_juno.core_powers)
     
 
@@ -609,7 +681,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         else []
     )
 
-    print(nuisance)
+    print("DYB segment weights start values :", nuisance)
     # --- Length bookkeeping ---
     n_NL = len(NL)
     n_abc = len(abc)
@@ -631,7 +703,8 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     
         eff_val = all_nuisance_params[n_NL + n_abc + n_bckgs + n_rea]
         me_rho_val = all_nuisance_params[n_NL + n_abc + n_bckgs + n_rea + 1]
-        nuisance_vals = all_nuisance_params[n_NL + n_abc + n_bckgs + n_rea + 2:
+        ThU_ratio_val = all_nuisance_params[n_NL + n_abc + n_bckgs + n_rea + 2]
+        nuisance_vals = all_nuisance_params[n_NL + n_abc + n_bckgs + n_rea + 3:
                                             -n_core]
         core_vals = all_nuisance_params[-n_core:]  # core powers at the end
     
@@ -657,6 +730,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             rea_norm=rea_vals,
             eff_nuis=eff_val,
             me_rho=me_rho_val,
+            ThU_ratio=ThU_ratio_val,
             core_powers=core_vals,
             plot_fit=plot_fit,
         )
@@ -688,6 +762,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         + rea_norm
         + [eff_nuis]
         + [me_rho]
+        + [ThU_ratio]
         + nuisance
         + core_powers
     )
@@ -701,6 +776,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         + [f"rea_norm{i}" for i in range(len(rea_norm))]
         + ["eff_nuis"]
         + ["me_rho"]
+        + ["ThU_ratio"]
         + [f"nuis{i}" for i in range(len(nuisance))]
         + [f"core_power{i}" for i in range(len(core_powers))]
     )
@@ -716,18 +792,30 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         + [f"nuis{i}" for i in range(len(nuisance))]
         + ["eff_nuis"]
     )
+    
+    for i in range(len(abc)):
+        m.limits[f"abc{i}"] = [0.0, None] 
+        
+    for i in range(len(NL)):
+        if args_juno.NL == "NMO":
+            m.limits[f"NL{i}"] = [-1, None] 
+        else:
+            m.limits[f"NL{i}"] = [0.0, None] 
+        
     for p in nuis_limit_minus_names:
         m.limits[p] = [-1, None]
-    
-    # Example: positive-only core powers
+
     for i in range(len(core_powers)):
         m.limits[f"core_power{i}"] = [0.0, None]
+
+    m.limits["me_rho"] = [0.0, None]
+    m.limits["ThU_ratio"] = [0.0, None]
     
     if not args_juno.silent_print: 
         print("-----Parameter limits-----")
         for p in m.parameters:
             print(p, m.limits[p])
-
+    #m.print_level = 2
     first_fix = (
         ["Nrea"]
         + [f"NL{i}" for i in range(len(NL))]
@@ -739,7 +827,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         + [f"core_power{i}" for i in range(len(core_powers))]
     )
     shn_start = n_NL + n_abc + n_bckgs
-    for p in m.parameters[:3]:
+    for p in m.parameters[:4]:
          if not args_juno.silent_print: print(f"Fixing {p}")
          m.fixed[p] = True
         
@@ -748,21 +836,21 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
          m.fixed[p] = True
     m.migrad()
 
-    if not args_juno.silent_print and not args_juno.is_data: print(m)
+    #if not args_juno.silent_print and not args_juno.is_data: print(m)
      
     for p in m.parameters[:4]:
          if not args_juno.silent_print: print(f"Freeing {p}")
          m.fixed[p] = False
 
     m.migrad()
-    if not args_juno.silent_print and not args_juno.is_data: print(m)
+    #if not args_juno.silent_print and not args_juno.is_data: print(m)
 
     for p in first_fix:
          if not args_juno.silent_print: print(f"Freeing {p}")
          m.fixed[p] = False
 
     m.migrad()
-    if not args_juno.silent_print and not args_juno.is_data: print(m)
+    #if not args_juno.silent_print and not args_juno.is_data: print(m)
  
    
     if not args_juno.silent_print:
@@ -789,26 +877,36 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     
         
 
-    if args_juno.is_data:
-        best_params = [m.values[name] for name in m.parameters]
-        chi2_wrapper(*best_params, plot_fit=True) 
+    #if args_juno.is_data:
+    best_params = [m.values[name] for name in m.parameters]
+    chi2_wrapper(*best_params, plot_fit=True) 
     if not args_juno.silent_print:
         print("************Other parameter fit results************")
         for i in range(4, len(m.values)): 
             print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
       
         print("************Background rates************")
-            
         for j, key in enumerate(bckgs_keys):
-            i = 5 + n_NL + n_abc + j              
+            i = 5 + n_NL + n_abc + j
             nuis = m.values[i]
             nuis_err = m.errors[i]
             start_rate = backgrounds["JUNO"][key]["rate"]
+            rate_unc = backgrounds["JUNO"][key].get("rate_unc", None)  # optional if not always defined
+            
             rate_fit = start_rate * (1 + nuis)
             rate_err = start_rate * nuis_err
-            print(f"{key}: {rate_fit:.4f} ± {rate_err:.4f} cpd")
-            
-        # get correlation matrix
+        
+            # Compute deviation in sigma if rate_unc is available
+            if rate_unc:
+                deviation_sigma = (rate_fit - start_rate) / (start_rate * rate_unc)
+            else:
+                deviation_sigma = float('nan')
+
+            print(f"{key}: {rate_fit:.4f} ± {rate_err:.4f} cpd "
+                  f"(rel unc: {nuis_err:.3%}; deviation: {deviation_sigma:.2f} σ)")    
+
+    if args_juno.plot_correlation:
+    # get correlation matrix
         corr = m.covariance.correlation()
         param_names = m.parameters
         
@@ -822,11 +920,52 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             cmap="coolwarm", vmin=-1, vmax=1
         )
         plt.tight_layout()
-
+        
         plt.savefig("Plots/corr.png")
+
+
+    if args_juno.profile_dm2_31:
+        print("Profiling dm2_31 between 2e-3 and 3e-3...")
+    
+        # --- Define the scan range ---
+        dm2_scan_vals = np.linspace(2.0e-3, 3.0e-3, 10)
+        chi2_vals = []
+    
+        # --- Fix dm2_31 for each point and re-minimize others ---
+        for val in dm2_scan_vals:
+            m.values["dm2_31"] = val
+            m.fixed["dm2_31"] = True
+            m.migrad()
+            chi2_vals.append(m.fval)
+    
+    
+        # --- Convert to Δχ² (profile) ---
+        chi2_vals = np.array(chi2_vals)
+        delta_chi2 = chi2_vals - np.min(chi2_vals)
+    
+        # --- Plot ---
+        plt.figure(figsize=(7, 5))
+        plt.plot(dm2_scan_vals * 1e3, delta_chi2, lw=2)
+        plt.xlabel(r"$\Delta m^2_{31}$ [10$^{-3}$ eV$^2$]", fontsize=14)
+        plt.ylabel(r"$\Delta \chi^2$", fontsize=14)
+        plt.title(r"Profile Likelihood Scan for $\Delta m^2_{31}$", fontsize=15)
+        plt.axhline(1.0, color="green", ls="--", label=r"1$\sigma$")
+        plt.axvline(nuosc.op_nom["dm2_31"]*1e3, ls='--', color="black", label='injected PDG 2025')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("Plots/profile_dm2_31.png")
+    
+        # Print best-fit from scan
+        best_index = np.argmin(chi2_vals)
+        print(f"Best-fit dm2_31 ≈ {dm2_scan_vals[best_index]:.5e} eV² "
+              f"with χ² = {chi2_vals[best_index]:.2f}")
+        m.fixed["dm2_31"] = False
+        m.migrad()
     merrors=bool(args_juno.calc_minuit_errors)
     if merrors:
         m.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31") #(params=['x0', 'x1', 'x2', 'x3']) #m.minos() #get minos errors
+    osc_params =  [nuosc.op_nom["sin2_th12"], nuosc.op_nom["sin2_th13"], nuosc.op_nom["dm2_21"], nuosc.op_nom["dm2_31"]]
     if not args_juno.silent_print and not args_juno.is_data:
         print("************Oscillation parameter fit results************")
         for i in range(4): #len(m.values)):
@@ -834,8 +973,15 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                 err =  max(abs(m.merrors[i].upper), abs(m.merrors[i].lower))
             else:
                 err = m.errors[i]
-                
-            print(f"{m.parameters[i]}: {m.values[i]} +/- {err}; rel unc: {err/m.values[i]}")
+            val = m.values[i]
+            exp_val = osc_params[i]
+            rel_unc = err / val if val != 0 else float('nan')
+            deviation_sigma = (val - exp_val) / err if err != 0 else float('nan')
+
+            print(f"{m.parameters[i]}: {val:.6g} +/- {err:.6g}; "
+              f"rel unc: {rel_unc:.3%}; "
+              f"deviation: {deviation_sigma:.2f} σ")
+            #print(f"{m.parameters[i]}: {m.values[i]} +/- {err}; rel unc: {err/m.values[i]}; deviation ")
 
     # if args_juno.fit_type == "geo"  and args_juno.geo_fit_type == 'mantle':
     #     chi2_min = chi2_mantle(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4],Nmantle=m.values[5])
@@ -906,5 +1052,5 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         fig, ax = m.draw_mnmatrix(cl=[1,2,3])
         plt.show()
         #plt.savefig(f"{args_juno.plots_folder}/Chi2_profiles/Minuit/matrix_{args_juno.stat_opt}_{unc_juno}.png")
-    del m
+    return m
 

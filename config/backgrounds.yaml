@@ -1,6 +1,40 @@
 # background_rates.yaml
 
 JUNO:
+  lihe:
+    # rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
+    # histname: "lihe" #Li9BkgHistogramAD"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/prefit_allgroups_withBiPo.root"
+    histname: "GroupA/h_lihe_A" #Li9BkgHistogramAD"
+    rate: 7.7
+    rate_unc: 0.47
+    b2b_unc: 0.35
+    name: "$^{9}$Li / $^{8}$He"
+
+  geo:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
+    histname: "geo" #GeoNuHistogramAD"
+    rate: 1.255 #1.147
+    rate_unc: 0.4
+    b2b_unc: 0.05
+    name: "Geoneutrinos"
+    
+  rea300:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/WR.root" 
+    histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
+    rate: 0.7815 #1.185
+    rate_unc: 0.1
+    b2b_unc: 0.05
+    name: "World reactors"
+    
+  bipo:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/prefit_allgroups_withBiPo.root" #"/junofs/users/sindhu/NODA/noda/data/ShapeUncWR.root" 
+    histname: "GroupC/h_bipo_C" #OtherReactorSpectrum_L300km"
+    rate: 0.169
+    rate_unc: 0.5
+    b2b_unc: 0.05
+    name: "$^{214}$Bi"
+    
   acc:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
     histname: "acc" #AccBkgHistogramAD"
@@ -8,46 +42,14 @@ JUNO:
     rate_unc: 0.017
     b2b_unc: 0.14
     name: "Accidentals"
-
-  geo:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
-    histname: "geo" #GeoNuHistogramAD"
-    rate: 1.147
-    rate_unc: 1.0
-    b2b_unc: 0.05
-    name: "Geoneutrinos"
-
-  lihe:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
-    histname: "lihe" #Li9BkgHistogramAD"
-    rate: 7.7
-    rate_unc: 0.47
-    b2b_unc: 0.35
-    name: "LiHe"
-
-  fneu:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
-    histname: "fastn" #FnBkgHistogramAD"
-    rate: 0.006
-    rate_unc: 1.0
-    b2b_unc: 0.2
-    name: "Fast neutrons"
-    
+   
   doublen:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
     histname: "doublen" #FnBkgHistogramAD"
     rate: 0.5
     rate_unc: 0.0
-    b2b_unc: 1.0
+    b2b_unc: 0.15
     name: "Double neutrons"
-    
-  aneu:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
-    histname: "alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
-    rate: 0.035
-    rate_unc: 0.25
-    b2b_unc: 0.5
-    name: "(alpha, n)"
 
   atm:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
@@ -57,13 +59,21 @@ JUNO:
     b2b_unc: 0.5
     name: "Atmospheric neutrinos"
 
-  rea300:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/ShapeUncWR.root" 
-    histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
-    rate: 1.185
-    rate_unc: 0.1
-    b2b_unc: 0.05
-    name: "World reactors"
+  aneu:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
+    histname: "alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
+    rate: 0.035
+    rate_unc: 0.25
+    b2b_unc: 0.5
+    name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
+    
+  fneu:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root"
+    histname: "fastn" #FnBkgHistogramAD"
+    rate: 0.006
+    rate_unc: 1.0
+    b2b_unc: 0.2
+    name: "Fast neutrons"
 
 TAO:
   lihe:

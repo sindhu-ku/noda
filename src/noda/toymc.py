@@ -42,7 +42,7 @@ def save_batch_results(filename, batch_results):
            )
 
 
-def run_fc_profiling(param_name="dm2_31", param_grid=[], ntoys=100, args_juno=None, ensp_nom_juno={}, cm_juno=None, unc_juno='', resp_matrix=None):
+def run_fc_profiling(param_name="dm2_31", param_grid=[], ndays=50,ensp_nom_juno=None, unc_juno='', rm = None, cm_juno=None, args_juno=None, args_nd=None, dyb_model=None, backgrounds=None):
     fc_results = []
 
     for val in param_grid:
@@ -55,42 +55,26 @@ def run_fc_profiling(param_name="dm2_31", param_grid=[], ntoys=100, args_juno=No
             # Generate a toy under the test hypothesis
             ensp_nom_juno['rtot_toy'] = Spectrum(
                 bins=ensp_nom_juno['rtot'].bins,
-                bin_cont=generate_toy_spectrum(ensp_nom_juno['rtot'].bin_cont, cm_juno[unc_juno].data)
+                bin_cont=np.random.poisson(ensp_nom_juno['rtot'].bin_cont)
             )
 
-            # --- Fit toy freely (χ²_min) ---
-            args_juno.fix_param = {}  # free all parameters
-            m_free = run_minuit(
-                ensp_nom_juno=ensp_nom_juno,
-                unc_juno=unc_juno,
-                rm=resp_matrix,
-                cm_juno=cm_juno,
-                args_juno=args_juno
-            )
+            m_free = run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds, toymc=True)
             chi2_min_toy = m_free.fval
 
-            # --- Fit toy with parameter fixed to test value ---
-            args_juno.fix_param = {param_name: val}
-            m_fixed = run_minuit(
-                ensp_nom_juno=ensp_nom_juno,
-                unc_juno=unc_juno,
-                rm=resp_matrix,
-                cm_juno=cm_juno,
-                args_juno=args_juno
-            )
+            m_fixed = run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds, toymc=True, fix_param=param_name)
             chi2_fixed = m_fixed.fval
 
-            Δχ2_toys.append(chi2_fixed - chi2_min_toy)
+            chi2_toys.append(chi2_fixed - chi2_min_toy)
 
             if itoy % 50 == 0:
                 print(f"  Toy {itoy}/{ntoys}: Δχ² = {chi2_fixed - chi2_min_toy:.3f}")
 
         # Compute 68% and 90% quantiles for FC belt
-        Δχ2_68 = np.quantile(Δχ2_toys, 0.68)
-        Δχ2_90 = np.quantile(Δχ2_toys, 0.90)
-        fc_results.append((val, Δχ2_68, Δχ2_90))
+        dchi2_68 = np.quantile(chi2_toys, 0.68)
+        dchi2_90 = np.quantile(chi2_toys, 0.90)
+        fc_results.append((val, dchi2_68, dchi2_90))
 
-        print(f"  → Δχ²_68 = {Δχ2_68:.3f}, Δχ²_90 = {Δχ2_90:.3f}")
+        print(f"  → Δχ²_68 = {dchi2_68:.3f}, Δχ²_90 = {dchi2_90:.3f}")
 
     return np.array(fc_results)
 

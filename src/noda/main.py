@@ -137,7 +137,7 @@ def main(argv=None):
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
 
   
-  with open("config/backgrounds_groupB.yaml", "r") as f:
+  with open(args_juno.backgrounds_yaml, "r") as f:
       backgrounds = yaml.safe_load(f)
       
   ensp_nom_juno, resp_matrix  = spec.CreateSpectra(ndays=ndays,
@@ -350,6 +350,16 @@ def main(argv=None):
                       from .DYB_model import make_dyb_model
                       dyb_model = make_dyb_model(args_nd)
                       minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds)
+                      #param_grid = np.linspace(2e-3, 3e-3, 5)
+          
+                      #fc_profile = toy_mc.run_fc_profiling(param_name="dm2_31", param_grid=[], ntoys=100, ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds)
+                      # plt.plot(fc_results[:,0], fc_results[:,1], 'o-', label='68% CL')
+                      # plt.plot(fc_results[:,0], fc_results[:,2], 'o-', label='90% CL')
+                      # plt.xlabel("dm2_31")
+                      # plt.ylabel("Δχ² critical")
+                      # plt.legend()
+                      # plt.title("Feldman–Cousins Critical Δχ²")
+                      # plt.savefig('Plots/FC_profiling_dm231.png')
                       #minuit_comb.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model)
                       
 
