@@ -8,7 +8,7 @@ fit_options:
   pull_all: True
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: PDG2025 # PDG option
-  NMO_opt: true  # NMO option, true is normal
+  NMO_opt: True # NMO option, true is normal
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
@@ -16,7 +16,8 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
-  calc_minuit_errors: false
+  solar_contour: true
+  calc_minuit_errors: true
   profile_dm2_31: false
   write_results: false
   silent_print: false
@@ -103,18 +104,19 @@ common_det_inputs:
 
   geo_tnu_rate: 40.0
   tnu_to_cpd: 0.032387707
-  geo_rate: 1.255 #1.147
-  rea300_rate: 0.7815 #1.185
+  geo_rate: 1.239 #1.255 #1.147
+  rea300_rate: 0.892 #0.78 #0.903 #1.185
 
   me_rho: 2.45 #2.45
   me_rho_scale: 0.15
   duty_cycle: 1.0 #0.91666667
   alpha: [0.58, 0.07, 0.30, 0.05]
   efission: [202.36, 205.99, 211.12, 214.26]
+  efission_err: [0.26, 0.52, 0.34, 0.33]
 
   #b2b_unc: 0.0134
 
-  eff_unc: 0.025 #rel
+  eff_unc: 0.021 #rel
   r2_unc: 0.02 #rel
   snf_unc: 0.3 #rel
   me_rho_unc: 0.061
@@ -127,20 +129,22 @@ common_det_inputs:
   unc_corr_ind: r2+snf+noneq
 
   unc_corr_dep: crel+nl
-
+  snf_file: /junofs/users/sindhu/NODA/noda/data/SNFYJandTS.root
+  noneq_file: /junofs/users/sindhu/NODA/noda/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  stat_opt: 46.05days #46.6155days #46.05days # time period for sensitivity studies
-  detector_efficiency: 0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  stat_opt: 58.8days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  detector_efficiency: 0.708 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   bins: 501
   min_ene: 0.7  # Minimum energy
-  max_ene: 12 
+  max_ene: 12
   ene_crop:
     - 0.7
     - 12.0
   is_data: true
   NL: real
-  data_spectrum: /junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root #/junofs/users/sindhu/NODA/noda/data/prefit_allgroups.root #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root #
+  data_spectrum: /junofs/users/sindhu/NODA/noda/data//IBD_bckgs_groupC_Nov10_reprod25C.root #IBD_bckgs_groupC_Oct31.root 
+  #data_spectrum: /junofs/users/sindhu/NODA/noda/data/prefit_allgroups.root #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root #
   rebin_nonuniform: true
   bins_nonuniform:
     # - [0.8, 1.0, 1]
@@ -154,7 +158,7 @@ juno_inputs:
     # - [7.0, 8.2, 4]
     # - [8.2, 12.0, 1]
     
-    - [0.7, 1.0, 1]
+    - [0.8, 1.0, 1]
     - [1.0, 6.6, 56]
     - [6.6, 7.4, 4]
     - [7.4, 7.7, 1]
@@ -163,13 +167,13 @@ juno_inputs:
     - [8.6, 9.4, 1]
     - [9.4, 12.0, 1]
     
-  seg_bins_nonuniform:
+  seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700, 12.7823]
     # - [0.7, 1.0, 1]
     # - [1.0, 7.0, 20]
     # - [7.0, 8.2, 4]
     # - [8.2, 12.0, 1]
-    - [2.0823, 8.9823, 23]
-    - [8.9823, 12.7823, 1]
+    # - [2.0823, 8.9823, 23]
+    # - [8.9823, 12.7823, 1]
     # - [0.7, 1.0, 1]
     # - [1.0, 10.0, 30]
     # - [10.0, 12.0, 1]
@@ -185,6 +189,7 @@ juno_inputs:
   # core_powers_10: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
   # core_baselines_10: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 215000.0, 265000.0]
   #core_powers: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
+  #core_powers: [1.93, 2.74 ,2.86, 1.54, 2.47, 2.87, 4.09, 4.15, 15.90, 9.25]
   core_powers: [2.32, 2.32, 2.32, 2.32, 2.32, 2.32, 3.68, 3.68, 13.92, 9.67]
   Pth: [1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.98402048e+27, 1.98402048e+27, 7.50477312e+27]
   core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0, 411000.0]
@@ -198,13 +203,13 @@ juno_inputs:
   NL_sd: 1.0
 
 
-  a: 0.033
-  b: 0.009
-  c: 0.000
+  a: 3.36449744e-02 #0.033 #0.03364345
+  b: 1.52257960e-02 # 0.015229000 #0.00839  #0.009 #0.00839
+  c: 0.0 #0.000 
   
-  a_err: 0.001
-  b_err: 0.002
-  c_err: 0.004
+  a_err: 0.8e-3 #0.0008046 #0.001 #0.0008046
+  b_err: 0.0011 #0.0013179864 #0.002 #0.0013179864
+  c_err: 0.004 #0.1489 #0.004 #0.1489 #0.0077
 
   # a: 0.035 #0.02614
   # b: 0.0064
@@ -213,12 +218,16 @@ juno_inputs:
   # b_err: 0.0001 #03
   # c_err: 0.0004
 
-  kB: 0.0162
-  fC: 0.42
-
-  kB_err: 0.0021
-  fC_err: 0.19
-
+  kB: 1.45305820e-02 #0.016439 #0.0162 #0.016439
+  fC: 4.70417566e-01 #0.22315 #0.42 #0.22315
+  kI: 1.36409561e-03
+  LY_shared: 1.00436611e+00
+  
+  kB_err: 0.0018 #0.001285 #0.0021 #0.001285
+  kC_err: 0.1
+  fC_err: 0.21 #0.11748 #0.19 #0.11748
+  kI_err: 0.8e-3
+  LY_shared_err: 0.0005
 
 
 #  # Uncertainty list
@@ -255,7 +264,7 @@ nd_inputs:
   custom_bin_edges: "../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv"
   rebin_nonuniform:  True
   bins_nonuniform:
-    - [0.7, 1.0, 1]
+    - [0.8, 1.0, 1]
     - [1.0, 8.0, 140]
     - [8.0, 12.0, 1]
 

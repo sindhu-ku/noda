@@ -447,7 +447,7 @@ class Spectrum:
     s_new.ModifyEnergy(**kwargs)
     return s_new
 
-  def ModifyEnergy(self, mode="lin", scale=1., spline=None, spectrum=None, kB=0.0, fC=0.0, fit_bins=None):
+  def ModifyEnergy(self, mode="lin", scale=1., spline=None, spectrum=None, kB=0.0, fC=0.0, kI=0.0, LY_shared=0.0,fit_bins=None):
     if mode == 'lin':
       bins_new = self.bins*scale
     elif mode == 'spline': # TODO vectorize it
@@ -459,7 +459,7 @@ class Spectrum:
     elif mode == "spectrum":
       bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])
     elif mode == "G4":  
-      bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC)/G4model_gamma.eval(2.2, kB, fC=fC)
+      bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC, kI=kI)*LY_shared/G4model_gamma.eval(2.2, kB, fC=fC, kI=kI)
     elif mode == "fit":
       bins_new = self.bins*fit_bins
     old_bins = self.bins
@@ -642,7 +642,7 @@ class Spectrum:
         mu = np.array(pred)
 
     # diagonal covariance elements: (s * sigma * mu_b)^2
-    var =  (s * sigma * mu)**2
+    var =  s*( sigma * mu)**2
     np.fill_diagonal(data, var)
 
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
@@ -1419,21 +1419,32 @@ def centers_to_edges(centers):
     edges[-1] = centers[-1] + 0.5 * (centers[-1] - centers[-2])
     return edges
 
-def compute_extrafactors(args, core_powers=None, eff=0.0):
+def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=None, alpha=None, eff=0.0):
     """
     Compute normalization scaling factor for reactor flux at given baselines.
     
     Handles 0 m baseline by removing 1/L^2 dependence (useful for near/fake detectors).
     """
     power_conv = 6.24e21*60*60*24
-    alpha_arr = np.array(args.alpha)
-    efission_arr = np.array(args.efission)
+    if alpha is None:
+        alpha_arr = np.array(args.alpha)
+    else:
+        alpha_arr = alpha
+        
+    if efission is None:
+        efission_arr = np.array(args.efission)
+    else:
+        efission_arr = np.array(efission)
+        
     if core_powers is None:
         Pth_arr = np.array(args.core_powers)*power_conv
     else:
         Pth_arr = np.array(core_powers)*power_conv
-    L_arr = np.array(args.L)
 
+    if core_baselines is None:
+        L_arr = np.array(args.core_baselines)*100. #m to cm
+    else:
+        L_arr = np.array(core_baselines)*100.
 
     prefactor = (1+eff)*args.detector_efficiency * args.veto * args.Np / (4 * np.pi)
 
@@ -1449,7 +1460,53 @@ def compute_extrafactors(args, core_powers=None, eff=0.0):
     extrafactor = prefactor * geo_term / norm
     return extrafactor
 
+def compute_extrafactors_per_core(args, core_powers, core_baselines, fission_fracs, eff=0.0):
+    """
+    Compute normalization extrafactor for each core separately,
+    based on power, baseline, and fission fractions from YAML.
+    """
+    extrafactors = []
+    for i, frac in enumerate(fission_fracs):
+        ffs = [
+            frac['U235'],
+            frac['U238'],
+            frac['Pu239'],
+            frac['Pu241']
+        ]
 
+        # single-core extrafactor
+        ef = compute_extrafactors(
+            args,
+            core_baselines=core_baselines[i],
+            core_powers=[core_powers[i]],
+            fission_frac=ffs,
+            eff=eff
+        )
+        extrafactors.append(ef)
+    return np.array(extrafactors)
+    
+def load_reactor_summary(yaml_path="data/reactor_data.yaml"):
+    with open(yaml_path, 'r') as f:
+        summary = yaml.safe_load(f)
+
+    core_names, core_powers, core_fractions, core_baselines = [], [], [], []
+
+    for npp, entry in summary.items():
+        # Case 1: NPP with individual cores (YJ, TS)
+        if isinstance(entry, dict) and all(isinstance(v, dict) for v in entry.values()):
+            for core, vals in entry.items():
+                core_names.append(core)
+                core_powers.append(vals['power'])
+                core_fractions.append(vals['fission_fraction'])
+                core_baselines.append(vals.get('baseline', 0.0))  # baseline in meters
+        # Case 2: Combined NPP (DYB, FC)
+        else:
+            core_names.append(npp)
+            core_powers.append(entry['power'])
+            core_fractions.append(entry['fission_fraction'])
+            core_baselines.append(entry.get('baseline', 0.0))
+
+    return core_names, np.array(core_powers), core_fractions, np.array(core_baselines)
 
 def rebin_matrix(mat, old_row_bins, old_col_bins, new_row_bins, new_col_bins):
     """

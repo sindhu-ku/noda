@@ -62,8 +62,8 @@ def SetOscillationParameters(opt, NO, silent=True):
   #
   elif opt == 'PDG2025': # https://pdg.lbl.gov/2025/tables/contents_tables.html
     op_nom['sin2_th12'] = 0.307
-    op_nom['sin2_th13'] = 0.0216
-    op_nom['sin2_th13_err'] = 0.06e-2
+    op_nom['sin2_th13'] = 0.0217
+    op_nom['sin2_th13_err'] = 0.063e-2
     op_nom['dm2_21'] = 7.50e-5
     if NO:
       op_nom['sin2_th23'] = 0.534

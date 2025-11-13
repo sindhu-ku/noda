@@ -8,7 +8,6 @@ from joblib import Parallel, delayed
 
 from scipy import constants
 
-
 def CreateSpectra(ndays=10,
                ebins=None,
                detector = "JUNO",
@@ -18,7 +17,15 @@ def CreateSpectra(ndays=10,
 
 
   opt = {'detector': detector, 'efficiency': args.detector_efficiency, 'ndays': ndays, 'core_baselines': args.core_baselines, 'core_powers': args.core_powers}
-
+# --- split rfis per NPP using compute_extrafactors ---
+  core_powers = np.array(args.core_powers)
+  core_baselines = np.array(args.core_baselines)
+  isotope_scales = {
+    'U235': args.U235_scale,
+    'U238': args.U238_scale,
+    'Pu239': args.Pu239_scale,
+    'Pu241': args.Pu241_scale
+  }
   print(opt)
 
   # Nominal spectra
@@ -96,32 +103,144 @@ def CreateSpectra(ndays=10,
 
 
   print("extrafactors", extrafactors)
-  ensp['rfis'].GetScaled(extrafactors) #correct normalization including fission fractions, mean energy per fission ... eq.13.5 YB
-  ensp['rfiss'].GetScaled(extrafactors)
-  #ensp['rfiss'].GetScaled(ensp['rfis'].GetIntegral()/ensp['rfiss'].GetIntegral())
 
+
+  print(ensp["rfis0"].GetIntegral())
   print(" ")
   print("NUMBER OF IBD")
   print(" Expected IBDs (no osc):     {:.2f} events".format(ensp["rfis"].GetIntegral()))
 
-  #
 
-  ensp['snf0'] = GetSpectrumFromROOT(args.input_data_file, 'SNF_FluxRatio')     #spent nuclear fuel
+   # --- Define core groups ---
+  idx_YJ, idx_TS, idx_HM = range(0, 6), range(6, 8), range(8, 10)
+  
+  # --- Compute normalized per-core weights ---
+  core_weights = core_powers / core_baselines**2
+  core_weights /= core_weights.sum()
+  
+  # --- Create per-core rfis spectra ---
+  rfis_core = []
+  for i in range(10):
+      spec = ensp['rfis'].Copy()   # unscaled spectrum
+      spec.GetScaled(extrafactors * core_weights[i])  # apply fractional contribution
+      rfis_core.append(spec)
+      ensp[f'rfis_core{i}'] = spec  # optional: store individually for later plotting/debugging
+  
+  # --- Define interpolation helper ---
+  def interp_to_target(source_spec, target_spec):
+      src_x = source_spec.GetBinCenters()
+      src_y = source_spec.bin_cont
+      tgt_x = target_spec.GetBinCenters()
+      f_interp = sp.interpolate.interp1d(
+          src_x, src_y, kind='linear',
+          bounds_error=False,
+          fill_value=(src_y[0], src_y[-1])
+      )
+      new_spec = target_spec.Copy()
+      new_spec.bin_cont = f_interp(tgt_x)
+      return new_spec
+  
+  # --- Global SNF and Noneq base corrections ---
+  ensp['snf0'] = GetSpectrumFromROOT(args.input_data_file, 'SNF_FluxRatio')
   ensp['snf0'].Rebin(ebins, mode='spline-not-keep-norm')
-  ensp['snf'] = ensp['snf0'].GetWeightedWithSpectrum(ensp['rfis'])
-  ensp['snf1'] = ensp['snf0'].GetWeightedWithSpectrum(ensp['rfiss'])
+  snf0_interp0 = interp_to_target(ensp['snf0'], ensp['rfis_core8'])
+  snf0_interp1 = interp_to_target(ensp['snf0'], ensp['rfis_core9'])
+  ensp['snf_FC'] = snf0_interp0.GetWeightedWithSpectrum(ensp['rfis_core8'])
+  ensp['snf_DB'] = snf0_interp1.GetWeightedWithSpectrum(ensp['rfis_core9'])
+
+  snf_HM = ensp['snf_FC'] + ensp['snf_DB']
   del ensp['snf0']
-
-
+  
   ensp['noneq0'] = GetSpectrumFromROOT(args.input_data_file, 'NonEq_FluxRatio')
   ensp['noneq0'].Rebin(ebins, mode='spline-not-keep-norm')
-  ensp['noneq'] = ensp['noneq0'].GetWeightedWithSpectrum(ensp['rfis']) #non-equilibrium ratio
-  ensp['noneq1'] = ensp['noneq0'].GetWeightedWithSpectrum(ensp['rfiss']) #non-equilibrium ratio
+  noneq0_interp0 = interp_to_target(ensp['noneq0'], ensp['rfis_core8'])
+  noneq0_interp1 = interp_to_target(ensp['noneq0'], ensp['rfis_core9'])
+  ensp['noneq_FC'] = noneq0_interp0.GetWeightedWithSpectrum(ensp['rfis_core8'])
+  ensp['noneq_DB'] = noneq0_interp1.GetWeightedWithSpectrum(ensp['rfis_core9'])
   del ensp['noneq0']
-    
-  ensp['ribd'] = ensp['rfis'] + ensp['snf'] + ensp['noneq']
-  ensp['ribd_plot'] = ensp['ribd']
-  ensp['ribd1'] = ensp['rfiss'] + ensp['snf1'] + ensp['noneq1']
+  
+  noneq_HM = ensp['noneq_FC'] + ensp['noneq_DB']
+ 
+  # --- SNF correction per core ---
+  snf_core = []
+  for i in range(10):
+      if i in idx_YJ:
+          prefix, core_idx = "YJ", i - idx_YJ.start + 1
+      if i in idx_TS:
+          prefix, core_idx = "TS", i - idx_TS.start + 1
+
+      hname = f"Ratio{prefix}ReactorSNF{core_idx}"
+      spec = GetSpectrumFromROOT(args.snf_file, hname)
+      spec.Rebin(ebins, mode='spline-not-keep-norm')
+      spec_interp = interp_to_target(spec, rfis_core[i])
+      weighted = spec_interp.GetWeightedWithSpectrum(rfis_core[i])
+      snf_core.append(weighted)
+  
+  # --- YJ shutdowns (applied only to YJ cores collectively) ---
+  spec_off1 = GetSpectrumFromROOT(args.snf_file, "RatioYJReactor1Shutdown")
+  spec_off1.Rebin(ebins, mode='spline-not-keep-norm')
+  spec_off1_interp = interp_to_target(spec_off1, rfis_core[0])
+  spec_off1_weighted = spec_off1_interp.GetWeightedWithSpectrum(rfis_core[0])
+  
+  spec_off2 = GetSpectrumFromROOT(args.snf_file, "RatioYJReactor4Shutdown")
+  spec_off2.Rebin(ebins, mode='spline-not-keep-norm')
+  spec_off2_interp = interp_to_target(spec_off2, rfis_core[3])
+  spec_off2_weighted = spec_off2_interp.GetWeightedWithSpectrum(rfis_core[3])
+  
+
+  # --- Non-equilibrium corrections per core ---
+  noneq_core = []
+  for i in range(10):
+      if i in idx_YJ:
+          prefix, core_idx = "YJ", i - idx_YJ.start + 1
+      if i in idx_TS:
+          prefix, core_idx = "TS", i - idx_TS.start + 1
+
+      rfis_i = rfis_core[i]
+      group_noneq = None
+      for iso, scale in isotope_scales.items():
+          if iso == 'U238':
+              continue
+          hname = f"{prefix}{core_idx}_{iso}"
+          spec = GetSpectrumFromROOT(args.noneq_file, hname)
+          spec.Rebin(ebins, mode='spline-not-keep-norm')
+          spec_scaled = spec.GetScaledFit(scale * 0.01)
+          spec_interp = interp_to_target(spec_scaled, rfis_i)
+          weighted = spec_interp.GetWeightedWithSpectrum(rfis_i)
+          group_noneq = weighted.Copy() if group_noneq is None else group_noneq + weighted
+      noneq_core.append(group_noneq)
+  
+  # --- Combine per-NPP ---
+  snf_YJ = Spectrum(bins=ensp['rfis'].bins, bin_cont = ensp['rfis'].bin_cont*0.0)
+  noneq_YJ = Spectrum(bins=ensp['rfis'].bins, bin_cont = ensp['rfis'].bin_cont*0.0)
+  snf_TS = Spectrum(bins=ensp['rfis'].bins, bin_cont = ensp['rfis'].bin_cont*0.0)
+  noneq_TS = Spectrum(bins=ensp['rfis'].bins, bin_cont = ensp['rfis'].bin_cont*0.0)
+  for i in idx_YJ: 
+      snf_YJ += snf_core[i]
+      noneq_YJ += noneq_core[i]
+  for i in idx_TS: 
+      snf_TS += snf_core[i] 
+      noneq_TS += noneq_core[i]
+
+  snf_YJ = snf_YJ + spec_off1_weighted + spec_off2_weighted
+
+  # --- Store results ---
+  ensp['snf_YJ'], ensp['snf_TS'], ensp['snf_HM'] = snf_YJ, snf_TS, snf_HM
+  ensp['noneq_YJ'], ensp['noneq_TS'], ensp['noneq_HM'] = noneq_YJ, noneq_TS, noneq_HM
+  ensp['snf'] = snf_YJ + snf_TS + snf_HM
+  ensp['noneq'] = noneq_YJ + noneq_TS + noneq_HM
+  
+  ensp['rfiss'].GetScaled(extrafactors)
+  ensp['rfis'].GetScaled(extrafactors)
+  ensp['ribd'] = ensp['rfis'] +  ensp['snf'] +  ensp['noneq'] 
+
+  print("Before corr",ensp['rfis'].GetIntegral())
+  # print("SNF ", ensp['snf_tot'].GetIntegral())
+  # print("noneq ", ensp['noneq_tot'].GetIntegral())
+  
+
+
+  ensp['ribd1'] = ensp['rfiss'] + ensp['snf'] + ensp['noneq']
   events['ribd'] = ensp["ribd"].GetIntegral()
 #  ensp['rfis0'].Plot(f"{args.plots_folder}/reac_spectrum.pdf",
 #                   xlabel="Neutrino energy (MeV)",
@@ -138,6 +257,7 @@ def CreateSpectra(ndays=10,
   print(" ")
   print("2-6 MeV NUMBER OF IBD + SNF + nEq")
   print(" Expected IBDs (no osc):     {:.2f} events".format(ensp["ribd"].GetIntegral(left_edge = 2, right_edge = 6)))
+
 
   # Oscillated spectrum
   if not detector == "DYB":
@@ -186,9 +306,9 @@ def CreateSpectra(ndays=10,
   ensp['rvis_nonl_temp'] = ensp['ribd'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
 
   ensp['snf_osc_nonl'] = ensp['snf_osc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-  del ensp['snf_osc']
+  # del ensp['snf_osc']
   ensp['noneq_osc_nonl'] = ensp['noneq_osc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-  del ensp['noneq_osc']
+  # del ensp['noneq_osc']
 
   # if detector != "JUNO":
   #     #ensp['rosc_pos'] = ensp['rosc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2) #only for plotting
@@ -218,29 +338,28 @@ def CreateSpectra(ndays=10,
           ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
           ensp['rvis1'] = ensp['rvis_nonl1'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       else:
-          ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-          ensp['rvis1'] = ensp['rvis_nonl1'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+          ensp['rvis'] = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
+          ensp['rvis1'] = ensp['rvis_nonl1'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
   else:
       ensp['rvis'] = ensp['rvis_nonl']
       ensp['rvis1'] = ensp['rvis_nonl1']
 
-  print(ensp['rvis'].bin_cont.shape)      
-  
+
   if not detector == "DYB": 
       if args.NL == "NMO":
           ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
           ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
           ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
       else:   
-          ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-          ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
-          ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+          ensp['rvis_temp'] = ensp['rvis_nonl_temp'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
+          ensp['snf_osc_vis'] = ensp['snf_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
+          ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
 
   else:
       ensp['rvis_temp'] = ensp['rvis_nonl_temp']
-      ensp['snf_osc_vis'] = ensp['snf_osc_nonl']
-      ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl']
-  del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
+  #     ensp['snf_osc_vis'] = ensp['snf_osc_nonl']
+  #     ensp['noneq_osc_vis'] = ensp['noneq_osc_nonl']
+  # del ensp['snf_osc_nonl'], ensp['noneq_osc_nonl']
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
 
@@ -282,9 +401,27 @@ def CreateSpectra(ndays=10,
 
   ensp['snf_final'] = ensp['snf_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
   ensp['noneq_final'] = ensp['noneq_osc_vis'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-
-
-  del ensp['snf_osc_vis'], ensp['noneq_osc_vis']
+  for l in ["YJ", "TS","HM"]:
+      ensp[f'snf_{l}_osc'] = ensp[f'snf_{l}'].GetOscillated(L=args.core_baselines, core_powers=args.core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
+      ensp[f'noneq_{l}_osc'] = ensp[f'noneq_{l}'].GetOscillated(L=args.core_baselines, core_powers=args.core_powers, me_rho=args.me_rho, ene_mode='true', args=args)
+      
+      ensp[f'snf_{l}_pos'] = ensp[f'snf_{l}_osc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      ensp[f'noneq_{l}_pos'] = ensp[f'noneq_{l}_osc'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+      
+      ensp[f'snf_{l}_nonl'] = ensp[f'snf_{l}_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
+      ensp[f'noneq_{l}_nonl'] = ensp[f'noneq_{l}_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
+      
+      ensp[f'snf_{l}_final'] = ensp[f'snf_{l}_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop) 
+      ensp[f'noneq_{l}_final'] = ensp[f'noneq_{l}_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+      
+  # ensp['noneq_YJ_final'].Plot(f"{args.plots_folder}/noneq_YJ.png")
+  # ensp['noneq_TS_final'].Plot(f"{args.plots_folder}/noneq_TS.png")
+  # ensp['noneq_HM_final'].Plot(f"{args.plots_folder}/noneq_HM.png")
+  # ensp['snf_YJ_final'].Plot(f"{args.plots_folder}/snf_YJ.png")
+  # ensp['snf_TS_final'].Plot(f"{args.plots_folder}/snf_TS.png")
+  # ensp['snf_HM_final'].Plot(f"{args.plots_folder}/snf_HM.png")  
+  # --- Final ribd per NPP ---
+  #del ensp['snf_osc_vis'], ensp['noneq_osc_vis']
 
   extra_spectra = []
   leg_labels = []
@@ -296,8 +433,9 @@ def CreateSpectra(ndays=10,
         if key == "rea300":
             ensp['rfis_rea300'] = ensp[key].Rebin(ebins, mode='spline-not-keep-norm')
             ensp['rfis_rea300_pos'] = ensp['rfis_rea300'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
-            ensp['rvis_rea300'] = ensp['rfis_rea300_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+            ensp['rvis_rea300'] = ensp['rfis_rea300_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
             ensp[key] = ensp['rvis_rea300'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            
         scale = float(info["rate"])*ndays / (args.duty_cycle*ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
         print(key, ensp[key].GetIntegral(), info["rate"])
@@ -325,10 +463,10 @@ def CreateSpectra(ndays=10,
       ensp['rfis0_geou'].WeightWithFunction(s_ibd)
       ensp['rfis0_geoth'].WeightWithFunction(s_ibd)
 
-      # ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(ndays*rate/((1+ratio)*args.duty_cycle*ensp['rfis0_geou'].GetIntegral()))
-      # ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ndays*rate*ratio/((1+ratio)*args.duty_cycle*ensp['rfis0_geoth'].GetIntegral()))
-      ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(1./((1+ratio)*ensp['rfis0_geou'].GetIntegral()))
-      ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ratio/((1+ratio)*ensp['rfis0_geoth'].GetIntegral()))
+      ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(ndays*rate/((1+ratio)*args.duty_cycle*ensp['rfis0_geou'].GetIntegral()))
+      ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ndays*rate*ratio/((1+ratio)*args.duty_cycle*ensp['rfis0_geoth'].GetIntegral()))
+      #ensp[f'rfis_{name}u'] = ensp['rfis0_geou'].GetScaledFit(1./((1+ratio)*ensp['rfis0_geou'].GetIntegral()))
+      #ensp[f'rfis_{name}th'] = ensp['rfis0_geoth'].GetScaledFit(ratio/((1+ratio)*ensp['rfis0_geoth'].GetIntegral()))
 
       
       #ensp['rfis_geo'] =  ensp['rfis0_geou'] + ensp['rfis0_geoth']
@@ -338,9 +476,9 @@ def CreateSpectra(ndays=10,
       ensp[f'rvis_{name}th'] = ensp[f'rfis_{name}th'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
       #ensp['rvis_geo'] = ensp['rfis_geo'].GetWithPositronEnergy(type=args.posE_shift, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
 
-      ensp[f'rvis_{name}u_nonl'] = ensp[f'rvis_{name}u'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC) #GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-      ensp[f'rvis_{name}th_nonl'] = ensp[f'rvis_{name}th'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC) #GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
-      #ensp['rvis_geo_nonl'] = ensp['rvis_geo'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC)
+      ensp[f'rvis_{name}u_nonl'] = ensp[f'rvis_{name}u'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared) #GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      ensp[f'rvis_{name}th_nonl'] = ensp[f'rvis_{name}th'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared) #GetWithModifiedEnergy(mode='spectrum', spectrum=ensp['scintNL'])
+      #ensp['rvis_geo_nonl'] = ensp['rvis_geo'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
 
       ensp[f'{name}u'] = ensp[f'rvis_{name}u_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
       ensp[f'{name}th'] = ensp[f'rvis_{name}th_nonl'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
@@ -362,19 +500,20 @@ def CreateSpectra(ndays=10,
           ensp['geo_ana'] = ensp['geocrust'] + ensp['geomantle']
       else:
           ensp['geo_ana'] = make_ana_geo_spectra(float(args.geo_rate), args.Th_U_ratio, 'geo')
-          scale = float(args.geo_rate)*ndays / (args.duty_cycle*ensp['geo_ana'].GetIntegral())
+          #scale = float(args.geo_rate)*ndays / (args.duty_cycle*ensp['geo_ana'].GetIntegral())
           #ensp['geo_full'].GetScaled(scale)
-          ensp['geo_ana'].GetScaled(scale)
+          #ensp['geo_ana'].GetScaled(scale)
           
           ensp['bckg'] = ensp['bckg'] - ensp['geo'] + ensp['geo_ana']
           ensp['geo'] = ensp['geo_ana']
           print('geo', ensp['geo'].GetIntegral())
 
+  ensp['rdet'] = ensp['rdet'] #+ ensp['snf_final'] + ensp['noneq_final']
   if args.rebin_nonuniform: 
       ensp['rdet'].Rebin_nonuniform(args.bins_nonuniform)
       ensp['rdet1'].Rebin_nonuniform(args.bins_nonuniform)
-      ensp['snf_final'].Rebin_nonuniform(args.bins_nonuniform)
-      ensp['noneq_final'].Rebin_nonuniform(args.bins_nonuniform)
+      #ensp['snf_final'].Rebin_nonuniform(args.bins_nonuniform)
+      #ensp['noneq_final'].Rebin_nonuniform(args.bins_nonuniform)
 
   events['rdet'] = ensp['rdet'].GetIntegral()
 
@@ -435,7 +574,7 @@ def CreateSpectra(ndays=10,
                   leg_labels=leg_labels,
                   colors=colors,
                   xmin=0.8, xmax=12.0,
-                  ymin=1e-3,log_scale=True)
+                  ymin=1e-3,log_scale=False)
                   #ymin=0.0, ymax=14900, yinterval=2500, log_scale=False)
 
 
@@ -482,7 +621,7 @@ def CreateSpectra(ndays=10,
   # ensp['rtot'].WritetoROOT("asimov", "ReactorPWG_check3_Nov8.root")
   #ensp['rfis'].WritetoROOT("rea_flux_xsec+bump", "ReactorPWG_check3_Nov8.root")
   if args.write_output:
-      ensp['rdet'].WritetoROOT("rea_prefit", "Pre_fit_NODA_GroupB_JUNO+DYB_check2_CNP_expCM.root")
+      ensp['rdet'].WritetoROOT("rea_prefit", "Post_fit_NODA_JUNO+DYB_Nov12_reprod25C_blind.root")
       #ensp['geo_ana'].WritetoROOT("geo", "Geo_Nov4.root")
       #ensp['rea300'].WritetoROOT("rea300", "rea300_Nov4.root")
 #  for key in bg_keys:
@@ -495,15 +634,21 @@ def CreateSpectra(ndays=10,
           ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
       #ensp['data'] += ensp['bckg']
 
-  # ensp['geo'].WritetoROOT("geo", "Geo_Nov9.root")
+  # ensp['rfis'].WritetoROOT("flux_xsec", "Reactor_xchecks_Nov11.root")
+  # ensp['ribd'].WritetoROOT("unosc", "Reactor_xchecks_Nov11.root")
+  # ensp['rosc'].WritetoROOT("osc", "Reactor_xchecks_Nov11.root")
+  # ensp['rvis_nonl'].WritetoROOT("dep", "Reactor_xchecks_Nov11.root")
+  # ensp['rvis'].WritetoROOT("vis", "Reactor_xchecks_Nov11.root")
+  # ensp['rdet'].WritetoROOT("reco", "Reactor_xchecks_Nov11.root")
+  # # ensp['geo'].WritetoROOT("geo", "Geo_Nov9.root")
   # ensp['rea300'].WritetoROOT("worldrea", "WR_Nov9.root")
   print("rea_precross-sec", ensp['rfis0'].GetIntegral())
   print("rea_precorr", ensp['rfis'].GetIntegral())
-  print("snf", ensp['snf'].GetIntegral())
-  print("noneq", ensp['noneq'].GetIntegral())
+  print("snf", ensp['snf_final'].GetIntegral())
+  print("noneq", ensp['noneq_final'].GetIntegral())
   print("rea_preosc", ensp['ribd'].GetIntegral())
   print("rea", ensp['rdet'].GetIntegral())
-    
+  print("total", ensp['rtot'].GetIntegral())  
   #ensp["data"] = ensp['rtot'] - ensp['rdet'] + ensp['data_rea']
   #rf = uproot.open(args.input_data_file) 
   return ensp, resp_matrix
