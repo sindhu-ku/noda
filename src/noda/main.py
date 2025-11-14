@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 import argparse
 import yaml
-from . import spectra as spec
+from . import spectra_new as spec
 from . import matrices as mat
 from . import scan as scan
 from .noda import *
@@ -17,7 +17,7 @@ from . import grid_scan_results as scan_res
 from . import minuit as minuit
 from . import minuit_pull as minuit_pull
 from . import minuit_comb as minuit_comb
-from . import minuit_new as minuit_new
+from . import minuit_unblind as minuit_new
 from .toymc import run_toy, save_batch_results
 
 def main(argv=None):

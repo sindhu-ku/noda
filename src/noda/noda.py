@@ -21,6 +21,7 @@ from array import array
 from scipy.linalg import cho_solve, cho_factor
 # from numba import njit4 
 from .nl_geant4 import Geant4Model
+import yaml
 import hashlib
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
@@ -1425,6 +1426,7 @@ def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=N
     
     Handles 0 m baseline by removing 1/L^2 dependence (useful for near/fake detectors).
     """
+
     power_conv = 6.24e21*60*60*24
     if alpha is None:
         alpha_arr = np.array(args.alpha)
@@ -1477,9 +1479,9 @@ def compute_extrafactors_per_core(args, core_powers, core_baselines, fission_fra
         # single-core extrafactor
         ef = compute_extrafactors(
             args,
-            core_baselines=core_baselines[i],
+            core_baselines=[core_baselines[i]],
             core_powers=[core_powers[i]],
-            fission_frac=ffs,
+            alpha=ffs,
             eff=eff
         )
         extrafactors.append(ef)

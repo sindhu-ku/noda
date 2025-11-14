@@ -44,7 +44,7 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
     """
 
     if write_output:
-        s_juno.WritetoROOT("rea_postfit", "Post_fit_NODA_JUNO+DYB_Nov11_reprod25C_blind.root")
+        s_juno.WritetoROOT("rea_postfit", "Post_fit_NODA_JUNO+DYB_Nov13_reprod25C_unblind.root")
 
     os.makedirs("Plots", exist_ok=True)
     bin_centers = s_tot_juno.bins
@@ -105,7 +105,7 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, write_output=Fal
                  color=colors[i % len(colors)], lw=1,
                  label=f'{key}: {cpd:.2f} cpd')
         if write_output:
-            spec.WritetoROOT(f"{name_to_key.get(key)}_postfit" , "Post_fit_NODA_JUNO+DYB_Nov12_reprod25C_blind.root")
+            spec.WritetoROOT(f"{name_to_key.get(key)}_postfit" , "Post_fit_NODA_JUNO+DYB_Nov13_reprod25C_unblind.root")
 
     ax1.set_ylabel("Events")
     leg = ax1.legend(fontsize=9, loc="upper right", frameon=True, edgecolor="black")
@@ -358,10 +358,27 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             
         theta = np.array([a, b, c, kB, fC, kI, LY_shared])
         diff_er = theta - theta0 
+        lower_bounds = np.zeros(len(theta0)) # or your per-parameter array 
+        upper_bounds = np.full(len(theta0), np.inf)
         inv_cov_er = np.linalg.inv(covariance_er) 
         chi2_penalty_er = diff_er @ inv_cov_er @ diff_er 
-        chi2_penalty_er_cache[key] = chi2_penalty_er 
-        return chi2_penalty_er
+        default_scale = 1.0
+        scale = np.maximum(np.abs(theta0), default_scale)  # example scale vector
+        # compute amounts outside bounds
+        below = np.maximum(lower_bounds - theta, 0.0)
+        above = np.maximum(theta - upper_bounds, 0.0)
+        outside = np.maximum(below, above)  # distance beyond closest bound
+    
+        # penalty factor: choose factor large enough to discourage large violations but not infinite
+        # e.g. (outside/scale)^2 * penalty_strength
+        penalty_strength = 1e3  # tune this; 1e3–1e6 is common depending on scales
+        soft_outside_penalty = np.sum((outside / scale) ** 2) * penalty_strength
+    
+        total_penalty = chi2_penalty_er + soft_outside_penalty
+        chi2_penalty_er_cache[key] = total_penalty
+        return total_penalty
+        # chi2_penalty_er_cache[key] = chi2_penalty_er 
+        # return chi2_penalty_er
 
 
     geo_spectrum_cache = {}
@@ -658,7 +675,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                   xmin=0.8, xmax=12.0,
                   ymin=1e-3,log_scale=False)
             rfis_param.Rebin_nonuniform(args_juno.bins_nonuniform)
-            if args_juno.write_output: rfis_param.WritetoROOT("rea_unosc_postfit", "Post_fit_NODA_JUNO+DYB_Nov10_reprod25C_v3.root")
+            # if args_juno.write_output: rfis_param.WritetoROOT("rea_unosc_postfit", "Post_fit_NODA_JUNO+DYB_Nov10_reprod25C_v3.root")
 
         return chi2 + chi2_penalty_er
     
@@ -931,17 +948,12 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     # m.migrad()
     #if not args_juno.silent_print and not args_juno.is_data: print(m)
 
-    m.print_level = 2
-    m.tol =100
-    m.strategy = 2
+    # m.print_level = 2
+    # m.tol =100
+    # m.strategy = 2
 
-    # #detector response
-    # for i in range(len(NL)):
-    #      if not args_juno.silent_print: print(f"Freeing NL{i}")
-    #      m.fixed[f'NL{i}'] = False
-    # for i in range(len(abc)):
-    #      if not args_juno.silent_print: print(f"Freeing abc{i}")
-    #      m.fixed[f'abc{i}'] = False
+
+    
     for key in bckgs_keys:
         print(f"Freeing bkg_{key}")
         m.fixed[f"bkg_{key}"] = False
@@ -950,8 +962,15 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     #m.simplex()
     m.migrad()
     if not args_juno.silent_print and not args_juno.is_data: print(m)
-
-
+    
+    #detector response
+    for i in range(len(NL)):
+         if not args_juno.silent_print: print(f"Freeing NL{i}")
+         m.fixed[f'NL{i}'] = False
+    for i in range(len(abc)):
+         if not args_juno.silent_print: print(f"Freeing abc{i}")
+         m.fixed[f'abc{i}'] = False
+    m.migrad()
             
     for p in first_fix:
         if m.fixed[p] == False: continue
@@ -1104,23 +1123,27 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
     best_params = [m.values[name] for name in m.parameters]
     chi2_wrapper(*best_params, plot_fit=True) 
     if args_juno.solar_contour:
-            x1, y1 = zip(*contour_1sigma)
-            x2, y2 = zip(*contour_2sigma)
-            
-            bf_th12 = m.values["sin2_th12"]
-            bf_dm21 = m.values["dm2_21"]
-            
-            plt.figure(figsize=(7,6))
-            plt.plot(x1, y1, 'b-', label='68% CL (1σ)')
-            plt.plot(x2, y2, 'r--', label='95% CL (2σ)')
-            plt.plot(bf_th12, bf_dm21, 'ko', label='Best fit')
-            plt.xlabel(r'$\sin^2\theta_{12}$')
-            plt.ylabel(r'$\Delta m^2_{21}$ [eV$^2$]')
-            plt.legend()
-            plt.grid(True)
-            plt.tight_layout()
+        contour_1sigma = m.mncontour("sin2_th12", "dm2_21", sigma=1)
+        contour_2sigma = m.mncontour("sin2_th12", "dm2_21", sigma=2)
+        
+        # Unpack points for plotting
+        x1, y1 = zip(*contour_1sigma)
+        x2, y2 = zip(*contour_2sigma)
+        
+        bf_th12 = m.values["sin2_th12"]
+        bf_dm21 = m.values["dm2_21"]
+        
+        plt.figure(figsize=(7,6))
+        plt.plot(x1, y1, 'b-', label='68% CL (1σ)')
+        plt.plot(x2, y2, 'r--', label='95% CL (2σ)')
+        plt.plot(bf_th12, bf_dm21, 'ko', label='Best fit')
+        plt.xlabel(r'$\sin^2\theta_{12}$')
+        plt.ylabel(r'$\Delta m^2_{21}$ [eV$^2$]')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig("Plots/solar_contour.png")
 
-            plt.savefig("Plots/solar_contour.png")
     # if args_juno.fit_type == "geo"  and args_juno.geo_fit_type == 'mantle':
     #     chi2_min = chi2_mantle(sin2_12=m.values[0], sin2_13=m.values[1], dm2_21=m.values[2], dm2_31=m.values[3], Nrea=m.values[4],Nmantle=m.values[5])
     #     chi2_mantle0 = chi2_nomantle(sin2_12=m0.values[0], sin2_13=m0.values[1], dm2_21=m0.values[2], dm2_31=m0.values[3], Nrea=m0.values[4])
