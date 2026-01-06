@@ -85,10 +85,10 @@ def main(argv=None):
   ebins = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins) #energy distributions/pdf binning
 
 
-  if args_nd.rebin_nonuniform:
-      ebins_nd = make_nonuniform_bins(args_nd.bins_nonuniform)
-  else:
-      ebins_nd = np.linspace(args_nd.min_ene, args_nd.max_ene, args_nd.bins) #energy distributions/pdf binning
+  # if args_nd.rebin_nonuniform:
+  #     ebins_nd = make_nonuniform_bins(args_nd.bins_nonuniform)
+  # else:
+  ebins_nd = np.linspace(args_nd.min_ene, args_nd.max_ene, args_nd.bins) #energy distributions/pdf binning
 
 
   min_temp = args_juno.max_ene + ((args_juno.max_ene- args_juno.min_ene)/args_juno.bins-1) #for combined CM calculation
@@ -110,28 +110,7 @@ def main(argv=None):
   print("   NMO opt NO: {}".format(args_juno.NMO_opt))
 
 
-  ene_leak_nd=None
-  # if args_juno.fit_type == "PMOP_combined":
-  # #     if os.path.isfile(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat") and not args_nd.FORCE_CALC_ENE_LEAK:
-  # #         ene_leak_nd = LoadRespMatrix(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-  # #     else:
-  #     if args_juno.nd == "TAO": ene_leak_nd = CalcEnergyLeak(rootfile=args_juno.input_data_file, histname="TAO_response_matrix_25", ebins=ebins, pebins=ebins)
-  #     if args_juno.nd == "DYB":
-  #         iav_data = np.loadtxt(args_nd.iav_matrix_file)  # shape should be (240, 240)
-  #         Emin_crop, Emax_crop = args_nd.min_ene, args_nd.max_ene
-  #         n_crop_bins = args_nd.bins
-
-  #         ebins_crop = np.linspace(Emin_crop, Emax_crop, n_crop_bins)
-
-
-  #         old_ebins = np.linspace(0, 12, 240 + 1)
-  #         i_start = np.searchsorted(old_ebins, Emin_crop)
-  #         i_stop  = np.searchsorted(old_ebins, Emax_crop)
-
-  #         iav_data_crop = iav_data[i_start:i_stop, i_start:i_stop]
-  #         iav_data_rebinned = rebin_matrix(iav_data_crop, old_row_bins=ebins_crop, old_col_bins=ebins_crop, new_row_bins=ebins_nd, new_col_bins=ebins_nd)
-  #         ene_leak_nd = RespMatrix(data=iav_data_rebinned, ebins=ebins_nd, pebins=ebins_nd)
-  #         ene_leak_nd.Save(f"{args_juno.data_matrix_folder}/energy_leak_{args_juno.nd}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
+  ene_leak_nd = None
 
 
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
@@ -155,6 +134,7 @@ def main(argv=None):
                                     ene_leak_nd=ene_leak_nd,
                                     args=args_nd)
 
+  
   end_sp_time = datetime.now()
   print("Spectra production time: ", end_sp_time - start_sp_time)
   #Create covariance matrices and energy response matrix, function inside matrices.py
@@ -304,10 +284,8 @@ def main(argv=None):
 
   #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
   if args_juno.stat_method_opt == 'bayesian':
-      # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom_juno =ensp_nom_juno, baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, SEED=i, args=args_juno) for i in range (args_juno.bayes_seed_beg, args_juno.bayes_seed_beg+args_juno.bayes_nprocesses))
        dm2_31_val = 2.583e-3
        dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 10)
-      # Parallel(n_jobs = -1)(delayed(bayes.run_emcee)(ensp_nom_juno =ensp_nom_juno, baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, SEED=i, args=args_juno, dm2_31=m31) for i in range (args_juno.bayes_seed_beg, args_juno.bayes_seed_beg+args_juno.bayes_nprocesses) for m31 in dm2_31_list)
        bayes_res.get_results(args=args_juno)
 
  #For frequentist, function inside scan.py
@@ -322,7 +300,6 @@ def main(argv=None):
                       baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno)
           scan_res.get_results(args=args_juno)
       else:
-          #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc=unc, rm=resp_matrix, ene_leak_nd=ene_leak_nd, cm_juno=cm_juno, cm_nd=cm_nd, args_juno=args_juno, args_nd=args_nd) for unc in unc_list_new_juno)
           if args_juno.fit_type == 'PMOP_combined':
               if args_juno.nd == "TAO":
                   if not args_juno.pull_all: minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0].replace(args_juno.unc_corr_ind+'+', ''), unc_nd=unc_list_new_nd[0].replace(args_juno.unc_corr_ind+'+', ''), unc_corr=unc_corr, rm=resp_matrix, rm_nd=resp_matrix_nd, ene_leak_nd=ene_leak_nd, cm_juno=cm_juno, cm_nd=cm_nd,cm_corr=cm_corr, args_juno=args_juno, args_nd=args_nd)
@@ -339,29 +316,17 @@ def main(argv=None):
                       DYB_rel_cm = GetRelCM(DYB_CM, DYB_sp)
     
                       obs = ensp_nom_nd['rdet'].bin_cont
-                      DYB_abs_CM = DYB_rel_cm.data * np.outer(obs, obs)
+                      DYB_abs_CM = CovMatrix(data=DYB_rel_cm.data * np.outer(obs, obs), bins=DYB_CM.bins)
     
                       cm_nd = {}
     
-                      cm_nd['all'] = DYB_abs_CM 
-                  
-                      minuit_comb.run_minuit(ndays=ndays, ndays_nd=ndays_nd,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix, rm_nd = resp_matrix_nd, cm_juno=cm_juno,cm_nd=cm_nd, ene_leak_nd=ene_leak_nd, args_juno=args_juno, args_nd=args_nd)
-                      #minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix,rm_nd = resp_matrix_nd, cm_juno=cm_juno, cm_nd=cm_nd,args_juno=args_juno, args_nd=args_nd, backgrounds=backgrounds)
+                      cm_nd['all'] = DYB_rel_cm
+
+                      minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, ensp_nom_nd=ensp_nom_nd, unc_juno=unc_list_new_juno[0], rm = resp_matrix,rm_nd = resp_matrix_nd, cm_juno=cm_juno, cm_nd=cm_nd,args_juno=args_juno, args_nd=args_nd, backgrounds=backgrounds,ene_leak_nd = ene_leak_nd, ndays_nd=ndays_nd)
                   else:    
                       from .DYB_model import make_dyb_model
                       dyb_model = make_dyb_model(args_nd)
                       minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds)
-                      #param_grid = np.linspace(2e-3, 3e-3, 5)
-          
-                      #fc_profile = toy_mc.run_fc_profiling(param_name="dm2_31", param_grid=[], ntoys=100, ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds)
-                      # plt.plot(fc_results[:,0], fc_results[:,1], 'o-', label='68% CL')
-                      # plt.plot(fc_results[:,0], fc_results[:,2], 'o-', label='90% CL')
-                      # plt.xlabel("dm2_31")
-                      # plt.ylabel("Δχ² critical")
-                      # plt.legend()
-                      # plt.title("Feldman–Cousins Critical Δχ²")
-                      # plt.savefig('Plots/FC_profiling_dm231.png')
-                      #minuit_comb.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model)
                       
 
                       
@@ -379,13 +344,9 @@ def main(argv=None):
                       if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
               else:
                   for unc in unc_list_new_juno: 
-                      # if not args_juno.pull_all:
-                      #     minuit.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
-                      # else:
-                      #     minuit_pull.run_minuit(ensp_nom_juno=ensp_nom_juno, unc_juno=unc, rm=resp_matrix, cm_juno=cm_juno, args_juno=args_juno)
                       minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
                      
-          #Parallel(n_jobs =-1)(delayed(minuit.run_minuit)(ensp_nom=ensp_nom_juno, unc=unc_list_new[0], baselines=baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno, dm2_31=m31) for m31 in dm2_31_list)
+
 
   end_scan_time = datetime.now()
   print("Scanning time", end_scan_time-start_scan_time)

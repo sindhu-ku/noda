@@ -621,7 +621,7 @@ def CreateSpectra(ndays=10,
   # ensp['rtot'].WritetoROOT("asimov", "ReactorPWG_check3_Nov8.root")
   #ensp['rfis'].WritetoROOT("rea_flux_xsec+bump", "ReactorPWG_check3_Nov8.root")
   if args.write_output:
-      ensp['rdet'].WritetoROOT("rea_prefit", "Post_fit_NODA_JUNO+DYB_Nov13_reprod25C_unblind.root")
+      ensp['rdet'].WritetoROOT("rea_prefit", "Post_fit_NODA_JUNO+DYB_Nov14_reprod25C_unblind.root")
       #ensp['geo_ana'].WritetoROOT("geo", "Geo_Nov4.root")
       #ensp['rea300'].WritetoROOT("rea300", "rea300_Nov4.root")
 #  for key in bg_keys:

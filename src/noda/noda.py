@@ -294,9 +294,20 @@ class Spectrum:
 
     return spec
 
-  def ApplyDetResp(self, respMat, pecrop=None):
-    if pecrop == None:
-      return Spectrum(self.bin_cont.dot(respMat.data), bins=respMat.pebins)
+  def ApplyDetResp(self, respMat, pecrop=None, norm=False):
+    data = respMat.data.copy()
+
+    if norm:
+        col_sums = data.sum(axis=0, keepdims=True)
+        col_sums[col_sums == 0] = 1.0
+        data /= col_sums
+        #respMat = RespMatrix(data=data, ebins=respMat.ebins, pebins=respMat.pebins)
+
+    if pecrop is None:
+        return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (MeV)")
+
+    # if pecrop == None:
+    #   return Spectrum(self.bin_cont.dot(respMat.data), bins=respMat.pebins)
     pebins_full = respMat.pebins
     pebw = (pebins_full[-1]-pebins_full[0])/(len(pebins_full)-1)
     peb1 = int(np.around((pecrop[0]-pebins_full[0])/pebw))
@@ -732,7 +743,7 @@ class Spectrum:
   def Plot(self, fname, **kwargs):
     self.Print(fname, **kwargs)
 
-  def Print(self, fname, xlabel=None, ylabel=None, leg_labels=None, colors=None, extra_spectra=[], xmin=None, xmax=None, log_scale=False, ymin=None, ymax=None, yinterval=None):
+  def Print(self, fname, xlabel=None, ylabel=None, leg_labels=None, colors=None, extra_spectra=[], xmin=None, xmax=None, log_scale=False, ymin=None, ymax=None, yinterval=None, title=None):
     if xlabel != None: self.xlabel = xlabel
     if ylabel != None: self.ylabel = ylabel
     if leg_labels == None:
@@ -759,8 +770,17 @@ class Spectrum:
     plt.xlabel(self.xlabel, fontsize=18)
     plt.ylabel(self.ylabel, fontsize=18)
     plt.xticks(fontsize=16)
-    plt.xticks(fontsize=16)
-    if all(leg_labels): plt.legend(fontsize=16)
+    plt.yticks(fontsize=16)
+    from matplotlib.lines import Line2D
+    if all(leg_labels):
+        legend_handles = []
+        for i, lab in enumerate(leg_labels):
+            if lab is not None:
+                legend_handles.append(
+                    Line2D([0], [0], color=colors[i], linewidth=2, label=lab)
+                )
+        plt.legend(handles=legend_handles, fontsize=16)
+    plt.title(title, fontsize=18)
     plt.tight_layout()
     plt.savefig(fname)
     plt.close()
@@ -823,7 +843,33 @@ class CovMatrix:
 
   def Add(self, cm):  # to be removed
     return CovMatrix(self.data + cm.data, bins=self.bins, axis_label=self.axis_label)
+  
+  def Rebin(self, new_bins):
+    fine_bins = np.asarray(self.bins)
+    new_bins  = np.asarray(new_bins)
 
+    assert np.all(np.diff(fine_bins) > 0)
+    assert np.all(np.diff(new_bins) > 0)
+
+    n_coarse = len(new_bins) - 1
+    n_fine   = len(fine_bins) - 1
+
+    R = np.zeros((n_coarse, n_fine))
+
+    for i in range(n_coarse):
+        c_low, c_high = new_bins[i], new_bins[i+1]
+        for j in range(n_fine):
+            f_low, f_high = fine_bins[j], fine_bins[j+1]
+
+            overlap = max(0.0, min(c_high, f_high) - max(c_low, f_low))
+            width   = f_high - f_low
+            if overlap > 0:
+                R[i, j] = overlap / width
+
+    rebinned_data = R @ self.data @ R.T
+    rebinned_data = 0.5 * (rebinned_data + rebinned_data.T)
+
+    return CovMatrix(rebinned_data, bins=new_bins, axis_label=self.axis_label)
   def Extend(self, other):
     A = self.data.shape[0]
     B = other.data.shape[0]
@@ -1253,7 +1299,10 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
     else:
         stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
 
-    cov_matrix = stat_cov_matrix + cm.data
+    if unc == 'stat':
+        cov_matrix = stat_cov_matrix 
+    else:
+        cov_matrix = stat_cov_matrix + cm.data
 
     obs = tot_obs.bin_cont
     exp = tot_exp.bin_cont

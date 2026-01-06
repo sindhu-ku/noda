@@ -22,16 +22,16 @@ fit_options:
   write_results: false
   silent_print: false
   geo_spectra: ana
-  pull_dm2_31: False
+  pull_dm2_31: false
   dm2_31_pull_val: 2.541e-3
   dm2_31_pull_err: 0.06e03
-  fit_type: PMOP_combined #PMOP_combined #PMOP_combined #geo or PMOP or PMOP_combined (default)
+  fit_type: PMOP #PMOP_combined #geo or PMOP or PMOP_combined (default)
   geo_fit_type: total #UThfree , mantle or total (default)
-  mantle_model: GD  
+  mantle_model: GD 
+  reac_model: HM 
   nd: DYB
   pull_shape: True
-  pull_shape_unc: 3.0
-  use_dagflow: true
+  use_dagflow: false
   geo_OPfixed: false
   toymc: false      
   ntoys: 1000 
@@ -107,8 +107,8 @@ common_det_inputs:
 
   geo_tnu_rate: 40.0
   tnu_to_cpd: 0.032387707
-  geo_rate: 1.239 #1.255 #1.147
-  rea300_rate: 0.892 #0.78 #0.903 #1.185
+  geo_rate: 1.229 # 1.239 #1.255 #1.147
+  rea300_rate: 0.886 #0.892 #0.78 #0.903 #1.185
 
   me_rho: 2.45 #2.45
   me_rho_scale: 0.15
@@ -119,7 +119,7 @@ common_det_inputs:
 
   #b2b_unc: 0.0134
 
-  eff_unc: 0.021 #rel
+  eff_unc: 0.0214 #rel
   r2_unc: 0.02 #rel
   snf_unc: 0.3 #rel
   me_rho_unc: 0.061
@@ -138,7 +138,7 @@ common_det_inputs:
 juno_inputs:
   reactor_summary_yaml:  /junofs/users/sindhu/NODA/noda/config/reactor_summary.yaml
   stat_opt: 58.8days #46.05days #46.6155days #46.05days # time period for sensitivity studies
-  detector_efficiency: 0.708 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  detector_efficiency: 0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   bins: 501
   min_ene: 0.7  # Minimum energy
   max_ene: 12
@@ -147,21 +147,10 @@ juno_inputs:
     - 12.0
   is_data: true
   NL: real
-  data_spectrum: /junofs/users/sindhu/NODA/noda/data//IBD_bckgs_groupC_Nov10_reprod25C.root #IBD_bckgs_groupC_Oct31.root 
-  #data_spectrum: /junofs/users/sindhu/NODA/noda/data/prefit_allgroups.root #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Oct31.root #
+  NL_data_file: /junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
+  data_spectrum: /junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root 
   rebin_nonuniform: true
-  bins_nonuniform:
-    # - [0.8, 1.0, 1]
-    # - [1.0, 7.0, 300]
-    # - [7.0, 9.0, 10]
-    # - [9.0, 10.0, 2]
-    # - [10.0, 12.0, 1]
-    
-    # - [0.8, 1.0, 1]
-    # - [1.0, 7.0, 60]
-    # - [7.0, 8.2, 4]
-    # - [8.2, 12.0, 1]
-    
+  bins_nonuniform: 
     - [0.7, 1.0, 1]
     - [1.0, 6.6, 56]
     - [6.6, 7.4, 4]
@@ -172,66 +161,45 @@ juno_inputs:
     - [9.4, 12.0, 1]
     
   seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700, 12.7823]
-    # - [0.7, 1.0, 1]
-    # - [1.0, 7.0, 20]
-    # - [7.0, 8.2, 4]
-    # - [8.2, 12.0, 1]
-    # - [2.0823, 8.9823, 23]
-    # - [8.9823, 12.7823, 1]
-    # - [0.7, 1.0, 1]
-    # - [1.0, 10.0, 30]
-    # - [10.0, 12.0, 1]
     
   U235_scale: 0.58
   U238_scale: 0.07
   Pu239_scale: 0.30
   Pu241_scale: 0.05
-  # core_baselines_1: [52760.0]
-  # core_powers_1: [4.6]
-  # core_powers_12: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
-  # core_baselines_12: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 52320.0, 52200.0, 215000.0, 265000.0]
-  # core_powers_10: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 17.4]
-  # core_baselines_10: [52750.0, 52840.0, 52420.0, 52510.0, 52120.0, 52210.0, 52760.0, 52630.0, 215000.0, 265000.0]
-  #core_powers: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
+
   core_powers: [1.93, 2.74 ,2.86, 1.54, 2.47, 2.87, 4.09, 4.15, 15.90, 9.25]
-  #core_powers: [2.32, 2.32, 2.32, 2.32, 2.32, 2.32, 3.68, 3.68, 13.92, 9.67]
-  Pth: [1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.25079552e+27, 1.98402048e+27, 1.98402048e+27, 7.50477312e+27]
+
   core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0, 411000.0]
-  #Pth: [1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 1.5634944e+27, 2.4800256e+27, 2.4800256e+27, 9.3809664e+27]  #Pth*6.24e21*60*60*24**6.24e21 # MeV per s
-  L: [5274000.0, 5282000.0, 5241000.0, 5249000.0, 5211000.0, 5219000.0, 5277000.0, 5264000.0, 21500000.0,  41100000.0] # Already in cm from core baselines
-  #Np:  1.4351802862903064e+33 #20.*12.01/1.0079*1e7*constants.Avogadro
   Np: 1.442e+33 
 
   veto: 1.0
-  nl_hist_name: J22rc0_positronScintNL
+  nl_hist_name: positronScintNL
   NL_sd: 1.0
 
+  #Padova
+  # a: 3.35364040e-02 #3.36449744e-02 #0.033 #0.03364345
+  # b: 1.53220897e-02 #1.52257960e-02 # 0.015229000 #0.00839  #0.009 #0.00839
+  # c: 0.0 #0.000 
 
-  a: 3.36449744e-02 #0.033 #0.03364345
-  b: 1.52257960e-02 # 0.015229000 #0.00839  #0.009 #0.00839
-  c: 0.0 #0.000 
+  #Irvine
+  a: 3.15289041e-02
+  b: 9.39472257e-03
+  c: 0.0
 
-  a_err: 0.00079 #0.8e-3 #0.0008046 #0.001 #0.0008046
-  b_err: 0.0011 #0.0011 #0.0013179864 #0.002 #0.0013179864
-  c_err: 0.001 #0.004 #0.1489 #0.004 #0.1489 #0.0077
+  #Irvine
+  a_err: 5.52553579e-04
+  b_err: 6.05760616e-04
+  c_err: 7.60974158e-04
 
-  # a: 0.035 #0.02614
-  # b: 0.0064
-  # c: 0.012
-  # a_err: 0.0002 #05
-  # b_err: 0.0001 #03
-  # c_err: 0.0004
-
-  kB: 1.45305820e-02 #0.016439 #0.0162 #0.016439
-  fC: 4.70417566e-01 #0.22315 #0.42 #0.22315
-  kI: 1.36409561e-03
-  LY_shared: 1.00436611e+00
+  #Padova
+  kB: 1.33122880e-02 #1.45305820e-02 #0.016439 #0.0162 #0.016439
+  fC: 6.58328259e-01 #4.70417566e-01 #0.22315 #0.42 #0.22315
+  kI: 2.76166818e-03 #1.36409561e-03
+  LY_shared: 1.00439834e+00 #1.00436611e+00
 
 
-  kB_err: 0.0018 #0.001285 #0.0021 #0.001285
-  fC_err: 0.21 #21 #0.11748 #0.19 #0.11748
-  kI_err: 0.0008 #0.8e-3
-  LY_shared_err: 0.0005
+  param_sp: data/unoscillated_spectrum_param_v1.dat
+  param_cov: data/COVARIANCE_param_v1.dat
 
 
 #  # Uncertainty list
@@ -248,29 +216,30 @@ juno_inputs:
     #- stat+nl
     #- stat+bg
     #- stat+me
-    - stat
+    - stat #+b2b_param
     #- stat+eff+bg+nl+abc
 
 nd_inputs:
-  bins: 147 #241 # Number of bins
+  bins: 241 #241 # Number of bins
   ene_crop:
-    - 0.7 #0 #7
-    - 8.0 #8.0
+    - 0.0 #0 #7
+    - 12.0 #8.0
     
-  min_ene: 0.7 #0.7
-  max_ene: 8.0 #8.0
-  stat_opt: 3158days # time period for sensitivity studies # time period for sensitivity studies
+  min_ene: 0.0 #0.7
+  max_ene: 12.0 #8.0
+  stat_opt: 1958days # time period for sensitivity studies # time period for sensitivity studies
   FORCE_CALC_ENE_LEAK: False
-
+  NL: pull
+  NL_data_file: /junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   iav_matrix_file: data/dyb_iav_matrix.txt
   is_data: true
-  dagflow_data: "../dayabay-model-official/data/"
-  custom_bin_edges: "../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv"
+  dagflow_data: ../dayabay-model-official/data/
+  custom_bin_edges: ../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
   rebin_nonuniform:  True
   bins_nonuniform:
-    - [0.8, 1.0, 1]
+    - [0.7, 1.0, 1]
     - [1.0, 8.0, 140]
-    - [8.0, 12.0, 1]
+    #- [8.0, 12.0, 1]
 
   
   U235_scale: 0.564
@@ -279,11 +248,8 @@ nd_inputs:
   Pu241_scale: 0.056
 
   core_powers: [17.4]
-  core_baselines: [560.0] #[560.0] #580.0] #[580.0]
-  Pth: [ 9.3809664e+27]
-  L: [56000.0] #[56000.0] #58000.0] #[58000.0] # Already in cm
-  #Np: 7.1756099e+28
-  #Np: 3.0851810e+30 
+  core_baselines: [540] #[560.0] #580.0] #[580.0]
+
   Np: 3.0851810e+30 #2.00917077999192e+29
   detector_efficiency: 0.803
   veto: 1.0

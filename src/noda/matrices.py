@@ -20,6 +20,7 @@ def GetCM(ensp = {},
     'b2b_DYB': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "DYBUncertainty"),
     'b2b_TAO': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "TAOUncertainty"),
     'b2b_ff': lambda: ensp['rdet'].GetB2BCovMatrix(args.ff_b2b_unc),
+    'b2b_param': lambda: get_b2b_param(args.param_cov, new_bins=make_nonuniform_bins(args.bins_nonuniform)),
     'snf': lambda: ensp['snf_final'].GetRateCovMatrix(args.snf_unc),
     'noneq': lambda: ensp['noneq_final'].GetRateCovMatrix(args.noneq_unc),
     'ene_scale': lambda: ensp['rdet'].GetRateCovMatrix(args.ene_scale_unc),
@@ -215,6 +216,27 @@ def GetCM(ensp = {},
               total_cm += bckg_cm[key]
       return total_cm
 
+  def get_b2b_param(filename, new_bins):
+    # Load covariance data (in keV)
+    data = np.loadtxt(filename)
+    n_fine = data.shape[0]
+
+    # Fine bin edges in keV (0 → 14050 keV in 10 keV steps)
+    fine_bins_keV = np.linspace(0, n_fine * 10, n_fine + 1)
+
+    # Convert to MeV for consistency
+    fine_bins = fine_bins_keV / 1000.0
+
+    # Create covariance matrix in MeV space
+    cm_fine = CovMatrix(deepcopy(data), bins=fine_bins, axis_label="Energy (MeV)")
+
+    # Rebin to new (coarse) bins
+    cm_coarse = cm_fine.Rebin(new_bins)
+    eig = np.linalg.eigvalsh(cm_coarse.data)
+    if np.any(eig < -1e-10):
+        print("WARNING: negative eigenvalues detected")
+
+    return cm_coarse
 
  # # Initialize the cm dictionary
   cm = {}
