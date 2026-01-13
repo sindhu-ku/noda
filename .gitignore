@@ -3,5 +3,5 @@
 *.csv
 *checkpoint.py
 *pyc
-__init__.py
-__pycache__/
+*__init__.py
+*__pycache__/
