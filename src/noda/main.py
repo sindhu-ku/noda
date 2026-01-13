@@ -60,13 +60,15 @@ def main(argv=None):
   #livetime calculation in number of days
   ndays =0
   if args_juno.stat_opt[-4:] == "days":
-      ndays = float(args_juno.stat_opt[:-4])
+      ndays = float(args_juno.stat_opt[:-4])*args_juno.duty_cycle
   elif args_juno.stat_opt[-4:] == "year":
       ndays = 365.25*float(args_juno.stat_opt[:-4])*args_juno.duty_cycle
   elif args_juno.stat_opt[-5:] == "years":
       ndays = 365.25*float(args_juno.stat_opt[:-5])*args_juno.duty_cycle
+  elif args_juno.stat_opt[-6:] == "months":
+      ndays = 30.436875*float(args_juno.stat_opt[:-6])*args_juno.duty_cycle
   else:
-      raise ValueError("only days or year(s) supported")
+      raise ValueError("only days or month(s) or year(s) supported")
       
   ndays_nd =0
   if args_nd.stat_opt[-4:] == "days":
@@ -134,7 +136,7 @@ def main(argv=None):
                                     ene_leak_nd=ene_leak_nd,
                                     args=args_nd)
 
-  
+
   end_sp_time = datetime.now()
   print("Spectra production time: ", end_sp_time - start_sp_time)
   #Create covariance matrices and energy response matrix, function inside matrices.py
@@ -230,7 +232,7 @@ def main(argv=None):
                                 .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_nd_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
               #cm_juno[new_unc].Extend(cm_nd[new_unc])
   
-      
+
   end_cm_time = datetime.now()
   print("Covariance matrices production: ", end_cm_time - start_cm_time)
   start_scan_time = datetime.now()

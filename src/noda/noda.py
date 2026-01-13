@@ -260,6 +260,7 @@ class Spectrum:
       if opp: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=not args.NMO_opt) #WARNING TODO: change this
       else: nuosc.SetOscillationParameters(opt=args.PDG_opt, NO=args.NMO_opt) #WARNING TODO: change this
       dm2_ee = nuosc.op_nom["dm2_ee"]
+
     spec = self.Copy(0.)
     if type(L) != list:
       L = [L]

@@ -14,9 +14,9 @@ def GetCM(ensp = {},
   ebins = ensp['rdet'].bins
   nbins = len(ebins)
   unc_map = {
-    'stat': lambda: ensp['rdet'].GetStatCovMatrix() if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetStatCovMatrix(),
+    'stat': lambda: ensp['rdet'].GetStatCovMatrix() if not args.geo_fit else (ensp['rdet']+ensp['geo']).GetStatCovMatrix(),
     'r2': lambda: ensp['rdet'].GetRateCovMatrix(args.r2_unc) if not args.pull_all else CovMatrix(data=np.zeros((nbins-1, nbins-1)), bins=ebins),
-    'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc) if not args.fit_type == 'geo' else (ensp['rdet']+ensp['geo']).GetRateCovMatrix(args.eff_unc),
+    'eff': lambda: ensp['rdet'].GetRateCovMatrix(args.eff_unc) if not args.geo_fit else (ensp['rdet']+ensp['geo']).GetRateCovMatrix(args.eff_unc),
     'b2b_DYB': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "DYBUncertainty"),
     'b2b_TAO': lambda: ensp['rdet'].GetVariedB2BCovMatrixFromROOT(args.input_data_file, "TAOUncertainty"),
     'b2b_ff': lambda: ensp['rdet'].GetB2BCovMatrix(args.ff_b2b_unc),
@@ -61,7 +61,7 @@ def GetCM(ensp = {},
   def new_NL_curve(w):
       new_nonl =  Spectrum(bins = ensp['scintNL'].bins, bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
       new_nonl.bin_cont = ensp['scintNL'].bin_cont + w[0]*(ensp['NL_pull'][0].bin_cont - ensp['scintNL'].bin_cont) + w[1]*(ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)  + w[2]*(ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont) +  w[3]*(ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont)
-      if args.fit_type =='geo' and args.geo_spectra == 'ana':
+      if args.geo_fit and args.geo_spectra == 'ana':
           if args.geo_fit_type == 'mantle':
               output = ensp['rvis_nonl'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_mantleu'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl) + ensp['rvis_mantleth'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
           else:
@@ -89,7 +89,7 @@ def GetCM(ensp = {},
       if args.rebin_nonuniform: ensp['rdet_nl_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_nl_flu']]
       del ensp['rvis_nl_flu']
       print("     constructing cov. matrix")
-      if args.fit_type == 'geo' and args.geo_spectra == 'ana':
+      if args.geo_fit and args.geo_spectra == 'ana':
           if args.geo_fit_type == 'mantle':
               cm['nl'] =(ensp['rdet']+ensp['geomantle']).GetCovMatrixFromRandSample(ensp['rdet_nl_flu'])
           else:
@@ -97,7 +97,7 @@ def GetCM(ensp = {},
       else: cm['nl'] = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_nl_flu'])
       del ensp['rdet_nl_flu']
       end_time_nl = datetime.now()
-      del ensp['rvis_nonl'], ensp['NL_pull']
+      del ensp['rvis_nonl']
       print ("NL flu time", end_time_nl - start_time_nl)
       print("   Summing nl matrices")
       cm_temp = cm['nl']
@@ -133,14 +133,14 @@ def GetCM(ensp = {},
       print ("Response matrix fluctuated spectra")
       start_time_resp = datetime.now()
       resp_mat_flu = CalcRespMatrix_abc_flu(escale=1, ebins=ebins, pebins=ebins)
-      if args.fit_type == 'geo' and args.geo_spectra == 'ana': ensp['rdet_abc_flu'] = [*map(lambda x :  (ensp['rvis'] + ensp['rvis_geou_nonl'] + ensp['rvis_geoth_nonl']).ApplyDetResp(x, pecrop=args.ene_crop), resp_mat_flu)]
+      if args.geo_fit and args.geo_spectra == 'ana': ensp['rdet_abc_flu'] = [*map(lambda x :  (ensp['rvis'] + ensp['rvis_geou_nonl'] + ensp['rvis_geoth_nonl']).ApplyDetResp(x, pecrop=args.ene_crop), resp_mat_flu)]
       else: ensp['rdet_abc_flu'] = [*map(lambda x :  ensp['rvis'].ApplyDetResp(x, pecrop=args.ene_crop), resp_mat_flu)]
       del resp_mat_flu
       end_time_resp = datetime.now()
       del ensp['rvis']
       print("RM flu time", end_time_resp - start_time_resp)
       if args.rebin_nonuniform: ensp['rdet_abc_flu'] = [s.Rebin_nonuniform(args.bins_nonuniform) for s in ensp['rdet_abc_flu']]
-      if args.fit_type == 'geo' and args.geo_spectra == 'ana': cm_temp = (ensp['rdet'] + ensp['geo']).GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
+      if args.geo_fit and args.geo_spectra == 'ana': cm_temp = (ensp['rdet'] + ensp['geo']).GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
       else: cm_temp = ensp['rdet'].GetCovMatrixFromRandSample(ensp['rdet_abc_flu'])
       del ensp['rdet_abc_flu']
       return cm_temp
@@ -196,18 +196,18 @@ def GetCM(ensp = {},
               if rate_unc > 0:
                   bckg_cm[key] += ensp[key].GetRateCovMatrix(rate_unc)
           if b2b_unc > 0:
-             bckg_cm[key] += ensp[key].GetB2BCovMatrix(b2b_unc)
+             bckg_cm[key] += ensp[key].GetB2BCovMatrix(b2b_unc, 0.1)
 
  
           if key== "geo":
-              if args.fit_type == "geo":
+              if args.geo_fit:
                   if args.geo_fit_type == "UThfree":
-                      bckg_cm['geou'] = ensp['geou'].GetB2BCovMatrix(b2b_unc)
-                      bckg_cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(b2b_unc)
+                      bckg_cm['geou'] = ensp['geou'].GetB2BCovMatrix(b2b_unc, 0.1)
+                      bckg_cm['geoth'] = ensp['geoth'].GetB2BCovMatrix(b2b_unc, 0.1)
                       bckg_cm["geo"] = bckg_cm["geou"] + bckg_cm["geoth"]
                   if args.geo_fit_type == "mantle":
-                      bckg_cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(b2b_unc) + ensp['geocrust'].GetB2BCovMatrix(args.crust_rate_unc)
-                      bckg_cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(b2b_unc)
+                      bckg_cm['geocrust'] = ensp['geocrust'].GetB2BCovMatrix(b2b_unc, 0.1) + ensp['geocrust'].GetB2BCovMatrix(args.crust_rate_unc, 0.1)
+                      bckg_cm['geomantle'] = ensp['geomantle'].GetB2BCovMatrix(b2b_unc, 0.1)
                       bckg_cm["geo"] = bckg_cm["geocrust"] + bckg_cm["geomantle"]
 
           if total_cm is None:
