@@ -1,0 +1,96 @@
+# background_rates.yaml
+
+JUNO:
+  lihe:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/lihe_spectrum.root"
+    histname: "prefit/lihe" #Li9BkgHistogramAD"
+    rate: 4.280
+    rate_unc: 0.34
+    b2b_unc: 0.2
+    name: "$^{9}$Li / $^{8}$He"
+
+  geo:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
+    histname: "prefit/geo" #GeoNuHistogramAD"
+    rate: 1.22 #1.239 #1.147
+    rate_unc: 0.0
+    b2b_unc: 0.05
+    name: "Geoneutrinos"
+    
+  wr:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/WR.root" 
+    histname: "prefit/wr" #OtherReactorSpectrum_L300km"
+    rate: 0.870 #1.185
+    rate_unc: 0.1
+    b2b_unc: 0.05
+    name: "World reactor neutrinos"
+    
+  bipo:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data//IBD_bckgs_groupC_Nov10_reprod25C.root" #"/junofs/users/sindhu/NODA/noda/data/ShapeUncWR.root" 
+    histname: "prefit/bipo" #OtherReactorSpectrum_L300km"
+    rate: 0.180
+    rate_unc: 0.56
+    b2b_unc: 0.05
+    name: "$^{214}$Bi"
+    
+  acc:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Jan6_reprod25C.root"
+    histname: "prefit/acc" #AccBkgHistogramAD"
+    rate: 0.049
+    rate_unc: 0.061
+    b2b_unc: 0.2
+    name: "Accidentals"
+   
+  doublen:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
+    histname: "prefit/doublen" #FnBkgHistogramAD"
+    rate: 0.05
+    rate_unc: 1.0
+    b2b_unc: 0.15
+    name: "Double neutrons"
+
+  atm:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/AtmNCBkgForReactorNu.root"
+    histname: "prefit/atm" #Ep_nominalModel_Option2_RateWShapeandRateError" #AtmosphericNeutrinoModelGENIE2"
+    rate: 0.080
+    rate_unc: 0.5
+    b2b_unc: 0.5
+    name: "Atmospheric neutrinos"
+
+  aneu:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
+    histname: "prefit/alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
+    rate: 0.040
+    rate_unc: 0.5
+    b2b_unc: 0.5
+    name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
+    
+  fneu:
+    rootfile: "/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/fastn_shape.root"
+    histname: "prefit/fastn" #FnBkgHistogramAD"
+    rate: 0.02
+    rate_unc: 1.0
+    b2b_unc: 0.6
+    name: "Fast neutrons"
+
+TAO:
+  lihe:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
+    histname: "Li9BkgHistogramAD"
+    rate: 54
+    rate_unc: 0.2
+    b2b_unc: 0.1
+
+  fneu:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
+    histname: "FnBkgHistogramAD"
+    rate: 86
+    rate_unc: 1.0
+    b2b_unc: 0.2
+
+  acc:
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
+    histname: "AccBkgHistogramAD"
+    rate: 190
+    rate_unc: 0.01
+    b2b_unc: 0.0

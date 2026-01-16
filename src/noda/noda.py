@@ -1422,19 +1422,33 @@ def make_nonuniform_bins(bins_nonuniform):
     return np.array(edges)
 import numpy as np
 
+# def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
+#     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
+#     interp_weights = np.interp(
+#         fine_centers, 
+#         coarse_edges, 
+#         nuisance_coarse,
+#         left=0.0,
+#         right=0.0
+#     )
+
+#     return interp_weights
+
 def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
-    interp_weights = np.interp(
+    
+    # Shift to multiplicative space (0 becomes 1, 0.1 becomes 1.1)
+    multiplicative_coarse = 1.0 + nuisance_coarse
+    
+    # Interpolate in log-space
+    interp_log = np.interp(
         fine_centers, 
         coarse_edges, 
-        nuisance_coarse,
-        left=0.0,
-        right=0.0
+        np.log(multiplicative_coarse)
     )
-
-    return interp_weights
-
-
+    
+    # Transform back and subtract the 1 to return to "shift" space
+    return np.exp(interp_log) - 1.0
 
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
     """

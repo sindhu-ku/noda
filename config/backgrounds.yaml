@@ -4,23 +4,23 @@ JUNO:
   lihe:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/lihe_spectrum.root"
     histname: "lihe_Chengzhuo" #Li9BkgHistogramAD"
-    rate: 7.6
-    rate_unc: 0.3
+    rate: 5.5
+    rate_unc: 0.4
     b2b_unc: 0.3
     name: "$^{9}$Li / $^{8}$He"
 
   geo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
     histname: "geo" #GeoNuHistogramAD"
-    rate: 1.239 #1.147
-    rate_unc: 0.4
+    rate: 1.229 #1.239 #1.147
+    rate_unc: 0.0
     b2b_unc: 0.05
     name: "Geoneutrinos"
     
-  rea300:
+  wr:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/WR.root" 
     histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
-    rate: 0.892 #1.185
+    rate: 0.886 #1.185
     rate_unc: 0.1
     b2b_unc: 0.05
     name: "World reactor neutrinos"
@@ -34,9 +34,9 @@ JUNO:
     name: "$^{214}$Bi"
     
   acc:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Jan6_reprod25C.root"
     histname: "acc" #AccBkgHistogramAD"
-    rate: 0.1641
+    rate: 0.169
     rate_unc: 0.0072
     b2b_unc: 0.2
     name: "Accidentals"

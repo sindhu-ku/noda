@@ -57,11 +57,12 @@ def CreateSpectra(ndays=10,
   s_bump_lin = sp.interpolate.interp1d(ensp['bump_corr'].GetBinCenters(), ensp['bump_corr'].bin_cont, kind='slinear', bounds_error=False, fill_value=(ensp['bump_corr'].bin_cont[0], ensp['bump_corr'].bin_cont[-1]))
 
   ensp['scintNL'] = GetSpectrumFromROOT(args.NL_data_file, args.nl_hist_name)
-  ensp['NL_pull'] = [ GetSpectrumFromROOT(args.NL_data_file,  f'positronScintNLpull0'),
-                      GetSpectrumFromROOT(args.NL_data_file,  f'positronScintNLpull1'),
-                      GetSpectrumFromROOT(args.NL_data_file,  f'positronScintNLpull2'),
-                      GetSpectrumFromROOT(args.NL_data_file,  f'positronScintNLpull3')]
+  ensp['NL_pull'] = [ GetSpectrumFromROOT(args.NL_data_file,  'positronNL_Reprod25C_pull0_v3'),#f'positronScintNLpull0'),
+                      GetSpectrumFromROOT(args.NL_data_file,  'positronNL_Reprod25C_pull1_v3'),#f'positronScintNLpull1'),
+                      GetSpectrumFromROOT(args.NL_data_file,  'positronNL_Reprod25C_pull2_v3'),#f'positronScintNLpull2'),
+                      GetSpectrumFromROOT(args.NL_data_file,  'positronNL_Reprod25C_pull3_v3')],#f'positronScintNLpull3')]
 
+  print(ensp['NL_pull'][0])
   if args.nl_hist_name == "J22rc0_positronScintNL":
       ensp['old_scintNL'] = GetSpectrumFromROOT(args.input_data_file, "positronScintNL")
       ratio = ensp['scintNL'].bin_cont/ensp['old_scintNL'].bin_cont
@@ -414,21 +415,21 @@ def CreateSpectra(ndays=10,
   print("length of NL Pull:")
   print (len(ensp['NL_pull']))
 
-  if args.plot_spectra:
-      ensp['rvis_nonl'].Plot(f"{args.plots_folder}/vis_spectra.png",
-                        xlabel="Visual energy (MeV)",
-                        ylabel=f"Events per {binw:0.1f} keV",
-                        extra_spectra=[ensp['rvis']],
-                        leg_labels=['Before NL', 'After NL'],
-                        colors=['darkred', 'green'],
-                        xmin=0, xmax=10,
-                        ymin=0, ymax=None, log_scale=False)
+  # if args.plot_spectra:
+  #     ensp['rvis_nonl'].Plot(f"{args.plots_folder}/vis_spectra.png",
+  #                       xlabel="Visual energy (MeV)",
+  #                       ylabel=f"Events per {binw:0.1f} keV",
+  #                       extra_spectra=[ensp['rvis']],
+  #                       leg_labels=['Before NL', 'After NL'],
+  #                       colors=['darkred', 'green'],
+  #                       xmin=0, xmax=10,
+  #                       ymin=0, ymax=None, log_scale=False)
 
-      ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity_old.png",
-                  xlabel="Reconstructed energy (MeV)",
-                  extra_spectra=ensp['NL_pull'],
-                  xmin=0, xmax=10,
-                  ymin=0.9, ymax=1.1, log_scale=False)
+  #     ensp['scintNL'].Plot(f"{args.plots_folder}/non_linearity_old.png",
+  #                 xlabel="Reconstructed energy (MeV)",
+  #                 extra_spectra=ensp['NL_pull'],
+  #                 xmin=0, xmax=10,
+  #                 ymin=0.9, ymax=1.1, log_scale=False)
 
 
 
@@ -626,7 +627,7 @@ def CreateSpectra(ndays=10,
       # ensp['ribd'].Rebin_nonuniform(args.bins_nonuniform).WritetoROOT("unosc", "Prefit_Jan12.root")
       # ensp['rtot'].WritetoROOT("totalpred", "Prefit_Jan12.root")
      
-      ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, "ibd")
+      ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, "data") #"ibd")
       if args.rebin_nonuniform: 
           ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
 

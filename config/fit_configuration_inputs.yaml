@@ -2,8 +2,6 @@ config: ''
 # Fit options configuration
 
 fit_options:
-
-
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
@@ -20,7 +18,7 @@ fit_options:
   CI_powers: false
   calc_minuit_errors: false
   profile_dm2_31: false
-  write_results: false
+  write_results: true
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
@@ -64,10 +62,10 @@ fit_options:
 
   reactor_model: Huber-Mueller
 
-  main_data_folder: /junofs/users/sindhu/NODA/noda/wobump_test_Oct31
+  main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan14
   cov_matrix_plots_folder: /junofs/users/sindhu/NODA/noda/CMplots #folder to store CM plots
   plots_folder: /junofs/users/sindhu/NODA/noda/Plots #folder to save plots of spectra
-  data_matrix_folder: /junofs/users/sindhu/NODA/noda/wobump_test_Oct31 #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan14 #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: /junofs/users/sindhu/NODA/noda/Bayesian/npz_files
   bayes_plots_folder: /junofs/users/sindhu/NODA/noda/Bayesian/Plots
 
@@ -101,7 +99,7 @@ common_det_inputs:
     GC: 0.23
     CC: 0.17
   crust_Th_U_ratio: 0.30
-  crust_rate_tnu: 50 # 1.370
+  crust_rate_tnu: 50 # 1.370terminals
   crust_rate_unc: 0.25
   mantle_rate:
     GD: 0.562 #0.635

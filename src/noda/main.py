@@ -33,7 +33,7 @@ def main(argv=None):
 #  args_juno = parser.parse_args_juno()
 
   #create parser for yaml file
-  with open("config/fit_configuration_inputs.yaml", "r") as file:
+  with open("config/groupA.yaml", "r") as file:
     config = yaml.safe_load(file)
 
      # Parse arguments from the YAML content
@@ -50,9 +50,13 @@ def main(argv=None):
 
     for option, value in config["nd_inputs"].items():
       parser_nd.add_argument(f"--{option}", default=value)
+      #parser_nd.set_defaults(**{option: value})
 
+  
   args_juno = parser_juno.parse_args()
   args_nd = parser_nd.parse_args()
+
+  args_nd.stat_opt='1958days' #FIXME
   #This is where all the data comes and goes
   if not os.path.exists(f"{args_juno.main_data_folder}"):
     os.mkdir(f"{args_juno.main_data_folder}")
