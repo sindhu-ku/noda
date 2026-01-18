@@ -25,35 +25,41 @@ def main(argv=None):
     argv = sys.argv[1:]
 
   start_sp_time = datetime.now()
-
-  #Create parser for config file
-  parser_juno = argparse.ArgumentParser()
-  parser_nd = argparse.ArgumentParser()
-#  parser.add_argument('--config', help='Path to the YAML configuration file')
-#  args_juno = parser.parse_args_juno()
-
-  #create parser for yaml file
-  with open("config/groupA.yaml", "r") as file:
-    config = yaml.safe_load(file)
-
-     # Parse arguments from the YAML content
-    for option, value in config["fit_options"].items():
-      parser_juno.add_argument(f"--{option}", default=value)
-      parser_nd.add_argument(f"--{option}", default=value)
-
-    for option, value in config["common_det_inputs"].items():
-      parser_juno.add_argument(f"--{option}", default=value)
-      parser_nd.add_argument(f"--{option}", default=value)
-
-    for option, value in config["juno_inputs"].items():
-      parser_juno.add_argument(f"--{option}", default=value)
-
-    for option, value in config["nd_inputs"].items():
-      parser_nd.add_argument(f"--{option}", default=value)
-      #parser_nd.set_defaults(**{option: value})
-
+  # --- STEP 1: Pre-parser to get the config file ---
+  conf_parser = argparse.ArgumentParser(add_help=False) # No help yet, or it will trigger early
+  conf_parser.add_argument("--config", default="config/groupA.yaml", help="Path to config file")
   
-  args_juno = parser_juno.parse_args()
+  # Use parse_known_args to get only the --config flag
+  args, remaining_argv = conf_parser.parse_known_args()
+  
+  # --- STEP 2: Load the YAML ---
+  with open(args.config, "r") as file:
+      config = yaml.safe_load(file)
+  
+  # --- STEP 3: Full Parser setup ---
+  # Include parents=[conf_parser] so --config still shows up in -h
+  parser_juno = argparse.ArgumentParser(parents=[conf_parser])
+  parser_nd = argparse.ArgumentParser(parents=[conf_parser])
+  
+  # Dynamically add your YAML arguments as defaults
+  sections = {
+      "fit_options": [parser_juno, parser_nd],
+      "common_det_inputs": [parser_juno, parser_nd],
+      "juno_inputs": [parser_juno],
+      "nd_inputs": [parser_nd]
+  }
+  
+  for section, parsers in sections.items():
+      if section in config:
+          for option, value in config[section].items():
+              for p in parsers:
+                  # Add as argument so it can be overridden by command line
+                  p.add_argument(f"--{option}", default=value)
+  
+  # --- STEP 4: Final Parse ---
+  # Now parse the 'remaining_argv' (everything except the --config part)
+  # Example for JUNO:
+  args_juno = parser_juno.parse_args(remaining_argv)
   args_nd = parser_nd.parse_args()
 
   args_nd.stat_opt='1958days' #FIXME

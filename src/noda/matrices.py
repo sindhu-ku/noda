@@ -186,6 +186,7 @@ def GetCM(ensp = {},
       return cm_temp
 
   def get_bckg_CM(pull=False):
+      print("pull?", pull)
       total_cm = None
       bckg_cm = {}
       for key, info in backgrounds[detector].items():

@@ -646,7 +646,7 @@ class Spectrum:
     w_target = np.diff(self.bins)
 
     # rescaling factor: s = w_source / w_target
-    s = w_source / w_target
+    s = 1.0 # w_source / w_target
 
     # use provided prediction if available
     if pred is None:

@@ -265,7 +265,7 @@ def plot_profile(m, i, param, plotname): #plots the chi2 profiles for a given pa
 def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='', unc_nd='', unc_corr='', rm= [], rm_nd=[], ene_leak_nd =[], cm_juno ={}, cm_nd={}, cm_corr='', args_juno='', args_nd='', dyb_model=None, backgrounds=None, toy=False, fix_param=None):
     
     if not args_juno.use_dagflow:
-        E_segments =  np.arange(1.8, 8.8, 0.3) 
+        E_segments =  np.arange(1.8, 8.8, 1.) 
     else:
         E_segments = np.array(args_juno.seg_bins_nonuniform)
     print("DYB segments: ", E_segments)
@@ -488,7 +488,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         bckg = ensp_nom_juno[f'rfis_wr_pos'].GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC, kI=kI, LY_shared=LY_shared) 
         bckg.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
     
-        rate = args_juno.wr_rate
+        rate = backgrounds['JUNO']['wr']['rate'] #args_juno.wr_rate
         scale = rate*ndays / (args_juno.duty_cycle*bckg.GetIntegral())
         bckg = bckg.GetScaledFit(scale)
         
@@ -736,7 +736,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                 if args_juno.NL == "pull":
                     bckg = ensp_nom_juno[f'rfis_wr_pos'].GetWithModifiedEnergy(mode='spectrum', spectrum=new_nonl)
                     bckg.ApplyDetResp(resp_matrix, pecrop=args_juno.ene_crop)
-                    rate = args_juno.wr_rate
+                    rate = backgrounds['JUNO']['wr']['rate'] #args_juno.wr_rate
                     scale = rate*ndays / (args_juno.duty_cycle*bckg.GetIntegral())
                     bckg = bckg.GetScaledFit(scale)
                     if args_juno.rebin_nonuniform: bckg.Rebin_nonuniform(args_juno.bins_nonuniform)
@@ -753,12 +753,12 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
                 
             bckg = bckg.GetScaledFit(1+info["pull"])
             
-            if info["b2b"] >0:
+            if info["b2b"] >0 and key != 'acc':
                 if cm_bckg is None:
-                    cm_bckg = bckg.GetB2BCovMatrix(info["b2b"], 0.1)
+                    cm_bckg = ensp_nom_juno[key].GetB2BCovMatrix(info["b2b"], 0.1)
 
                 else:
-                    cm_bckg += bckg.GetB2BCovMatrix(info["b2b"], 0.1)
+                    cm_bckg += ensp_nom_juno[key].GetB2BCovMatrix(info["b2b"], 0.1)
 
             s_tot_juno += bckg
             
@@ -769,15 +769,15 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         # print(s_tot_juno.GetIntegral())
 
         chi2_dyb=0
-        if unc_juno != 'stat':
-            cm_j = cm_juno[unc_juno]
-        else:
-            ebins = ensp_nom_juno['rdet'].bins
-            nbins = len(ebins)
-            cm_j = CovMatrix(data=np.zeros((nbins-1, nbins-1)), bins=ebins)
-            
-        if args_juno.pull_all:
-            cm_j = cm_j + cm_bckg
+        # if unc_juno != 'stat':
+        #     cm_j = cm_juno[unc_juno]
+        # else:
+        ebins = ensp_nom_juno['rdet'].bins
+        nbins = len(ebins)
+        cm_j = CovMatrix(data=np.zeros((nbins-1, nbins-1)), bins=ebins)
+        
+        # if args_juno.pull_all:
+        #     cm_j = cm_j + cm_bckg
         
         if args_juno.fit_type == "PMOP_combined":
             if unc_juno == 'stat' and unc_nd== 'stat' and unc_corr=='stat':
@@ -1007,7 +1007,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
 
     # --- Limits ---
     nuis_limit_minus_names = (
-        ["Nrea"]
+        ["Nrea"] 
         + ["Nrea_nd"]
         + [f"snf_noneq_norm{i}" for i in range(len(snf_noneq_norm))]
         + [f"bkg_{k}" for k in bckgs_keys]
@@ -1090,7 +1090,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
             m.fixed[p] = False
 
     # m.fixed['Nrea'] = False
-    # m.fixed['bkg_geo'] = False
+    #m.fixed['bkg_geo'] = False
     # for k in bckgs_keys:
     #     m.fixed[f"bkg_{k}"] = False
     # for i in range(len(NL)):
@@ -1310,7 +1310,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
         extra_name = ''
         if not args_juno.geo_fit_type == 'total': extra_name = f'{args_juno.geo_fit_type}_'
         if args_juno.fit_type == "NMO" and args_juno.include_nd: extra_name = '_nd_'
-        filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_{extra_name}{args_juno.stat_method_opt}_NO-{args_juno.NMO_opt}_paperconfig_{args_juno.bins}bins_minuit.txt"
+        filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_{extra_name}{args_juno.stat_method_opt}_NO-{args_juno.NMO_opt}_geo_noacc_b2b_{args_juno.file_prefix}_{args_juno.bins}bins_minuit.txt"
 
         write_results(m, filename, extra, merrors=merrors, silent=args_juno.silent_print) #write results into a textfile
    #fancy stuff

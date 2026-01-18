@@ -457,7 +457,6 @@ def CreateSpectra(ndays=10,
             else:
                 ensp['rvis_wr'] = ensp['rfis_wr_pos'].GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
             ensp[key] = ensp['rvis_wr'].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-            
         scale = float(info["rate"])*ndays / (args.duty_cycle*ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
         print(key, ensp[key].GetIntegral(), info["rate"])
