@@ -262,60 +262,110 @@ class Spectrum:
       dm2_ee = nuosc.op_nom["dm2_ee"]
 
     spec = self.Copy(0.)
+
     if type(L) != list:
       L = [L]
     if core_powers == None:
-      core_shares = [1./len(L)]*len(L)
+      core_shares = np.full(len(L), 1./len(L))
     else:
-      core_shares = [p/(l*l) for p, l in zip(core_powers, L)]
-      core_shares = [p/sum(core_shares) for p in core_shares]
+      core_shares = np.array([p/(l*l) for p, l in zip(core_powers, L)])
+      core_shares = core_shares / np.sum(core_shares)
+
     eshift = 0
-    if ene_mode == 'vis': #nt used
+    if ene_mode == 'vis': 
       eshift = -0.511+1.293
+
+    # --- VECTORIZED MATH STARTS HERE ---
+    
+    # 1. Prepare bin arrays
+    b1 = self.bins[:-1]
+    b2 = self.bins[1:]
+    
+    # 2. Setup the evaluation energies depending on points_per_bin
+    if points_per_bin == 1:
+        evis_array = 0.5 * (b1 + b2) + eshift
+    else:
+        # Create a 2D array of sub-bin points: shape (n_bins, points_per_bin)
+        w = (b2 - b1) / points_per_bin
+        evis_array = np.array([b1 + (i + 0.5) * w for i in range(points_per_bin)]).T + eshift
+
+    # 3. Create an empty array to accumulate the total spectrum
+    total_val = np.zeros_like(self.bin_cont)
+
+    # 4. Loop over baselines, calculate probabilities for ALL bins at once
     for l, share in zip(L, core_shares):
       if osc_formula == nuosc.AntiNueSurvProb:
-        P = lambda evis: osc_formula(evis+eshift, l,
-                                     sin2_th12=sin2_th12, sin2_th13=sin2_th13,
-                                     dm2_21=dm2_21, dm2_31=dm2_31, dm2_32=dm2_32,
-                                     me_rho=me_rho)
+        # osc_formula takes the whole array and returns an array of probabilities
+        P_array = osc_formula(evis_array, l,
+                              sin2_th12=sin2_th12, sin2_th13=sin2_th13,
+                              dm2_21=dm2_21, dm2_31=dm2_31, dm2_32=dm2_32,
+                              me_rho=me_rho)
       elif osc_formula == nuosc.AntiNueSurvProbYB:
-        P = lambda evis: osc_formula(evis+eshift, l,
-                                     sin2_th12=sin2_th12, sin2_th13=sin2_th13,
-                                     dm2_21=dm2_21, dm2_ee=dm2_ee,
-                                     me_rho=me_rho)
-      val =[]
-      for b1, b2, x in zip(self.bins[:-1], self.bins[1:], self.bin_cont):
-        if points_per_bin == 1:
-          val.append(x*P(0.5*(b1+b2))*share)
-        else:
-          w = (b2 - b1) / points_per_bin
-          v = sum(P(b1 + (i + 0.5) * w) for i in range(points_per_bin)) / points_per_bin
-          val.append(x*v*share)
-      spec += Spectrum(val, bins=self.bins, xlabel=self.xlabel)
+        P_array = osc_formula(evis_array, l,
+                              sin2_th12=sin2_th12, sin2_th13=sin2_th13,
+                              dm2_21=dm2_21, dm2_ee=dm2_ee,
+                              me_rho=me_rho)
+      
+      # If using multiple points per bin, average the probabilities across axis 1
+      if points_per_bin > 1:
+          P_array = np.mean(P_array, axis=1)
 
-    return spec
+      # Multiply the base spectrum by the probabilities and share, and add to total
+      total_val += self.bin_cont * P_array * share
 
+    # 5. Return exactly ONE Spectrum object at the very end
+    return self.Copy(0.) + Spectrum(total_val, bins=self.bins, xlabel=self.xlabel)
+      
   def ApplyDetResp(self, respMat, pecrop=None, norm=False):
-    data = respMat.data.copy()
+    # DITCH THE .copy() - just reference the data
+    data = respMat.data
 
+    # WARNING: If norm is True, you are modifying the matrix IN PLACE
+    # and doing heavy math. Pre-normalize respMat OUTSIDE the minuit loop if possible!
     if norm:
         col_sums = data.sum(axis=0, keepdims=True)
         col_sums[col_sums == 0] = 1.0
         data /= col_sums
-        #respMat = RespMatrix(data=data, ebins=respMat.ebins, pebins=respMat.pebins)
 
     if pecrop is None:
         return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (MeV)")
 
-    # if pecrop == None:
-    #   return Spectrum(self.bin_cont.dot(respMat.data), bins=respMat.pebins)
     pebins_full = respMat.pebins
     pebw = (pebins_full[-1]-pebins_full[0])/(len(pebins_full)-1)
+    
+    # Calculate indices
     peb1 = int(np.around((pecrop[0]-pebins_full[0])/pebw))
     peb2 = int(np.around((pecrop[1]-pebins_full[0])/pebw))
     pebins_crop = pebins_full[peb1:peb2+1]
-    #return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
-    return Spectrum(self.bin_cont.dot(respMat.data[:, peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+
+    # Create a view of the matrix (fast) and do the dot product
+    # Note: If respMat is scipy.sparse, dot() is even faster!
+    matrix_slice = data[:, peb1:peb2]
+    smeared_cont = self.bin_cont.dot(matrix_slice)
+
+    return Spectrum(smeared_cont, bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+
+  # def ApplyDetResp(self, respMat, pecrop=None, norm=False):
+  #   data = respMat.data.copy()
+
+  #   if norm:
+  #       col_sums = data.sum(axis=0, keepdims=True)
+  #       col_sums[col_sums == 0] = 1.0
+  #       data /= col_sums
+  #       #respMat = RespMatrix(data=data, ebins=respMat.ebins, pebins=respMat.pebins)
+
+  #   if pecrop is None:
+  #       return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (MeV)")
+
+  #   # if pecrop == None:
+  #   #   return Spectrum(self.bin_cont.dot(respMat.data), bins=respMat.pebins)
+  #   pebins_full = respMat.pebins
+  #   pebw = (pebins_full[-1]-pebins_full[0])/(len(pebins_full)-1)
+  #   peb1 = int(np.around((pecrop[0]-pebins_full[0])/pebw))
+  #   peb2 = int(np.around((pecrop[1]-pebins_full[0])/pebw))
+  #   pebins_crop = pebins_full[peb1:peb2+1]
+  #   #return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+  #   return Spectrum(self.bin_cont.dot(respMat.data[:, peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
 
   def GetWithShiftedEnergy(self, eshift):
     Enu = self.bins
@@ -470,7 +520,7 @@ class Spectrum:
         e *= scale*spline(e)
         bins_new.append(e)
     elif mode == "spectrum":
-      bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])
+      bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])*(1+LY_shared)
     elif mode == "G4":  
       bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC, kI=kI)*LY_shared/G4model_gamma.eval(2.2, kB, fC=fC, kI=kI)
     elif mode == "fit":
@@ -581,7 +631,10 @@ class Spectrum:
     data = np.zeros(shape=(nb,nb))
     for i,x in enumerate(self.bin_cont):
       #if(x==0): x = min(exp.bin_cont)
-      data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
+      if x > 0:
+          data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
+      else:
+          data[i][i] = 3./((1./1e-12) + (2./exp.bin_cont[i]))
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
   # def GetB2BCovMatrix(self, sigma):
@@ -646,7 +699,8 @@ class Spectrum:
     w_target = np.diff(self.bins)
 
     # rescaling factor: s = w_source / w_target
-    s = 1.0 # w_source / w_target
+    #s = 1.0
+    s = w_source / w_target
 
     # use provided prediction if available
     if pred is None:
@@ -656,6 +710,7 @@ class Spectrum:
 
     # diagonal covariance elements: (s * sigma * mu_b)^2
     var =  s*( sigma * mu)**2
+
     np.fill_diagonal(data, var)
 
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)

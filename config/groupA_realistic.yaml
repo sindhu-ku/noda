@@ -24,7 +24,7 @@ fit_options:
   pull_dm2_31: false
   dm2_31_pull_val: 2.541e-3
   dm2_31_pull_err: 0.06e03
-  fit_type: PMOP #PMOP_combined #geo or PMOP or PMOP_combined (default)
+  fit_type: PMOP_combined #PMOP_combined #geo or PMOP or PMOP_combined (default)
   geo_fit: true
   apply_bump: true
   geo_fit_type: total #UThfree , mantle or total (default)
@@ -63,10 +63,10 @@ fit_options:
 
   reactor_model: Huber-Mueller
 
-  main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan14
+  main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan18
   cov_matrix_plots_folder: /junofs/users/sindhu/NODA/noda/CMplots #folder to store CM plots
   plots_folder: /junofs/users/sindhu/NODA/noda/Plots #folder to save plots of spectra
-  data_matrix_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan14 #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan18 #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: /junofs/users/sindhu/NODA/noda/Bayesian/npz_files
   bayes_plots_folder: /junofs/users/sindhu/NODA/noda/Bayesian/Plots
 
@@ -107,6 +107,8 @@ common_det_inputs:
     GC: 0.259 #0.285
     CC: 0.091 #0.081
 
+  acc_rate: 0.5
+  acc_unc: 0.01
   geo_tnu_rate: 44.54 #44.25 #40 #37.95 #40.0
   tnu_to_cpd: 0.029630137 #0.027390099 #0.027773315 #0.032387707
   geo_rate: 1.22 #1.2955 #1.229 # 1.239 #1.255 #1.147
@@ -151,7 +153,7 @@ juno_inputs:
   NL: pull
   NL_data_file:  /junofs/users/sindhu/solaroscillation_nov2025/groupA/detector_response_groupA.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   data_spectrum: /junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Jan6_reprod25C.root 
-  rebin_nonuniform: false
+  rebin_nonuniform: true
   bins_nonuniform: 
     - [0.69, 1.0, 1]
     - [1.0, 6.6, 56]
@@ -238,7 +240,7 @@ juno_inputs:
     #- stat+nl
     #- stat+bg
     #- stat+me
-    - stat+bg
+    - stat
 
 nd_inputs:
   bins: 241 #241 # Number of bins

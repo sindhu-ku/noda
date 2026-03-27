@@ -18,21 +18,21 @@ fit_options:
   CI_powers: false
   calc_minuit_errors: false
   profile_dm2_31: false
-  write_results: true
+  write_results: false
   silent_print: false
-  geo_spectra: ana
+  geo_spectra: CI
   pull_dm2_31: false
   dm2_31_pull_val: 2.541e-3
   dm2_31_pull_err: 0.06e03
-  fit_type: PMOP #PMOP_combined #geo or PMOP or PMOP_combined (default)
+  fit_type: PMOP_combined #PMOP_combined #geo or PMOP or PMOP_combined (default)
   geo_fit: true
-  apply_bump: true
+  apply_bump: false
   geo_fit_type: total #UThfree , mantle or total (default)
   mantle_model: GD 
   reac_model: HM 
   nd: DYB
   pull_shape: True
-  use_dagflow: false
+  use_dagflow: true
   geo_OPfixed: false
   toymc: false      
   ntoys: 1000 
@@ -48,10 +48,10 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: true
-  file_prefix: paperconfig
+  prefix: std
 
   FORCE_CALC_RM: true # Force calculation of response matrix
-  FORCE_CALC_CM: true # Force calculation of covariance matrices
+  FORCE_CALC_CM: false # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
   backgrounds_yaml: /junofs/users/sindhu/NODA/noda/config/backgrounds_groupA.yaml
@@ -107,11 +107,10 @@ common_det_inputs:
     GC: 0.259 #0.285
     CC: 0.091 #0.081
 
-  geo_tnu_rate: 44.54 #44.25 #40 #37.95 #40.0
-  tnu_to_cpd: 0.027390099 #0.027773315 #0.032387707
+  geo_tnu_rate: 1.22 #44.54 #44.25 #40 #37.95 #40.0
+  tnu_to_cpd: 1.0 #0.027390099 #0.027773315 #0.032387707
   geo_rate: 1.22 #1.2955 #1.229 # 1.239 #1.255 #1.147
-  wr_rate: 0.870 #0.892 #0.78 #0.903 #1.185hep_sub jobs/noda_paperconfig_r50_2years.sh
-
+  wr_rate: 0.870 #0.892 #0.78 #0.903 #1.185
 
   me_rho: 2.45 #2.45
   me_rho_scale: 0.15
@@ -143,25 +142,26 @@ juno_inputs:
   stat_opt: 59.1days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.6933 #0.703 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   bins: 566
-  min_ene: 0.69  # Minimum energy
-  max_ene: 11.99
+  min_ene: 0.7  # Minimum energy
+  max_ene: 12
   ene_crop:
-    - 0.69
-    - 11.99
-  is_data: false
+    - 0.7
+    - 12.0
+  is_data: true
   NL: pull
   NL_data_file:  /junofs/users/sindhu/solaroscillation_nov2025/groupA/detector_response_groupA.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   data_spectrum: /junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Jan6_reprod25C.root 
-  rebin_nonuniform: false
+  data_hist_name: data
+  rebin_nonuniform: true
   bins_nonuniform: 
-    - [0.69, 1.0, 1]
+    - [0.7, 1.0, 1]
     - [1.0, 6.6, 56]
     - [6.6, 7.4, 4]
     - [7.4, 7.7, 1]
     - [7.7, 8.1, 1]
     - [8.1, 8.6, 1]
     - [8.6, 9.4, 1]
-    - [9.4, 11.99, 1]
+    - [9.4, 12.0, 1]
 
     # - [0.8, 1.0, 1]
     # - [1.0, 7.0, 300]
@@ -169,7 +169,7 @@ juno_inputs:
     # - [9.0, 10.0, 2]
     # - [10.0, 12.0, 1]
 
-  seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
+  seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700, 12.7823]
     
   U235_scale: 0.58
   U238_scale: 0.07
@@ -254,9 +254,9 @@ nd_inputs:
   NL: pull
   NL_data_file: /junofs/users/sindhu/solaroscillation_nov2025/groupA/detector_response_groupA.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   iav_matrix_file: data/dyb_iav_matrix.txt
-  is_data: false
+  is_data: true
   dagflow_data: ../dayabay-model-official/data/
-  custom_bin_edges: ../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
+  custom_bin_edges: ../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_groupA.tsv
   rebin_nonuniform:  True
   bins_nonuniform:
     - [0.7, 1.0, 1]

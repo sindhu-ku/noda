@@ -2,25 +2,25 @@
 
 JUNO:
   lihe:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/lihe_spectrum.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/lihe_spectrum_reprodC_Jan2026.root" #lihe_spectrum.root"
     histname: "lihe_Chengzhuo" #Li9BkgHistogramAD"
-    rate: 5.5
-    rate_unc: 0.4
+    rate: 4.2
+    rate_unc: 1.3
     b2b_unc: 0.3
     name: "$^{9}$Li / $^{8}$He"
 
   geo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
     histname: "geo" #GeoNuHistogramAD"
-    rate: 1.229 #1.239 #1.147
-    rate_unc: 0.0
+    rate: 1.220 #1.239 #1.147
+    rate_unc: 0.4
     b2b_unc: 0.05
     name: "Geoneutrinos"
     
-  wr:
+  worldrea:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/WR.root" 
     histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
-    rate: 0.886 #1.185
+    rate: 0.8787 #886 #1.185
     rate_unc: 0.1
     b2b_unc: 0.05
     name: "World reactor neutrinos"
@@ -28,7 +28,7 @@ JUNO:
   bipo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data//IBD_bckgs_groupC_Nov10_reprod25C.root" #"/junofs/users/sindhu/NODA/noda/data/ShapeUncWR.root" 
     histname: "bipo" #OtherReactorSpectrum_L300km"
-    rate: 0.264
+    rate: 0.260
     rate_unc: 0.5
     b2b_unc: 0.05
     name: "$^{214}$Bi"
@@ -36,8 +36,8 @@ JUNO:
   acc:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Jan6_reprod25C.root"
     histname: "acc" #AccBkgHistogramAD"
-    rate: 0.169
-    rate_unc: 0.0072
+    rate: 0.17
+    rate_unc: 0.007
     b2b_unc: 0.2
     name: "Accidentals"
    
@@ -57,7 +57,7 @@ JUNO:
     b2b_unc: 0.5
     name: "Atmospheric neutrinos"
 
-  aneu:
+  alphan:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
     histname: "alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
     rate: 0.037
@@ -65,7 +65,7 @@ JUNO:
     b2b_unc: 0.25
     name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
     
-  fneu:
+  fastn:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/fastn_shape.root"
     histname: "h_fastn" #FnBkgHistogramAD"
     rate: 0.006

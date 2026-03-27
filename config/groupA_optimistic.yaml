@@ -63,10 +63,10 @@ fit_options:
 
   reactor_model: Huber-Mueller
 
-  main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan14
+  main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan18
   cov_matrix_plots_folder: /junofs/users/sindhu/NODA/noda/CMplots #folder to store CM plots
   plots_folder: /junofs/users/sindhu/NODA/noda/Plots #folder to save plots of spectra
-  data_matrix_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan14 #folder to save or to use csv files of spectra and matrices
+  data_matrix_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan18 #folder to save or to use csv files of spectra and matrices
   bayes_data_folder: /junofs/users/sindhu/NODA/noda/Bayesian/npz_files
   bayes_plots_folder: /junofs/users/sindhu/NODA/noda/Bayesian/Plots
 

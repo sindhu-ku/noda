@@ -12,7 +12,7 @@ JUNO:
     rootfile: "/junofs/users/chenht/reactor-fitter_result/result/finebin_bkg.root" #/junofs/users/sindhu/solaroscillation_nov2025/groupA/dataset_p25c_GroupA.root" #/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
     histname: "prefit/geo" #GeoNuHistogramAD"
     rate: 1.446 #1.239 #1.147
-    rate_unc: 0.0
+    rate_unc: 0.4
     b2b_unc: 0.05
     name: "Geoneutrinos"
     
