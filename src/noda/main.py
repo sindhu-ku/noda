@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 import argparse
 import yaml
-from . import spectra_new as spec
+from . import spectra_new_single as spec
 from . import matrices as mat
 from . import scan as scan
 from .noda import *
@@ -17,7 +17,7 @@ from . import grid_scan_results as scan_res
 from . import minuit as minuit
 from . import minuit_pull as minuit_pull
 from . import minuit_comb as minuit_comb
-from . import minuit_unblind as minuit_new
+from . import minuit_unblind_single as minuit_new
 from .toymc import run_toy, save_batch_results
 
 def main(argv=None):
@@ -27,7 +27,7 @@ def main(argv=None):
   start_sp_time = datetime.now()
   # --- STEP 1: Pre-parser to get the config file ---
   conf_parser = argparse.ArgumentParser(add_help=False) # No help yet, or it will trigger early
-  conf_parser.add_argument("--config", default="config/groupA.yaml", help="Path to config file")
+  conf_parser.add_argument("--config", default="config/groupA_paperconfig.yaml", help="Path to config file")
   
   # Use parse_known_args to get only the --config flag
   args, remaining_argv = conf_parser.parse_known_args()

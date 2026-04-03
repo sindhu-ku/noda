@@ -313,6 +313,7 @@ class Spectrum:
       # Multiply the base spectrum by the probabilities and share, and add to total
       total_val += self.bin_cont * P_array * share
 
+
     # 5. Return exactly ONE Spectrum object at the very end
     return self.Copy(0.) + Spectrum(total_val, bins=self.bins, xlabel=self.xlabel)
       
@@ -522,7 +523,7 @@ class Spectrum:
     elif mode == "spectrum":
       bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])*(1+LY_shared)
     elif mode == "G4":  
-      bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC, kI=kI)*LY_shared/G4model_gamma.eval(2.2, kB, fC=fC, kI=kI)
+      bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC, kI=kI)*LY_shared/G4model_gamma.eval(2.22, kB, fC=fC, kI=kI)
     elif mode == "fit":
       bins_new = self.bins*fit_bins
     old_bins = self.bins
@@ -630,11 +631,7 @@ class Spectrum:
     nb = len(self.bin_cont)
     data = np.zeros(shape=(nb,nb))
     for i,x in enumerate(self.bin_cont):
-      #if(x==0): x = min(exp.bin_cont)
-      if x > 0:
-          data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
-      else:
-          data[i][i] = 3./((1./1e-12) + (2./exp.bin_cont[i]))
+        data[i][i] = 3./((1./x) + (2./exp.bin_cont[i]))
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
 
   # def GetB2BCovMatrix(self, sigma):
@@ -776,17 +773,31 @@ class Spectrum:
     sigmas = 1. / np.sqrt(sigmas_inv_var)
     return self.GetVariedB2BCovMatrix(sigmas)
   
-  def WritetoROOT(self, histname, outfile):
-    output_file = ROOT.TFile(outfile, "update")
+  def WritetoROOT(self, histname, outfile, directory=None):
+    # Open the file in update mode
+    output_file = ROOT.TFile(outfile, "UPDATE")
+    
+    # If a directory is specified, navigate into it or create it
+    if directory:
+        if not output_file.GetDirectory(directory):
+            output_file.mkdir(directory)
+        output_file.cd(directory)
+    
     bins = self.bins
     bin_cont = self.bin_cont
+    
+    # Create the histogram
+    # Note: ROOT.gDirectory will now point to your target folder
     hist = ROOT.TH1D(histname, histname, len(bins) - 1, array('d', bins))
     hist.Sumw2()
+    
     for i in range(len(bin_cont)):
         hist.SetBinContent(i + 1, bin_cont[i])
-    hist.Write()
+    
+    # Write the histogram to the current directory (the one we cd'd into)
+    hist.Write("", ROOT.TObject.kOverwrite)
+    
     output_file.Close()
-
   def SetXlabel(self, label):
     self.xlabel = label
 
@@ -1489,22 +1500,36 @@ import numpy as np
 
 #     return interp_weights
 
+# def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
+#     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
+    
+#     # Shift to multiplicative space (0 becomes 1, 0.1 becomes 1.1)
+#     multiplicative_coarse = 1.0 + nuisance_coarse
+    
+#     # Interpolate in log-space
+#     interp_log = np.interp(
+#         fine_centers, 
+#         coarse_edges, 
+#         np.log(multiplicative_coarse)
+#     )
+    
+#     # Transform back and subtract the 1 to return to "shift" space
+#     return np.exp(interp_log) - 1.0
+
 def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
+
     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
     
-    # Shift to multiplicative space (0 becomes 1, 0.1 becomes 1.1)
-    multiplicative_coarse = 1.0 + nuisance_coarse
+    expanded_nuisance = np.zeros_like(fine_centers)
     
-    # Interpolate in log-space
-    interp_log = np.interp(
-        fine_centers, 
-        coarse_edges, 
-        np.log(multiplicative_coarse)
-    )
+    indices = np.digitize(fine_centers, coarse_edges) - 1
     
-    # Transform back and subtract the 1 to return to "shift" space
-    return np.exp(interp_log) - 1.0
-
+    valid_mask = (indices >= 0) & (indices < len(nuisance_coarse))
+    
+    expanded_nuisance[valid_mask] = np.array(nuisance_coarse)[indices[valid_mask]]
+    
+    return expanded_nuisance
+    
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
     """
     Read neutrino flux data from a .dat file with columns:
@@ -1567,7 +1592,11 @@ def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=N
     else:
         L_arr = np.array(core_baselines)*100.
 
-    prefactor = (1+eff)*args.detector_efficiency * args.veto * args.Np / (4 * np.pi)
+    if eff:
+        efficiency = eff
+    else:
+        efficiency = args.detector_efficiency
+    prefactor = args.detector_efficiency * args.veto * args.Np / (4 * np.pi)
 
     # Compute normalization denominator (total weighted fission energy)
     norm = np.sum(alpha_arr * efission_arr)

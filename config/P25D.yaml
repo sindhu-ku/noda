@@ -2,11 +2,13 @@ config: ''
 # Fit options configuration
 
 fit_options:
+  is_data: true
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2025 # PDG option
+  PDG_opt: DYB # PDG option
   NMO_opt: True # NMO option, true is normal
+  NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
@@ -15,15 +17,18 @@ fit_options:
   plot_spectra: true
   print_minuit_correlation: false
   solar_contour: false
-  CI_powers: false
+  CI_powers: true
   calc_minuit_errors: false
   profile_dm2_31: false
   write_results: false
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
-  dm2_31_pull_val: 2.541e-3
-  dm2_31_pull_err: 0.06e03
+  pull_dm2_31_lbl: false
+  dm2_31_lbl_err: 2.65e-5
+  dm2_31_lbl: 2.517e-3
+  theta23: 43.279
+  dcp: 212.0
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   geo_fit: true
   apply_bump: false
@@ -47,8 +52,9 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
-  write_output: false
-  file_prefix: 'Mar23_P25D'
+  write_output: False
+  file_prefix: 'Mar31_P25D_const'
+
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -147,10 +153,9 @@ juno_inputs:
   ene_crop:
     - 0.7
     - 12.0
-  is_data: true
   NL: real
   NL_data_file:  /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: /junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25D_good.root #IBD_bckgs_groupC_Jan6_reprod25C.root 
+  data_spectrum: /junofs/users/sindhu/NODA/noda/data/GroupC_spectra_P25D_good_Mar25.root #IBD_bckgs_groupC_Jan6_reprod25C.root 
   data_hist_name: data
   rebin_nonuniform: true
   bins_nonuniform: 
@@ -161,7 +166,7 @@ juno_inputs:
     - [7.7, 8.1, 1]
     - [8.1, 8.6, 1]
     - [8.6, 9.4, 1]
-    - [9.4, 12.0, 1]
+    #- [9.4, 12.0, 1]
 
     # - [0.8, 1.0, 1]
     # - [1.0, 7.0, 300]
@@ -180,7 +185,7 @@ juno_inputs:
   #core_powers: [1.93, 2.74 ,2.86, 1.54, 2.47, 2.87, 4.09, 4.15, 15.90, 9.25]
 
   core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0, 411000.0]
-  core_powers: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4, 12.11]
+  core_powers: [2.755, 2.755, 2.755, 2.755, 2.755, 2.755, 3.91, 2.622, 17.4, 12.11]
   # core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
 
   Np: 1.442e+33 
@@ -247,7 +252,6 @@ nd_inputs:
   NL: p
   NL_data_file: /junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   iav_matrix_file: data/dyb_iav_matrix.txt
-  is_data: true
   dagflow_data: ../dayabay-model-official/data/
   custom_bin_edges: ../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
   rebin_nonuniform:  True

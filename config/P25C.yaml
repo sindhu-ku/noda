@@ -2,11 +2,13 @@ config: ''
 # Fit options configuration
 
 fit_options:
+  is_data: true
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: PDG2025 # PDG option
-  NMO_opt: True # NMO option, true is normal
+  PDG_opt: DYB # PDG option
+  NMO_opt: False # NMO option, true is normal
+  NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
@@ -16,14 +18,18 @@ fit_options:
   print_minuit_correlation: false
   solar_contour: false
   CI_powers: false
-  calc_minuit_errors: false
-  profile_dm2_31: false
+  calc_minuit_errors: true
+  profile_dm2_31: true
+  profile_points: 100
   write_results: false
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
-  dm2_31_pull_val: 2.541e-3
-  dm2_31_pull_err: 0.06e03
+  pull_dm2_31_lbl: false
+  dm2_31_lbl_err: 2.65e-5
+  dm2_31_lbl: 2.517e-3
+  theta23: 43.279
+  dcp: 212.0
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   geo_fit: true
   apply_bump: false
@@ -48,7 +54,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'Mar23_P25C'
+  file_prefix: 'Apr3_P25C_DRfixed'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -110,7 +116,7 @@ common_det_inputs:
   geo_tnu_rate: 1.2554280 #44.25 #40 #37.95 #40.0
   tnu_to_cpd: 1. #0.028010356 # 0.027773315 #0.032387707
   geo_rate: 1.2554280 #1.2955 #1.229 # 1.239 #1.255 #1.147
-  wr_rate: 0.8787 #0.892 #0.78 #0.903 #1.185
+  wr_rate: 0.90390814 #0.892 #0.78 #0.903 #1.185
 
   me_rho: 2.45 #2.45
   me_rho_scale: 0.15
@@ -122,7 +128,7 @@ common_det_inputs:
   #b2b_unc: 0.0134
 
   eff_unc: 0.02086471217 #rel
-  r2_unc: 0.02 #rel
+  r2_unc: 0.015 #rel
   snf_unc: 0.3 #rel
   me_rho_unc: 0.061
   noneq_unc: 0.3 #rel
@@ -147,10 +153,9 @@ juno_inputs:
   ene_crop:
     - 0.7
     - 12.0
-  is_data: true
   NL: real
   NL_data_file:  /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: /junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root
+  data_spectrum: /junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root
   data_hist_name: data
   rebin_nonuniform: true
   bins_nonuniform: 
@@ -246,7 +251,6 @@ nd_inputs:
   NL: p
   NL_data_file: /junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   iav_matrix_file: data/dyb_iav_matrix.txt
-  is_data: true
   dagflow_data: ../dayabay-model-official/data/
   custom_bin_edges: ../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
   rebin_nonuniform:  True
@@ -262,7 +266,7 @@ nd_inputs:
   Pu241_scale: 0.056
 
   core_powers: [17.4]
-  core_baselines: [540] #[560.0] #580.0] #[580.0]
+  core_baselines: [580] #[560.0] #580.0] #[580.0]
 
   Np: 3.0851810e+30 #2.00917077999192e+29
   detector_efficiency: 0.803

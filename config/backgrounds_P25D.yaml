@@ -57,7 +57,7 @@ JUNO:
     b2b_unc: 0.5
     name: "Atmospheric neutrinos"
 
-  aneu:
+  alphan:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25D_good.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25C.root"
     histname: "prefit/alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
     rate: 0.037
@@ -65,7 +65,7 @@ JUNO:
     b2b_unc: 0.25
     name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
     
-  fneu:
+  fastn:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25D_good.root"
     histname: "prefit/fastn" #FnBkgHistogramAD"
     rate: 0.006

@@ -2,7 +2,7 @@
 
 JUNO:
   lihe:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root" #lihe_spectrum.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" #lihe_spectrum.root"
     histname: "prefit/lihe" #Li9BkgHistogramAD"
     rate: 1.92
     rate_unc: 1.30
@@ -10,10 +10,10 @@ JUNO:
     name: "$^{9}$Li / $^{8}$He"
 
   geo:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/geo" #GeoNuHistogramAD"
     rate: 1.2554280 #1.239 #1.147
-    rate_unc: 0.4
+    rate_unc: 0.0
     b2b_unc: 0.05
     name: "Geoneutrinos"
     
@@ -26,7 +26,7 @@ JUNO:
     name: "World reactor neutrinos"
     
   bipo:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root" 
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" 
     histname: "prefit/bipo" #OtherReactorSpectrum_L300km"
     rate: 0.25
     rate_unc: 0.5
@@ -34,7 +34,7 @@ JUNO:
     name: "$^{214}$Bi"
     
   acc:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/acc" #AccBkgHistogramAD"
     rate: 0.17
     rate_unc: 0.0071
@@ -42,7 +42,7 @@ JUNO:
     name: "Accidentals"
    
   doublen:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/doublen" #FnBkgHistogramAD"
     rate: 0.05
     rate_unc: 1.0
@@ -50,7 +50,7 @@ JUNO:
     name: "Double neutrons"
 
   atm:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/atm" #AtmosphericNeutrinoModelGENIE2"
     rate: 0.10760811
     rate_unc: 0.5
@@ -58,7 +58,7 @@ JUNO:
     name: "Atmospheric neutrinos"
 
   alphan:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
     histname: "prefit/alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
     rate: 0.037
     rate_unc: 0.25
@@ -66,7 +66,7 @@ JUNO:
     name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
     
   fastn:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C.root"
+    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/fastn" #FnBkgHistogramAD"
     rate: 0.006
     rate_unc: 1.0
