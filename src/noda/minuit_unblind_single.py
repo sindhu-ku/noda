@@ -962,7 +962,7 @@ def run_minuit(ndays,ndays_nd=0, ensp_nom_juno={}, ensp_nom_nd={},  unc_juno='',
 
     if args_juno.fit_type == "PMOP_combined":
         # if args_juno.use_dagflow:
-        #     nuisance = (s_bump_lin(E_segments) - 1.0).tolist()
+        #nuisance = (s_bump_lin(E_segments)).tolist()
         # else:
         nuisance = list(np.zeros(len(E_segments)))
 

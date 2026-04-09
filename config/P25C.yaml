@@ -7,7 +7,7 @@ fit_options:
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: DYB # PDG option
-  NMO_opt: False # NMO option, true is normal
+  NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
@@ -54,7 +54,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'Apr3_P25C_DRfixed'
+  file_prefix: 'Apr3_P25C_DRfixed_CPC2021'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
