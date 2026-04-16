@@ -72,25 +72,3 @@ JUNO:
     rate_unc: 1.0
     b2b_unc: 0.15
     name: "Fast neutrons"
-
-TAO:
-  lihe:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
-    histname: "Li9BkgHistogramAD"
-    rate: 54
-    rate_unc: 0.2
-    b2b_unc: 0.1
-
-  fneu:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
-    histname: "FnBkgHistogramAD"
-    rate: 86
-    rate_unc: 1.0
-    b2b_unc: 0.2
-
-  acc:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
-    histname: "AccBkgHistogramAD"
-    rate: 190
-    rate_unc: 0.01
-    b2b_unc: 0.0

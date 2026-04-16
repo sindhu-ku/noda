@@ -86,7 +86,7 @@ class Spectrum:
   def ScaleByBinWidth(self):
     widths = np.array([self.GetBinWidth(i) for i in range(self.GetNBins())])
     self.bin_cont = np.array(self.bin_cont, dtype=float) * widths
-      
+  
   def GetBinCenters(self):
     return 0.5*(self.bins[:-1]+self.bins[1:])
 
@@ -1259,14 +1259,32 @@ def spectrum_integral(E_j, E_j1, A, B, C):
   integral, _ = quad(integrand, E_j, E_j1)
   return integral
 
-def GetSpectrumFromROOT(fname, hname, toy=False, xlabel="Energy (MeV)", scale=1., eshift=0):
-  rf = uproot.open(fname)
-  hist = rf[hname]
-  bin_cont = hist.values()*scale
-  #if toy: bin_cont[bin_cont == 0] = 0.1
-  bins = hist.axis().edges()+eshift
-  return Spectrum(bin_cont, bins, xlabel=xlabel)
+def GetSpectrumFromROOT(fname, hname, scale=1., eshift=0, xlabel="Energy (MeV)"):
+    rf = uproot.open(fname)
+    obj = rf[hname]
+    
+    # Check if the object is a Histogram (TH1 family)
+    if hasattr(obj, "axis"):
+        bin_cont = obj.values() * scale
+        bins = obj.axis().edges() + eshift
+        
+    # Check if the object is a TGraph
+    elif hasattr(obj, "values") and not hasattr(obj, "axis"):
+        # TGraphs have x and y arrays
+        x_pts = obj.values(axis="x") + eshift
+        y_pts = obj.values(axis="y") * scale
+        
+        # To turn a TGraph into a Spectrum (binned format), 
+        # we need to infer or create bin edges from the x-points.
+        # This assumes the points are the centers of the bins.
+        dx = np.diff(x_pts)[0] if len(x_pts) > 1 else 1.0
+        bins = np.append(x_pts - dx/2, x_pts[-1] + dx/2)
+        bin_cont = y_pts
+        
+    else:
+        raise TypeError(f"Object {hname} is neither a Histogram nor a TGraph.")
 
+    return Spectrum(bin_cont, bins, xlabel=xlabel)
 # def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, add_logdet=False):
 #     penalty = 0.
 #     if pulls and pull_unc:
@@ -1364,6 +1382,9 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
     elif stat_meth == "Pearson" or include_logV:
         stat_cov_matrix = rea_exp.GetStatCovMatrix().data
     else:
+        epsilon = 1e-10
+        rea_obs.bin_cont[:] = np.maximum(rea_obs.bin_cont, epsilon)
+        rea_exp.bin_cont[:] = np.maximum(rea_exp.bin_cont, epsilon)
         stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
 
     if unc == 'stat':
@@ -1657,46 +1678,79 @@ def load_reactor_summary(yaml_path="data/reactor_data.yaml"):
             core_baselines.append(entry.get('baseline', 0.0))
 
     return core_names, np.array(core_powers), core_fractions, np.array(core_baselines)
+def rebin_cov_matrix(cov, target_bins):
+    # Original binning — inferred from the matrix dimension
+    # Total sub-bins: 1+325+9+4+1 = 340
+    ORIG_BINS = [
+        [0.8,  0.94, 1],
+        [0.94, 7.44, 325],
+        [7.44, 7.8,  9],
+        [7.8,  8.2,  4],
+        [8.2,  12,   1],
+    ]
 
-def rebin_matrix(mat, old_row_bins, old_col_bins, new_row_bins, new_col_bins):
-    """
-    Rebin a 2D matrix along both rows and columns.
+    def expand_edges(bins):
+        bins = np.asarray(bins)
+        if bins.ndim == 1:
+            return bins  # already flat edges
+        edges = []
+        for lo, hi, n in bins:
+            edges.extend(np.linspace(lo, hi, int(n) + 1).tolist())
+        deduped = [edges[0]]
+        for e in edges[1:]:
+            if not np.isclose(e, deduped[-1]):
+                deduped.append(e)
+        return np.array(deduped)
 
-    Parameters
-    ----------
-    mat : np.ndarray
-        Original matrix of shape (n_old_rows, n_old_cols)
-    old_row_bins : array-like
-        Original row (true-energy) bin edges
-    old_col_bins : array-like
-        Original column (visible-energy) bin edges
-    new_row_bins : array-like
-        Desired new row bin edges
-    new_col_bins : array-like
-        Desired new column bin edges
+    orig_edges = expand_edges(ORIG_BINS)
+    tgt_edges  = expand_edges(target_bins)
 
-    Returns
-    -------
-    mat_new : np.ndarray
-        Re-binned matrix of shape (len(new_row_bins)-1, len(new_col_bins)-1)
-    """
-    # Step 1: Rebin rows (true-energy axis)
-    old_row_centers = 0.5 * (old_row_bins[:-1] + old_row_bins[1:])
-    new_row_centers = 0.5 * (new_row_bins[:-1] + new_row_bins[1:])
-    temp_mat = np.zeros((len(new_row_centers), mat.shape[1]))
+    assert cov.data.shape[0] == len(orig_edges) - 1, \
+        f"Matrix size {cov.data.shape[0]} doesn't match orig bins ({len(orig_edges)-1} sub-bins)"
 
-    for j in range(mat.shape[1]):  # iterate over columns
-        f_row = interpolate.interp1d(old_row_centers, mat[:, j], kind='linear', fill_value='extrapolate')
-        temp_mat[:, j] = f_row(new_row_centers)
+    N_orig = len(orig_edges) - 1
+    N_tgt  = len(tgt_edges)  - 1
 
-    # Step 2: Rebin columns (visible-energy axis)
-    old_col_centers = 0.5 * (old_col_bins[:-1] + old_col_bins[1:])
-    new_col_centers = 0.5 * (new_col_bins[:-1] + new_col_bins[1:])
-    mat_new = np.zeros((len(new_row_centers), len(new_col_centers)))
+    T = np.zeros((N_tgt, N_orig))
+    for j in range(N_orig):
+        o_lo, o_hi = orig_edges[j], orig_edges[j + 1]
+        o_width = o_hi - o_lo
+        for i in range(N_tgt):
+            t_lo, t_hi = tgt_edges[i], tgt_edges[i + 1]
+            overlap = max(0.0, min(o_hi, t_hi) - max(o_lo, t_lo))
+            if overlap > 0:
+                T[i, j] = overlap / o_width
 
-    for i in range(temp_mat.shape[0]):  # iterate over rows
-        f_col = interpolate.interp1d(old_col_centers, temp_mat[i, :], kind='linear', fill_value='extrapolate')
-        mat_new[i, :] = f_col(new_col_centers)
+    new_data = T @ cov.data @ T.T
+    return CovMatrix(new_data, bins=target_bins, axis_label=cov.axis_label)
+def calculate_ndays(args_obj):
+    opt = args_obj.stat_opt
+    duty_cycle = args_obj.duty_cycle
+    
+    if opt.endswith("days"):
+        val = float(opt[:-4])
+        return val * duty_cycle
+    elif opt.endswith("year"):
+        val = float(opt[:-4])
+        return 365.25 * val * duty_cycle
+    elif opt.endswith("years"):
+        val = float(opt[:-5])
+        return 365.25 * val * duty_cycle
+    elif opt.endswith("months"):
+        val = float(opt[:-6])
+        return 30.436875 * val * duty_cycle
+    else:
+        raise ValueError(f"Unsupported time format in '{opt}'. Use days, months, or years.")
+        
+def GetCovMatrixFromROOT(file_path, hist_name):
 
-    return mat_new
-
+    with uproot.open(file_path) as f:
+        # Access the histogram
+        hist = f[hist_name]
+        data = hist.values()
+        bins = hist.axes[0].edges()
+        
+        # Get the title or axis label
+        label = hist.title if hist.title else axis_label
+        
+    return CovMatrix(data=data, bins=bins, axis_label=label)

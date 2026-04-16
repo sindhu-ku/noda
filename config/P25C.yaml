@@ -18,10 +18,9 @@ fit_options:
   print_minuit_correlation: false
   solar_contour: false
   CI_powers: false
-  calc_minuit_errors: true
-  profile_dm2_31: true
+  calc_minuit_errors: false
+  profile_dm2_31: false
   profile_points: 100
-  write_results: false
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
@@ -31,8 +30,10 @@ fit_options:
   theta23: 43.279
   dcp: 212.0
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
+  include_tao: True
+  include_dyb: True
   geo_fit: true
-  apply_bump: false
+  apply_bump: true
   geo_fit_type: total #UThfree , mantle or total (default)
   mantle_model: GD 
   reac_model: HM 
@@ -53,8 +54,8 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
-  write_output: True
-  file_prefix: 'Apr3_P25C_DRfixed_CPC2021'
+  write_output: False
+  file_prefix: 'Apr13_P25C_JUNO_DYB'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -127,7 +128,6 @@ common_det_inputs:
 
   #b2b_unc: 0.0134
 
-  eff_unc: 0.02086471217 #rel
   r2_unc: 0.015 #rel
   snf_unc: 0.3 #rel
   me_rho_unc: 0.061
@@ -147,6 +147,7 @@ juno_inputs:
   reactor_summary_yaml:  /junofs/users/sindhu/NODA/noda/config/reactor_summary.yaml
   stat_opt: 58.9148days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7173874092 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  eff_unc: 0.02086471217 #rel
   bins: 566
   min_ene: 0.7  # Minimum energy
   max_ene: 12
@@ -238,7 +239,7 @@ juno_inputs:
     #- stat+me
     - stat
 
-nd_inputs:
+dyb_inputs:
   bins: 241 #241 # Number of bins
   ene_crop:
     - 0.0 #0 #7
@@ -248,7 +249,7 @@ nd_inputs:
   max_ene: 12.0 #8.0
   stat_opt: 1958days # time period for sensitivity studies # time period for sensitivity studies
   FORCE_CALC_ENE_LEAK: False
-  NL: p
+  NL: na
   NL_data_file: /junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   iav_matrix_file: data/dyb_iav_matrix.txt
   dagflow_data: ../dayabay-model-official/data/
@@ -303,3 +304,55 @@ nd_inputs:
     #   - stat+ene_scale
     #   - stat+fv
     # - stat+eff+r2+crel+snf+noneq+bg+ene_scale
+
+
+
+tao_inputs:
+  bins: 601 #241 # Number of bins
+  ene_crop:
+    - 0.0 #0 #7
+    - 12.0 #8.0
+    
+  min_ene: 0.0 #0.7
+  max_ene: 12.0 #8.0
+  stat_opt: 8.587days # time period for sensitivity studies # time period for sensitivity studies
+  FORCE_CALC_ENE_LEAK: False
+  NL: pull
+  NL_sd: 1.0
+  NL_data_file: /junofs/users/sindhu/NODA/noda/data/TAOInputs_2026_3_31.root
+  data_spectrum: /junofs/users/sindhu/NODA/noda/data/TAOInputs_2026_3_31.root
+  data_hist_name: IBD_spectrum_bkg_not_subtracted
+  bckg_hist_name: Bkg_spectrum
+  IAV_hist: Energy_leakage
+  FV_cov_matrix: FVcut_covariance
+  rebin_nonuniform:  True
+  bins_nonuniform:
+    - [0.8, 0.94, 1]
+    - [0.94, 7.94, 70]
+    #- [7.44, 7.8, 9]
+    - [7.94, 8.2, 2]
+    - [8.2, 12, 1]
+  
+  U235_scale: 0.561
+  U238_scale: 0.077
+  Pu239_scale: 0.318
+  Pu241_scale: 0.044
+
+  core_powers: [4.14]
+  core_baselines: [44] 
+  Np: 2.05028e+29
+  detector_efficiency: 0.154
+  eff_unc: 0.1
+  veto: 1.0
+  nl_hist_name: positronNL
+  nl_pull_hist_name: positronNLpull
+
+  a: 0.0211 
+  b: 0.0091
+  c: 0.0144
+
+  a_err: 0.00030196780
+  b_err: 0.00054053525
+  c_err: 1.0e-5
+  
+  ene_scale_unc: 0.005
