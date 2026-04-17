@@ -30,6 +30,7 @@ fit_options:
   theta23: 43.279
   dcp: 212.0
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
+  fit_mode: prefit_nosegs
   include_tao: True
   include_dyb: True
   geo_fit: true
