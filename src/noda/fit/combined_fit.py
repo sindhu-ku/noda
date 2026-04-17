@@ -60,7 +60,127 @@ FULL_CHI2  = 0
 DYB_BINS   = 0
 FREE_PARAM = 0
 
+def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
+                       args_juno, args_tao):
+    """
+    Fit DYB+TAO with oscillation params fixed to nominal.
+    Returns: (nuis_best, nuis_cov)
+    """
+    n_nuis = len(E_segments)
+    nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=bool(args_juno.NMO_opt))
+    sin2_12 = nuosc.op_nom["sin2_th12"]
+    sin2_13 = nuosc.op_nom["sin2_th13"]
+    dm2_21  = nuosc.op_nom["dm2_21"]
+    dm2_31  = nuosc.op_nom["dm2_31"]
 
+    tao_param_names  = tao_det.get_param_names()  if tao_det else []
+    tao_start_values = tao_det.get_start_values() if tao_det else []
+    dyb_param_names  = dyb_det.get_param_names()  if dyb_det else []
+    dyb_start_values = dyb_det.get_start_values() if dyb_det else []
+
+    nuis_names  = get_shape_nuis_names(n_nuis)
+    nuis_starts = get_shape_nuis_start_values(n_nuis)
+
+    all_names  = nuis_names  + tao_param_names  + dyb_param_names
+    all_starts = nuis_starts + tao_start_values + dyb_start_values
+
+    def prefit_chi2(*params):
+        nuisance_vals   = list(params[:n_nuis])
+        tao_vals        = list(params[n_nuis : n_nuis + len(tao_param_names)])
+        dyb_vals        = list(params[n_nuis + len(tao_param_names):])
+        tao_params_dict = dict(zip(tao_param_names, tao_vals))
+        dyb_params_dict = dict(zip(dyb_param_names, dyb_vals))
+
+        chi2_tao = 0.0
+        chi2_dyb = 0.0
+
+        if tao_det is not None:
+            (chi2_tao, _, _s, _st) = tao_det.chi2_contribution(
+                sin2_12=sin2_12, sin2_13=sin2_13,
+                dm2_21=dm2_21, dm2_31=dm2_31,
+                me_rho=0.0,
+                Nrea_tao=tao_params_dict['Nrea_tao'],
+                NL_tao=[tao_params_dict[f'NL_tao{i}'] for i in range(5)],
+                snf_noneq_norm_tao=[tao_params_dict[f'snf_noneq_norm_tao{i}']
+                                    for i in range(2)],
+                abc_tao=[tao_params_dict['abc_tao0'],
+                         tao_params_dict['abc_tao1'],
+                         tao_params_dict['abc_tao2']],
+                core_power_tao=tao_params_dict['core_power_tao'],
+                eff_nuis_tao=tao_params_dict['eff_nuis_tao'],
+                unc=unc_tao, nuisance=nuisance_vals, opp=False)
+
+        if dyb_det is not None:
+            chi2_dyb, _s, _st = dyb_det.chi2_contribution(
+                nuisance_coarse=np.array(nuisance_vals),
+                snf_noneq_norm_dyb=dyb_params_dict['snf_noneq_norm_dyb'],
+                E_segments=E_segments)
+
+        return chi2_tao + chi2_dyb
+
+    prefit_chi2.__signature__ = inspect.Signature([
+        inspect.Parameter(n, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        for n in all_names
+    ])
+
+    m_pre = Minuit(prefit_chi2, *all_starts, name=all_names)
+    if tao_det: tao_det.apply_limits(m_pre)
+    if dyb_det: dyb_det.apply_limits(m_pre)
+    for n in nuis_names:
+        m_pre.limits[n] = [-1, None]
+
+    m_pre.migrad()
+    m_pre.hesse()
+
+    nuis_best = np.array([m_pre.values[n] for n in nuis_names])
+    idx       = [list(m_pre.parameters).index(n) for n in nuis_names]
+    nuis_cov  = np.array(m_pre.covariance)[np.ix_(idx, idx)]
+
+    print("DYB+TAO pre-fit complete.")
+    print("  nuis_best:", nuis_best)
+    print("  nuis_cov diag:", np.diag(nuis_cov))
+    return nuis_best, nuis_cov
+
+def propagate_nuis_to_reco(juno_det, nuis_best, nuis_cov,
+                            sin2_12, sin2_13, dm2_21, dm2_31,
+                            fixed_juno_params, args_juno, unc_juno,
+                            eps=1e-4):
+    """
+    Propagate nuisance covariance into JUNO reco-energy space.
+    J[b, i] = dS_reco[b] / dnuis[i]  evaluated at nuis_best.
+    Returns C_reco = J @ nuis_cov @ J.T  (n_reco_bins x n_reco_bins)
+    """
+    n_nuis = len(nuis_best)
+    def spectrum_at(nuis):
+        (_, s_tot, _, _, _, _, _, _, _) = juno_det.build_spectrum(
+            sin2_12=sin2_12, sin2_13=sin2_13,
+            dm2_21=dm2_21, dm2_31=dm2_31, me_rho=0.0,
+            nuisance=list(nuis),
+            Nrea=fixed_juno_params['Nrea'],
+            NL=fixed_juno_params['NL'],
+            abc=fixed_juno_params['abc'],
+            bckgs_for_chi2=fixed_juno_params['bckgs'],
+            snf_noneq_norm=fixed_juno_params['snf_noneq_norm'],
+            eff_nuis=fixed_juno_params['eff_nuis'],
+            ThU_ratio=fixed_juno_params['ThU_ratio'],
+            core_powers_delta=fixed_juno_params['core_powers_delta'],
+            efission=fixed_juno_params['efission'],
+            opp=False)
+        return np.array(s_tot.bin_cont)
+    S0 = spectrum_at(nuis_best)
+    n_reco = len(S0)
+    J = np.zeros((n_reco, n_nuis))
+
+    for i in range(n_nuis):
+        nuis_up        = nuis_best.copy()
+        nuis_up[i]    += eps
+        nuis_dn        = nuis_best.copy()
+        nuis_dn[i]    -= eps
+        J[:, i]        = (spectrum_at(nuis_up) - spectrum_at(nuis_dn)) / (2 * eps)
+
+    C_reco = J @ nuis_cov @ J.T
+    return C_reco
+    
 def run_minuit(ndays, ndays_dyb=0, ndays_tao=0,
                ensp_nom_juno={}, ensp_nom_dyb={}, ensp_nom_tao={},
                unc_juno='', unc_dyb='', unc_tao='', unc_corr='',
@@ -160,7 +280,9 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0,
         print("Uncertainty JUNO: ", unc_new_juno)
 
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=bool(args_juno.NMO_opt))
-
+    fit_mode = getattr(args_juno, 'fit_mode', 'combined')  # 'combined' | 'prefit_wsegs' | 'prefit_wosegs'
+    
+ 
     # ════════════════════════════════════════════════════════════════════════
     #  Parameter bookkeeping
     # ════════════════════════════════════════════════════════════════════════
@@ -234,7 +356,50 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0,
     # ════════════════════════════════════════════════════════════════════════
     #  Inner chi2  (delegates to detector objects)
     # ════════════════════════════════════════════════════════════════════════
-
+    nuis_best    = np.zeros(n_nuis)
+    nuis_cov_inv = None
+    C_reco       = None
+    
+    if fit_mode in ('prefit_wsegs', 'prefit_wosegs'):
+        nuis_best, nuis_cov = run_dyb_tao_prefit(
+            dyb_det=dyb_det, tao_det=tao_det,
+            E_segments=E_segments,
+            unc_dyb=unc_dyb, unc_tao=unc_tao,
+            args_juno=args_juno, args_tao=args_tao)
+    
+        # seed start values from pre-fit
+        for i, n in enumerate(get_shape_nuis_names(n_nuis)):
+            start_values[param_names.index(n)] = nuis_best[i]
+    
+        if fit_mode == 'prefit_wsegs':
+            nuis_cov_inv = np.linalg.inv(nuis_cov)
+    
+        elif fit_mode == 'prefit_wosegs':
+            # build fixed_juno_params dict for Jacobian evaluation
+            jp_fixed = dict(
+                Nrea=0.0,
+                NL=[args_juno.kB, args_juno.fC, args_juno.kI, args_juno.LY_shared] if args_juno.NL != "pull"
+                    else [0.0] * n_NL,
+                abc=[args_juno.a, args_juno.b, args_juno.c],
+                bckgs={k: {**v, "pull": 0.0} for k, v in bckgs.items()},
+                snf_noneq_norm=[0.0] * n_rea,
+                eff_nuis=0.0,
+                ThU_ratio=args_juno.Th_U_ratio,
+                core_powers_delta=[0.0] * n_core,
+                efission=list(args_juno.efission))   
+            C_reco = propagate_nuis_to_reco(
+                juno_det=juno_det,
+                nuis_best=nuis_best, nuis_cov=nuis_cov,
+                sin2_12=nuosc.op_nom["sin2_th12"],
+                sin2_13=nuosc.op_nom["sin2_th13"],
+                dm2_21=nuosc.op_nom["dm2_21"],
+                dm2_31=nuosc.op_nom["dm2_31"],
+                fixed_juno_params=jp_fixed,
+                args_juno=args_juno, unc_juno=unc_juno)
+            # pass C_reco into juno_det so CNP chi2 picks it up
+            juno_det.set_external_cov(C_reco)
+            plot_correlation_pair(nuis_cov, C_reco, ensp_nom_juno, n_nuis,
+                      save_path=f"cov_propagation.png")
     def chi2(sin2_12, sin2_13, dm2_21, dm2_31, me_rho,
              Nrea=0.0,
              NL=None, abc=None, bckgs=None,
@@ -319,7 +484,15 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0,
             #s_tot_tao.WritetoROOT("TAO_postfit", "Postfit_Apr16.root")
             # ensp_nom_dyb['rdet'].WritetoROOT("DYB_prefit", "Postfit_Apr13.root")
             # s_tot_dyb.WritetoROOT("DYB_postfit", "Postfit_Apr13.root")
-        return chi2_juno + chi2_dyb + chi2_tao + chi2_penalty_er
+
+        chi2_nuis_penalty = 0.0
+        if nuis_cov_inv is not None:
+            delta = np.array(nuisance) - nuis_best
+            chi2_nuis_penalty = float(delta @ nuis_cov_inv @ delta)
+
+
+        
+        return chi2_juno + chi2_dyb + chi2_tao + chi2_penalty_er +chi2_nuis_penalty
 
     # ════════════════════════════════════════════════════════════════════════
     #  chi2 wrapper  — slices the flat Minuit parameter vector
@@ -417,11 +590,17 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0,
             print(p, m.values[p], m.limits[p])
 
   #  m.fixed['nuis20'] = True
-
-    if args_juno.fit_type != 'PMOP_combined':
+    if fit_mode == 'prefit_wosegs':
         for i in range(n_nuis):
             m.fixed[f'nuis{i}'] = True
-
+        # near-detector params are irrelevant now — fix them too
+        for n in tao_param_names + dyb_param_names:
+            m.fixed[n] = True
+    elif fit_mode == 'combined':
+        # existing behaviour: fix nuis for non-PMOP
+        if args_juno.fit_type != 'PMOP_combined':
+            for i in range(n_nuis):
+                m.fixed[f'nuis{i}'] = True
     first_fix_juno = juno_det.get_first_fix()
 
     first_fix_tao = tao_det.get_first_fix() if use_tao else []
