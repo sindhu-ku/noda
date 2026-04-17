@@ -23,6 +23,56 @@ FULL_CHI2  = 0
 DYB_BINS   = 0
 FREE_PARAM = 0
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_correlation_pair(nuis_cov, C_reco, ensp_nom_juno, n_nuis, save_path="cov_propagation.png"):
+    
+    # compute correlation matrices from covariances
+    def to_corr(cov):
+        std = np.sqrt(np.diag(cov))
+        # avoid division by zero
+        outer = np.outer(std, std)
+        outer[outer == 0] = 1.0
+        return cov / outer
+
+    corr_seg  = to_corr(nuis_cov)
+    corr_reco = to_corr(C_reco)
+
+    n_reco = C_reco.shape[0]
+
+    seg_labels  = [f"$S_{{{i}}}$"  for i in range(n_nuis)]
+    reco_labels = [f"$D_{{{i}}}$"  for i in range(n_reco)]
+
+    fig, axes = plt.subplots(1, 2, figsize=(18, 8))
+    fig.suptitle(r"Covariance propagation: segment space $\rightarrow$ reconstructed space",
+                 fontsize=14)
+
+    kw = dict(cmap="RdBu_r", vmin=-1, vmax=1, square=True,
+              cbar_kws={"label": r"Correlation $\rho$", "shrink": 0.8})
+
+    # ── left: segment covariance ──────────────────────────────────────────
+    sns.heatmap(corr_seg, ax=axes[0],
+                xticklabels=seg_labels, yticklabels=seg_labels, **kw)
+    axes[0].set_title(r"Segment factors $-\ C_{\rm seg}$ (DYB+TAO)")
+    axes[0].tick_params(axis='both', labelsize=8)
+
+    # ── right: reco covariance ────────────────────────────────────────────
+    # only label every 5th bin to avoid crowding
+    reco_xticks = [l if i % 5 == 0 else "" for i, l in enumerate(reco_labels)]
+    reco_yticks = [l if i % 5 == 0 else "" for i, l in enumerate(reco_labels)]
+    sns.heatmap(corr_reco, ax=axes[1],
+                xticklabels=reco_xticks, yticklabels=reco_yticks, **kw)
+    axes[1].set_title(r"Reconstructed bins $-\ V_{\rm segments}$ (JUNO)")
+    axes[1].tick_params(axis='both', labelsize=7)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {save_path}")
+
+
 
 def f_lbl(dm2_31, sin2_12, sin2_13, dm2_21, theta23, dcp, ordering):
     if ordering == "NO":
