@@ -402,11 +402,12 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
     Build uranium + thorium geo-neutrino spectra for a single component
     (*name* = 'geo', 'crust', or 'mantle').  Returns the summed spectrum.
     """
-    def _geo_component(hist, scale_rate):
+    def _geo_component(hist, scale_rate, name):
         spec = GetSpectrumFromROOT(args.geo_file, hist)
         spec.Rebin(ebins, mode="spline-not-keep-norm")
         spec.ScaleByBinWidth()
         spec.WeightWithFunction(s_ibd)
+        ensp[f'rfis0_geo{name}'] = spec
         spec_scaled = spec.GetScaledFit(
             ndays * scale_rate / (args.duty_cycle * spec.GetIntegral())
         )
@@ -420,8 +421,8 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
     rate_u  = rate / (1 + ratio)
     rate_th = rate * ratio / (1 + ratio)
 
-    ensp[f"{name}u"]  = _geo_component("geoU",  rate_u)
-    ensp[f"{name}th"] = _geo_component("geoTh", rate_th)
+    ensp[f"{name}u"]  = _geo_component("geoU",  rate_u, "u")
+    ensp[f"{name}th"] = _geo_component("geoTh", rate_th, "th")
     return ensp[f"{name}u"] + ensp[f"{name}th"]
 
 
@@ -429,10 +430,10 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
 # Background loading  (JUNO)
 # ---------------------------------------------------------------------------
 
-def _load_juno_backgrounds(ensp, args, ebins, resp_matrix, ndays):
+def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays):
     """Load and scale all JUNO backgrounds. Returns combined background spectrum."""
     bckg = None
-    for key, info in args.backgrounds["JUNO"].items():
+    for key, info in backgrounds["JUNO"].items():
         ensp[key] = GetSpectrumFromROOT(info["rootfile"], info["histname"])
 
         if key == "wr":
@@ -453,6 +454,7 @@ def _load_juno_backgrounds(ensp, args, ebins, resp_matrix, ndays):
 def _process_world_reactor(wr_spec, args, ensp, resp_matrix, ebins):
     wr_spec.Rebin(ebins, mode="spline-not-keep-norm")
     pos = _apply_positron_energy(wr_spec, args)
+    ensp['rfis_wr_pos'] = pos
     vis = _apply_nonlinearity(pos, args, ensp)
     return vis.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
@@ -500,7 +502,7 @@ def _assemble_total_spectrum_tao(ensp, args):
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
 
     return  ([ensp['data'], ensp['bckg']],
-            ['TAO expectation', 'TAO data', 'TAO background']
+            ['TAO expectation', 'TAO data', 'TAO background'],
             ['brown', 'steelblue', 'orange'])
 
 def _assemble_total_spectrum_juno(ensp, args):
@@ -687,29 +689,6 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
     if args.rebin_nonuniform:
         ensp["rdet"].Rebin_nonuniform(args.bins_nonuniform)
 
-    # ------------------------------------------------------------------
-    # 6. Geo-neutrino spectra  (JUNO analytic path)
-    # ------------------------------------------------------------------
-    if args.geo_spectra == "ana" and detector == "JUNO":
-        print("# Building analytic geo-neutrino spectra …")
-        if args.geo_fit_type == "mantle":
-            ensp["geomantle"] = _build_geo_spectra(
-                ensp, args, ebins, s_ibd, ndays, resp_matrix, "mantle",
-                args.mantle_rate.get(args.mantle_model), args.mantle_Th_U_ratio.get(args.mantle_model),
-            )
-            ensp["geocrust"] = _build_geo_spectra(
-                ensp, args, ebins, s_ibd, ndays, resp_matrix, "crust",
-                float(args.crust_rate_tnu) * args.tnu_to_cpd, args.crust_Th_U_ratio,
-            )
-            ensp["geo_ana"] = ensp["geocrust"] + ensp["geomantle"]
-        else:
-            ensp["geo_ana"] = _build_geo_spectra(
-                ensp, args, ebins, s_ibd, ndays, resp_matrix, "geo",
-                float(args.geo_tnu_rate) * float(args.tnu_to_cpd), args.Th_U_ratio,
-            )
-            ensp["bckg"] = ensp["bckg"] - ensp["geo"] + ensp["geo_ana"]
-            ensp["geo"]  = ensp["geo_ana"]
-            print(f"  geo: {ensp['geo'].GetIntegral():.2f}")
 
     # ------------------------------------------------------------------
     # 7. Backgrounds + total spectrum
@@ -717,7 +696,30 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
     print("# Assembling total spectrum …")
 
     if detector == "JUNO":
-        ensp["bckg"] = _load_juno_backgrounds(ensp, args, ebins, resp_matrix, ndays)
+        ensp["bckg"] = _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays)
+        # ------------------------------------------------------------------
+        # 6. Geo-neutrino spectra  (JUNO analytic path)
+        # ------------------------------------------------------------------
+        if args.geo_spectra == "ana":
+            print("# Building analytic geo-neutrino spectra …")
+            if args.geo_fit_type == "mantle":
+                ensp["geomantle"] = _build_geo_spectra(
+                    ensp, args, ebins, s_ibd, ndays, resp_matrix, "mantle",
+                    args.mantle_rate.get(args.mantle_model), args.mantle_Th_U_ratio.get(args.mantle_model),
+                )
+                ensp["geocrust"] = _build_geo_spectra(
+                    ensp, args, ebins, s_ibd, ndays, resp_matrix, "crust",
+                    float(args.crust_rate_tnu) * args.tnu_to_cpd, args.crust_Th_U_ratio,
+                )
+                ensp["geo_ana"] = ensp["geocrust"] + ensp["geomantle"]
+            else:
+                ensp["geo_ana"] = _build_geo_spectra(
+                    ensp, args, ebins, s_ibd, ndays, resp_matrix, "geo",
+                    float(args.geo_tnu_rate) * float(args.tnu_to_cpd), args.Th_U_ratio,
+                )
+                ensp["bckg"] = ensp["bckg"] - ensp["geo"] + ensp["geo_ana"]
+                ensp["geo"]  = ensp["geo_ana"]
+                print(f"  geo: {ensp['geo'].GetIntegral():.2f}")
         ensp["rtot"] = ensp["rdet"] + ensp["bckg"]
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_juno(ensp, args)
 
