@@ -28,20 +28,20 @@ def main(argv=None):
   # --- STEP 1: Pre-parser to get the config file ---
   conf_parser = argparse.ArgumentParser(add_help=False) # No help yet, or it will trigger early
   conf_parser.add_argument("--config", default="config/groupA_paperconfig.yaml", help="Path to config file")
-  
+
   # Use parse_known_args to get only the --config flag
   args, remaining_argv = conf_parser.parse_known_args()
-  
+
   # --- STEP 2: Load the YAML ---
   with open(args.config, "r") as file:
       config = yaml.safe_load(file)
-  
+
   # --- STEP 3: Full Parser setup ---
   # Include parents=[conf_parser] so --config still shows up in -h
   parser_juno = argparse.ArgumentParser(parents=[conf_parser])
   parser_dyb = argparse.ArgumentParser(parents=[conf_parser])
   parser_tao = argparse.ArgumentParser(parents=[conf_parser])
-  
+
   # Dynamically add your YAML arguments as defaults
   sections = {
       "fit_options": [parser_juno, parser_dyb, parser_tao],
@@ -50,24 +50,24 @@ def main(argv=None):
       "dyb_inputs": [parser_dyb],
       "tao_inputs": [parser_tao]
   }
-  
+
   for section, parsers in sections.items():
       if section in config:
           for option, value in config[section].items():
               for p in parsers:
                   # Add as argument so it can be overridden by command line
                   p.add_argument(f"--{option}", default=value)
-  
+
   # --- STEP 4: Final Parse ---
   # Now parse the 'remaining_argv' (everything except the --config part)
   # Example for JUNO:
   args_juno = parser_juno.parse_args(remaining_argv)
   args_dyb = parser_dyb.parse_args()
   args_tao = parser_tao.parse_args()
-    
+
   if not os.path.exists(f"{args_juno.main_data_folder}"):
     os.mkdir(f"{args_juno.main_data_folder}")
-  
+
   ndays = calculate_ndays(args_juno)
   ndays_dyb  = calculate_ndays(args_dyb)
   ndays_tao  = calculate_ndays(args_tao)
@@ -75,7 +75,7 @@ def main(argv=None):
   print("JUNO livetime: ", ndays, "days")
   print("DYB livetime: ", ndays_dyb, "days")
   print("TAO livetime: ", ndays_tao, "days")
-    
+
   juno_baselines = args_juno.core_baselines #which reactor baselines and cores
   juno_powers = args_juno.core_powers
 
@@ -93,11 +93,11 @@ def main(argv=None):
 
   if not os.path.exists(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}"):
       os.mkdir(f"{args_juno.data_matrix_folder}/csv_{args_juno.stat_opt}")
- 
+
   if not os.path.exists(f"{args_juno.data_matrix_folder}/csv_{args_dyb.stat_opt}"):
       os.mkdir(f"{args_juno.data_matrix_folder}/csv_{args_dyb.stat_opt}")
 
-    
+
   print(" # Run configuration:")
   print("   Statistics:   {} days".format(ndays) )
   print("   NMO opt NO: {}".format(args_juno.NMO_opt))
@@ -105,17 +105,17 @@ def main(argv=None):
 
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
 
-  
+
   with open(args_juno.backgrounds_yaml, "r") as f:
       backgrounds = yaml.safe_load(f)
-      
+
   ensp_nom_juno, resp_matrix  = spec.CreateSpectra(ndays=ndays,
                                     ebins=ebins,
                                     detector="JUNO",
                                     backgrounds=backgrounds,
                                     args=args_juno)
-  
-  
+
+
   if args_juno.fit_type == 'PMOP_combined':
       if not args_juno.use_dagflow:
           ensp_nom_dyb, resp_matrix_dyb  = spec.CreateSpectra(ndays=ndays_dyb,
@@ -123,17 +123,17 @@ def main(argv=None):
                                     detector="DYB",
                                     backgrounds=backgrounds,
                                     args=args_dyb)
-          
+      return
       ensp_nom_tao, resp_matrix_tao, ene_leak_tao  = spec.CreateSpectra(ndays=ndays_tao,
                                     ebins=ebins_tao,
                                     detector="TAO",
                                     backgrounds=backgrounds,
-                                    args=args_tao)     
+                                    args=args_tao)
 
 
   end_sp_time = datetime.now()
   print("Spectra production time: ", end_sp_time - start_sp_time)
-  
+
   #Create covariance matrices and energy response matrix, function inside matrices.py
   start_cm_time = datetime.now()
 
@@ -226,7 +226,7 @@ def main(argv=None):
   #             cm_corr[new_unc] = LoadObject(f"{args_juno.data_matrix_folder}/cm_JUNO_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")\
   #                               .Extend(LoadObject(f"{args_juno.data_matrix_folder}/cm_nd_{new_unc}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat"))
   #             #cm_juno[new_unc].Extend(cm_nd[new_unc])
-  
+
 
   end_cm_time = datetime.now()
   print("Covariance matrices production: ", end_cm_time - start_cm_time)
@@ -299,7 +299,7 @@ def main(argv=None):
       else:
           cm_tao = {}
           #cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_spectrum, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
-          
+
           if args_juno.fit_type == 'PMOP_combined':
               if not args_juno.use_dagflow:
                   dyb_V = np.loadtxt(args_dyb.dyb_cm)
@@ -318,13 +318,13 @@ def main(argv=None):
                   cm_dyb['all'] = DYB_rel_cm
 
                   minuit_new.run_minuit(ndays=ndays,ndays_dyb=ndays_dyb,ndays_tao=ndays_tao, ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix,rm_dyb = resp_matrix_dyb,rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_dyb=cm_dyb,cm_tao=cm_tao,args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
-              else:    
+              else:
                   from .DYB_model import make_dyb_model
                   dyb_model = make_dyb_model(args_dyb)
                   minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_dyb=args_dyb, dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
-                      
 
-                      
+
+
           else:
               if bool(args_juno.toymc):
                   for batch_start in range(0, int(args_juno.ntoys), args_juno.toy_batch_size):
@@ -338,9 +338,9 @@ def main(argv=None):
                       del batch_results
                       if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
               else:
-                  for unc in unc_list_new_juno: 
+                  for unc in unc_list_new_juno:
                       minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
-                     
+
 
 
   end_scan_time = datetime.now()
