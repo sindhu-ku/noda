@@ -44,7 +44,7 @@ class JUNODetector:
         self.E_segments     = E_segments
         self.s_ibd          = s_ibd
         self.s_bump_lin     = s_bump_lin
-
+        self._external_cov = None
         # ── pre-build fission arrays (expensive, do once) ──────────────────
         args_juno = args
         n_cores = len(core_baselines)
@@ -95,7 +95,10 @@ class JUNODetector:
     # ════════════════════════════════════════════════════════════════════════
     #  Nuisance parameter interface (consumed by combined_fit.py)
     # ════════════════════════════════════════════════════════════════════════
-
+    def set_external_cov(self, C_reco):
+        """Store propagated nuisance covariance from DYB+TAO pre-fit."""
+        self._external_cov = C_reco
+        
     def get_param_names(self):
         args = self.args
         if args.NL == "pull":
@@ -572,6 +575,9 @@ class JUNODetector:
             cm_j  = CovMatrix(data=np.zeros((nbins - 1, nbins - 1)), bins=ebins)
 
         cm_j = cm_j + cm_bckg
+        if self._external_cov is not None:
+            ebins = self.ensp_nom['rdet'].bins
+            cm_j = cm_j + CovMatrix(data=self._external_cov, bins=ebins)
 
         chi2_nolog, chi2_juno = Chi2(
             cm_j, sp_obs, s_tot_juno, sp_obs, s_tot_juno,
