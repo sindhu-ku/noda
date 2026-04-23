@@ -303,9 +303,19 @@ def main(argv=None):
           if args_juno.fit_type == 'PMOP_combined':
               if not args_juno.use_dagflow:
                   dyb_V = np.loadtxt(args_dyb.dyb_cm)
+                  if args_dyb.model == "PRL":
+                      raw = dyb_V
+                      cov_75 = raw.reshape(75, 75)
+                      cov_total = cov_75[50:75, 50:75]
+                      cov_total *= 1e-86  # if needed
+                      dyb_V = cov_total
                   DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_dyb['rdet'].bins)
 
-                  DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, delim_whitespace=True, names=["Bin_Center", "Sigma", "Rel_Unc"])
+                  if args_dyb.model == "CPC": 
+                      DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep='\s+', names=["Bin_Center", "Sigma", "Rel_Unc"])
+                  else:
+                      DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep='\s+', names=["Bin_lowE", "Bin_highE", "Sigma", "Rel_Unc"])
+                      
                   DYB_sp = Spectrum(bins=ensp_nom_dyb['rdet'].bins, bin_cont=DYB_spectrum["Sigma"].to_numpy())
 
                   DYB_rel_cm = GetRelCM(DYB_CM, DYB_sp)
@@ -321,7 +331,7 @@ def main(argv=None):
               else:    
                   from .DYB_model import make_dyb_model
                   dyb_model = make_dyb_model(args_dyb)
-                  minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_dyb=args_dyb, dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
+                  minuit_new.run_minuit(ndays=ndays,ndays_tao=ndays_tao, ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix, rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
                       
 
                       

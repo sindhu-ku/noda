@@ -1,4 +1,4 @@
-from dayabay_model_official import model_dayabay
+from dayabay_model import model_dayabay
 from .noda import make_nonuniform_bins
 
 def make_dyb_model(args):

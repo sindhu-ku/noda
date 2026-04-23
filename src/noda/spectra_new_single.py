@@ -97,23 +97,31 @@ def _apply_full_energy_response(spec, args, ensp, resp_matrix):
 # ---------------------------------------------------------------------------
 
 def _load_or_build_resp_matrix(args, detector, ebins):
+    # --- NEW: use external DYB response matrix file ---
+    if detector == "DYB" and args.model == "PRL":
+        return _load_dyb_resp_matrix(args.dyb_resp_matrix, ebins)
+
     cache_path = (
         f"{args.data_matrix_folder}/"
         f"rm_{detector}_NO-{args.NMO_opt}_{args.stat_opt}_{args.bins}bins.dat"
     )
-
     if os.path.isfile(cache_path) and not bool(args.FORCE_CALC_RM):
         return LoadRespMatrix(cache_path)
-
     resp_matrix = CalcRespMatrix_abc(args.a, args.b, args.c, escale=1, ebins=ebins, pebins=ebins)
-
     if detector != "JUNO":
         ene_leak_nd = _build_energy_leak(args, detector, ebins)
         resp_matrix = RespMatrix(data=ene_leak_nd.data @ resp_matrix.data, ebins=ebins, pebins=ebins)
-
     resp_matrix.Save(cache_path)
     return resp_matrix
 
+
+def _load_dyb_resp_matrix(filepath, ebins):
+    data = np.loadtxt(filepath, comments="#")  # shape as stored: (240_reco, 240_true)
+
+    if data.shape != (240, 240):
+        raise ValueError(f"Expected 240×240 DYB response matrix, got {data.shape}")
+
+    return RespMatrix(data=data, ebins=ebins, pebins=ebins)  # → (true, reco)
 
 def _build_energy_leak(args, detector, ebins):
     if detector == "TAO":
@@ -468,14 +476,25 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
     ensp["rtot"] = ensp["rdet"]
 
     if args.is_data:
+        if args.model == "CPC":
+            names = ["Bin_Center", "Sigma", "Rel_Unc"]
+        else:
+            names = ["Bin_lowE", "Bin_highE", "Sigma", "bin_err"]
         dyb = pd.read_csv(
-            args.dyb_spectrum, delim_whitespace=True,
-            names=["Bin_Center", "Sigma", "Rel_Unc"],
+            args.dyb_spectrum, sep='\s+',
+            names=names,
         )
+        
         ensp["rtot"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
-        ensp["rtot"].GetScaled(extrafactors)
+        if args.model == "PRL": 
+            ensp["rtot"].GetScaled(1e-43)
+            ensp["rtot"].GetScaled(compute_extrafactors(args,core_baselines=None))
+        else:
+            ensp["rtot"].GetScaled(extrafactors)
         ensp["rtot"].GetScaled(ndays)
         ensp["rtot"].ScaleByBinWidth()
+
+        
         if args.rebin_nonuniform:
             ensp["rtot"].Rebin_nonuniform(args.bins_nonuniform)
         ensp["data"] = ensp["rtot"]
@@ -645,7 +664,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
     # ------------------------------------------------------------------
     ensp["ribd"] = ensp["rfis"].Copy()
 
-    if detector != "DYB":
+    if detector == "JUNO":
         ensp["rosc"] = ensp["ribd"].GetOscillated(
             L=list(core_baselines), core_powers=list(core_powers),
             me_rho=args.me_rho, ene_mode="true", args=args,
@@ -668,21 +687,28 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
     # ------------------------------------------------------------------
     print("# Applying energy-response chain …")
 
-    ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args)
-    ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args)
+    if detector == "DYB" and args.model == "PRL":
+        ensp["rdet"] = ensp["rosc"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
-    if detector != "DYB":
-        ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl"],      args, ensp)
-        ensp["rvis_temp"] = _apply_nonlinearity(ensp["rvis_nonl_temp"], args, ensp)
     else:
-        ensp["rvis"]      = ensp["rvis_nonl"]
-        ensp["rvis_temp"] = ensp["rvis_nonl_temp"]
-
-    ensp["rdet"] = ensp["rvis"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args)
+        ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args)
+    
+        if detector != "DYB":
+            ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl"],      args, ensp)
+            ensp["rvis_temp"] = _apply_nonlinearity(ensp["rvis_nonl_temp"], args, ensp)
+        else:
+            ensp["rvis"]      = ensp["rvis_nonl"]
+            ensp["rvis_temp"] = ensp["rvis_nonl_temp"]
+    
+        ensp["rdet"] = ensp["rvis"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
     # Add corrections
     if detector == "DYB":
-        ensp["rdet"] = ensp["rdet"] + ensp["noneq_final"]
+        if args.model == "CPC":
+            ensp["rdet"] = ensp["rdet"] + ensp["noneq_final"]
+        else:
+            ensp["rdet"] = ensp["rdet"]
     else:
         ensp["rdet"] = ensp["rdet"] + ensp["snf_final"] + ensp["noneq_final"]
 

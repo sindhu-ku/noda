@@ -1679,16 +1679,6 @@ def load_reactor_summary(yaml_path="data/reactor_data.yaml"):
 
     return core_names, np.array(core_powers), core_fractions, np.array(core_baselines)
 def rebin_cov_matrix(cov, target_bins):
-    # Original binning — inferred from the matrix dimension
-    # Total sub-bins: 1+325+9+4+1 = 340
-    ORIG_BINS = [
-        [0.8,  0.94, 1],
-        [0.94, 7.44, 325],
-        [7.44, 7.8,  9],
-        [7.8,  8.2,  4],
-        [8.2,  12,   1],
-    ]
-
     def expand_edges(bins):
         bins = np.asarray(bins)
         if bins.ndim == 1:
@@ -1702,7 +1692,7 @@ def rebin_cov_matrix(cov, target_bins):
                 deduped.append(e)
         return np.array(deduped)
 
-    orig_edges = expand_edges(ORIG_BINS)
+    orig_edges = expand_edges(cov.bins)
     tgt_edges  = expand_edges(target_bins)
 
     assert cov.data.shape[0] == len(orig_edges) - 1, \
@@ -1723,6 +1713,7 @@ def rebin_cov_matrix(cov, target_bins):
 
     new_data = T @ cov.data @ T.T
     return CovMatrix(new_data, bins=target_bins, axis_label=cov.axis_label)
+    
 def calculate_ndays(args_obj):
     opt = args_obj.stat_opt
     duty_cycle = args_obj.duty_cycle
