@@ -19,6 +19,69 @@ from . import minuit_pull as minuit_pull
 from . import minuit_comb as minuit_comb
 from .fit import combined_fit as minuit_new
 from .toymc import run_toy, save_batch_results
+from .constants import *
+
+def _build_ibd_interpolator(ebins=None):
+
+    hbar_MeV = 1.0e-6 * hbar / qe
+    MeV_to_cm = (hbar * c * (1.0 / (1.0e6 * qe)))**2 * 1.0e4 
+
+    me2, fsq, gsq = me**2, f**2, g**2
+    y2 = (delta_np**2 - me2) * 0.5
+    M = (mn + mp) * 0.5
+
+    sigma0 = (2.0 * np.pi**2 / (phase_space * (fsq + 3.0*gsq) * (me**5) * n_lifetime / hbar_MeV))
+    n_points = int((12.0- 0.0) / 0.001) + 1
+    enu_array = np.linspace(0.0, 12.0, n_points)
+    
+    cos_theta_arr = np.linspace(-1.0, 1.0, 100)
+    dc = 2.0 / (len(cos_theta_arr) - 1)
+    xsec = np.zeros_like(enu_array)
+    for i, Enu in enumerate(enu_array):
+        Ee0 = Enu - delta_np
+        if Ee0 <= me: continue
+        pe0 = np.sqrt(Ee0**2 - me2)
+        ve0 = pe0 / Ee0
+        sum_sigma_0 = 0.0
+        sum_sigma_1 = 0.0
+        for j, ctheta in enumerate(cos_theta_arr):
+            # Calculate Ee1 regardless
+            Ee1 = Ee0 * (1.0 - Enu / M * (1.0 - ve0 * ctheta)) - y2 / M
+
+            # Use an if/else to keep the point in the sum
+            if Ee1 > me:
+                pe1 = np.sqrt(Ee1**2 - me2)
+                ve1 = pe1 / Ee1
+
+                t0 = (sigma0 * 0.5 * ((fsq + 3.0*gsq) + (fsq - gsq) * ve1 * ctheta) * Ee1 * pe1)
+
+                g1 = 2.0 * g * (f + f2) * ((2.0 * Ee0 + delta_np) * (1.0 - ve0 * ctheta) - me2 / Ee0)
+                g2 = (fsq + gsq) * (delta_np * (1.0 + ve0 * ctheta) + me2 / Ee0)
+                A_val = (Ee0 + delta_np) * (1.0 - ctheta / ve0) - delta_np
+                g3 = (fsq + 3.0 * gsq) * A_val
+                g4 = (fsq - gsq) * A_val * ve0 * ctheta
+
+                t1 = (-0.5 * sigma0 * Ee0 * pe0 * (g1 + g2 + g3 + g4) / M)
+            else:
+                t0 = 0.0
+                t1 = 0.0
+
+            w = 0.5 if (j == 0 or j == len(cos_theta_arr) - 1) else 1.0
+            sum_sigma_0 += w * t0
+            sum_sigma_1 += w * t1
+        xsec[i] = (sum_sigma_0 + sum_sigma_1) * dc * MeV_to_cm
+    return sp.interpolate.interp1d(
+        enu_array, xsec, kind='slinear', bounds_error=False, fill_value=(0.0, 0.0)
+    )
+
+
+def _build_bump_interpolator(input_data_file):
+    bump = GetSpectrumFromROOT(input_data_file, "DYBFluxBump_ratio")
+    return sp.interpolate.interp1d(
+        bump.GetBinCenters(), bump.bin_cont,
+        kind="slinear", bounds_error=False,
+        fill_value=(bump.bin_cont[0], bump.bin_cont[-1]),
+    )
 
 def main(argv=None):
   if argv is None:
@@ -104,6 +167,8 @@ def main(argv=None):
 
 
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
+  s_ibd  = _build_ibd_interpolator(ebins)
+  s_bump_lin = _build_bump_interpolator(args_juno.input_data_file)
 
   
   with open(args_juno.backgrounds_yaml, "r") as f:
@@ -113,8 +178,10 @@ def main(argv=None):
                                     ebins=ebins,
                                     detector="JUNO",
                                     backgrounds=backgrounds,
+                                    s_ibd=s_ibd, s_bump_lin=s_bump_lin,
                                     args=args_juno)
   
+
   
   if args_juno.fit_type == 'PMOP_combined':
       if not args_juno.use_dagflow:
@@ -122,12 +189,14 @@ def main(argv=None):
                                     ebins=ebins_dyb,
                                     detector="DYB",
                                     backgrounds=backgrounds,
+                                    s_ibd=s_ibd, s_bump_lin=s_bump_lin,                
                                     args=args_dyb)
-          
+      return          
       ensp_nom_tao, resp_matrix_tao, ene_leak_tao  = spec.CreateSpectra(ndays=ndays_tao,
                                     ebins=ebins_tao,
                                     detector="TAO",
                                     backgrounds=backgrounds,
+                                    s_ibd=s_ibd, s_bump_lin=s_bump_lin,                    
                                     args=args_tao)     
 
 
@@ -298,7 +367,7 @@ def main(argv=None):
           scan_res.get_results(args=args_juno)
       else:
           cm_tao = {}
-          #cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_spectrum, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
+          cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_spectrum, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
           
           if args_juno.fit_type == 'PMOP_combined':
               if not args_juno.use_dagflow:
@@ -327,11 +396,11 @@ def main(argv=None):
 
                   cm_dyb['all'] = DYB_rel_cm
 
-                  minuit_new.run_minuit(ndays=ndays,ndays_dyb=ndays_dyb,ndays_tao=ndays_tao, ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix,rm_dyb = resp_matrix_dyb,rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_dyb=cm_dyb,cm_tao=cm_tao,args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
+                  minuit_new.run_minuit(ndays=ndays,ndays_dyb=ndays_dyb,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='all', rm = resp_matrix,rm_dyb = resp_matrix_dyb,rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_dyb=cm_dyb,cm_tao=cm_tao,args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
               else:    
                   from .DYB_model import make_dyb_model
                   dyb_model = make_dyb_model(args_dyb)
-                  minuit_new.run_minuit(ndays=ndays,ndays_tao=ndays_tao, ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix, rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
+                  minuit_new.run_minuit(ndays=ndays,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix, rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
                       
 
                       

@@ -23,6 +23,7 @@ from scipy.linalg import cho_solve, cho_factor
 from .nl_geant4 import Geant4Model
 import yaml
 import hashlib
+from .constants import *
 #np.set_printoptions(threshold=sys.maxsize)
 #global settings:
 
@@ -91,7 +92,7 @@ class Spectrum:
     return 0.5*(self.bins[:-1]+self.bins[1:])
 
   def GetIntegral(self, mode='per_bin', left_edge=None, right_edge=None):
-    # mode: 'per_bin', 'per_MeV'
+    # mode: 'per_bin', 'per_meV'
     i1 = 0
     i2 = len(self.bin_cont)
     if left_edge != None:  i1 = self.FindBin(left_edge)
@@ -99,7 +100,7 @@ class Spectrum:
     if i1<0: i1=0
     if mode == 'per_bin':
       return sum(self.bin_cont[i1:i2])
-    if mode == 'per_MeV':
+    if mode == 'per_meV':
       bw = [b2-b1 for b1,b2 in zip(self.bins[i1:i2-1], self.bins[i1+1:i2])]
       return sum([w*c for w,c in zip(bw, self.bin_cont[i1:i2])])
 
@@ -133,7 +134,7 @@ class Spectrum:
       self.bin_cont[i] += val
 
   def Normalize(self, normTo=1., mode="per_bin", left_edge=None, right_edge=None):
-    # mode options: "per_MeV", "per_bin"
+    # mode options: "per_meV", "per_bin"
     old_int = self.GetIntegral(mode=mode, left_edge=left_edge, right_edge=right_edge)
     scale_factor = normTo/old_int
     self.bin_cont *= scale_factor
@@ -183,22 +184,40 @@ class Spectrum:
     self.bins = s_new.bins
     del s_new
 
-  def Rebin_spline(self, new_bins, keep_norm=True):   # Better for binning with much more bins
-    s_new = Spectrum(np.zeros(len(new_bins)-1), new_bins, xlabel=self.xlabel, ylabel=self.ylabel)
-    #x = [(b1+b2)/2. for b1,b2 in zip(self.bins[:-1],self.bins[1:])]  # center of bins
-    #y = values
-    x = self.bins
-    y = [(v1+v2)/2. for v1,v2 in zip([0]+list(self.bin_cont), list(self.bin_cont)+[0])]
-    spline = sp.interpolate.interp1d(x, y, kind='slinear', bounds_error=False, fill_value=(0,0))
-    #new_x = [(b1+b2)/2. for b1,b2 in zip(s_new.bins[:-1],s_new.bins[1:])]  # center of bins
-    for i, (x1, x2) in enumerate(zip(s_new.bins[:-1], s_new.bins[1:])):
-      bw_new = x2-x1
-      s_new.AddToBin(i, spline((x1+x2)/2.))
+  def Rebin_spline(self, new_bins, keep_norm=True):
+    from scipy.interpolate import CubicSpline
+    
+    # 1. Work with Density (dN/dE) to make integration meaningful
+    bin_widths = self.bins[1:] - self.bins[:-1]
+    y_density = self.bin_cont / bin_widths
+    
+    # 2. Use CubicSpline (not slinear) for smooth reactor peaks
+    # We spline the centers of the old bins
+    x_centers = 0.5 * (self.bins[:-1] + self.bins[1:])
+    spline = CubicSpline(x_centers, y_density, extrapolate=False)
+    
+    # 3. Create the new container
+    new_counts = np.zeros(len(new_bins)-1)
+    
+    # 4. INTEGRATE the spline over each new bin width
+    # This is the "GNA way" - it accounts for the whole bin area
+    for i in range(len(new_bins)-1):
+        x1, x2 = new_bins[i], new_bins[i+1]
+        # integrate returns the area under the dN/dE curve
+        new_counts[i] = spline.integrate(x1, x2)
+    
+    # Handle NaNs from extrapolation
+    new_counts = np.nan_to_num(new_counts)
+    
     if keep_norm:
-      s_new.Normalize(self.GetIntegral(left_edge=new_bins[0], right_edge=new_bins[-1], mode='per_bin'))
-    self.bin_cont = s_new.bin_cont
-    self.bins = s_new.bins
-    del s_new
+        # Match integral of original spectrum in the overlapping range
+        old_int = self.GetIntegral(left_edge=new_bins[0], right_edge=new_bins[-1])
+        new_int = np.sum(new_counts)
+        if new_int > 0:
+            new_counts *= (old_int / new_int)
+
+    self.bin_cont = new_counts
+    self.bins = new_bins
 
   def Rebin_nonuniform(self, bins_nonuniform):
     new_bins = []
@@ -329,7 +348,7 @@ class Spectrum:
         data /= col_sums
 
     if pecrop is None:
-        return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (MeV)")
+        return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (meV)")
 
     pebins_full = respMat.pebins
     pebw = (pebins_full[-1]-pebins_full[0])/(len(pebins_full)-1)
@@ -344,7 +363,7 @@ class Spectrum:
     matrix_slice = data[:, peb1:peb2]
     smeared_cont = self.bin_cont.dot(matrix_slice)
 
-    return Spectrum(smeared_cont, bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+    return Spectrum(smeared_cont, bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (meV)")
 
   # def ApplyDetResp(self, respMat, pecrop=None, norm=False):
   #   data = respMat.data.copy()
@@ -356,7 +375,7 @@ class Spectrum:
   #       #respMat = RespMatrix(data=data, ebins=respMat.ebins, pebins=respMat.pebins)
 
   #   if pecrop is None:
-  #       return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (MeV)")
+  #       return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (meV)")
 
   #   # if pecrop == None:
   #   #   return Spectrum(self.bin_cont.dot(respMat.data), bins=respMat.pebins)
@@ -365,49 +384,124 @@ class Spectrum:
   #   peb1 = int(np.around((pecrop[0]-pebins_full[0])/pebw))
   #   peb2 = int(np.around((pecrop[1]-pebins_full[0])/pebw))
   #   pebins_crop = pebins_full[peb1:peb2+1]
-  #   #return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
-  #   return Spectrum(self.bin_cont.dot(respMat.data[:, peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (MeV)")
+  #   #return Spectrum(self.bin_cont.dot(respMat.data[peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (meV)")
+  #   return Spectrum(self.bin_cont.dot(respMat.data[:, peb1:peb2]), bins=pebins_crop, xlabel=r"$E_{\rm vis}$ (meV)")
 
   def GetWithShiftedEnergy(self, eshift):
     Enu = self.bins
     Epos = Enu + eshift
     return Spectrum(self.bin_cont, bins=self.bins+eshift).Rebin(self.bins)
 
-  def GetWithPositronEnergy(self, type='ana', inputfile=None, tf2name=None):
-    Enu = self.bins
-    Mn = 939.56536 #MeV
-    Mp = 938.27203 #MeV
-    Me = 0.51099893 #MeV
-    if type=='TF2':
-        Epos = np.zeros_like(Enu)
+  # def GetWithPositronEnergy(self, type='ana', inputfile=None, tf2name=None):
+  #   Enu = self.bins
+  #   mn = 939.56536 #meV
+  #   mp = 938.27203 #meV
+  #   me = 0.51099893 #meV
+  #   if type=='TF2':
+  #       Epos = np.zeros_like(Enu)
+  #       file = ROOT.TFile(inputfile)
+  #       func = file.Get(tf2name)
+  #       for i, energy in enumerate(Enu):
+  #           Epos_temp=0.
+  #           for cos_theta in range(-1, 1, 100):
+  #               Epos_temp += func.Eval(energy, cos_theta)
+
+  #           Epos[i] = Epos_temp
+  #   elif type=='ana':
+  #       Deltanp = mn - mp
+  #       Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - me*me)/(2.0*mp)
+  #       Tn = 2 * Enu**2 / (mn + mp)
+  #       Epos = (-mn + np.sqrt(mn*mn - 4.0*mp*Mdiff))/2.0
+  #   else:
+  #       RaiseValueError(f"Unknown type value for positron energy shift {type}")
+
+  #   Evis = Epos + me
+  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+  def GetWithPositronEnergy(self, type='2d', inputfile=None, tf2name=None, n_cos_theta=48):
+    E_nu        = 0.5 * (self.bins[:-1] + self.bins[1:])
+    flux        = self.bin_cont
+
+    if type == 'TF2':
+        Epos = np.zeros_like(E_nu)
         file = ROOT.TFile(inputfile)
         func = file.Get(tf2name)
-        for i, energy in enumerate(Enu):
-            Epos_temp=0.
+        for i, energy in enumerate(E_nu):
+            Epos_temp = 0.
             for cos_theta in range(-1, 1, 100):
                 Epos_temp += func.Eval(energy, cos_theta)
-
             Epos[i] = Epos_temp
-    elif type=='ana':
-        Deltanp = Mn - Mp
-        Mdiff = -Enu + Deltanp + (Deltanp*Deltanp - Me*Me)/(2.0*Mp)
-        Tn = 2 * Enu**2 / (Mn + Mp)
-        Epos = (-Mn + np.sqrt(Mn*Mn - 4.0*Mp*Mdiff))/2.0
+        Evis = Epos + me
+
+    elif type == 'ana':
+        delta  = (mn**2 - mp**2 - me**2) / (2.0 * mp)
+        s      = 2.0 * mp * E_nu + mp**2
+        sqrt_s = np.sqrt(s)
+        E_nu_CM = (s - mp**2) / (2.0 * sqrt_s)
+        E_e_CM  = (s - mn**2 + me**2) / (2.0 * sqrt_s)
+        coeff   = (s - (mn - me)**2) * (s - (mn + me)**2)
+        p_e_CM  = np.where(coeff > 0, np.sqrt(coeff) / (2.0 * sqrt_s), 0.0)
+        E1   = E_nu - delta - (E_nu_CM / mp) * (E_e_CM + p_e_CM)
+        E2   = E_nu - delta - (E_nu_CM / mp) * (E_e_CM - p_e_CM)
+        E_e  = 0.5 * (E1 + E2)
+        Evis = E_e + me
+        Evis = np.where(Evis < 2.0 * me, 2.0 * me, Evis)
+        new_counts = flux
+
+    elif type == '2d':
+        new_counts = np.zeros_like(E_nu)
+                # Output grid: positron kinetic energy + me = prompt visible energy
+        E_e = E_nu - delta_np 
+        Evis = E_e + me
+        Ee_output  = E_nu - delta_np          # leading-order positron energy
+        Evis       = self.bins - delta_np + me           # prompt visible energy axis
+        new_counts = np.zeros_like(E_nu)
+
+        ctheta_grid = np.linspace(-1.0, 1.0, n_cos_theta)
+        dc = 2.0 / (n_cos_theta - 1)
+   
+        for i, Ee_out in enumerate(Ee_output):
+            if Ee_out <= me: continue
+            
+            sum_val = 0.0
+            for j, ctheta in enumerate(ctheta_grid):
+                w = 0.5 if (j == 0 or j == n_cos_theta - 1) else 1.0
+
+                # 1. Map this (Ee, ctheta) back to which Neutrino Energy produced it
+                Ve    = np.sqrt(max(0.0, 1.0 - me**2 / Ee_out**2))
+                Ee0   = Ee_out + (mn**2 - mp**2 - me**2) / (2.0 * mp)
+                denom = 1.0 - (Ee_out / mp) * (1.0 - Ve * ctheta)
+                Enu_val = Ee0 / denom
+
+                # 2. Get the Jacobian |dEnu/dEe|
+                jac = (mp + (1.0 - ctheta / Ve) * Enu_val) / (mp - (1.0 - Ve * ctheta) * Ee_out)
+
+                # 3. Interpolate the original EVENT counts at this Enu
+                if E_nu[0] <= Enu_val <= E_nu[-1]:
+                    event_density = np.interp(Enu_val, E_nu, flux)
+                    
+                    # Weight by the relative cross-section probability at this angle
+                    # If you want pure kinematics, weight is just 1.0. 
+                    # If you want the f+g angular bias, use:
+                    angular_weight = (1 + ((f**2 - g**2)/(f**2 + 3*g**2)) * Ve * ctheta)
+                    
+                    sum_val += w * event_density * angular_weight * jac
+
+            # Normalize the angular integral (dc/2) and assign to the Ee bin
+            new_counts[i] = sum_val * (dc / 2.0)
+
+
+
     else:
-        RaiseValueError(f"Unknown type value for positron energy shift {type}")
+        raise ValueError(f"Unknown type for positron energy shift: {type!r}")
 
-    Evis = Epos + Me
-    return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
-
-  # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
-  #   Enu = self.bins  # Neutrino energy
+    return Spectrum(new_counts, bins=Evis).Rebin(self.bins)
   #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
   #
   #   # Constants
-  #   Mn = 939.56536  # Neutron mass (MeV)
-  #   Mp = 938.27203  # Proton mass (MeV)
-  #   Me = 0.51099893  # Electron mass (MeV)
-  #   delta = (Mn**2 - Mp**2 - Me**2) / (2.0 * Mp)  # Exact substitution for δ
+  #   mn = 939.56536  # Neutron mass (meV)
+  #   mp = 938.27203  # Proton mass (meV)
+  #   me = 0.51099893  # Electron mass (meV)
+  #   delta = (mn**2 - mp**2 - me**2) / (2.0 * mp)  # Exact substitution for δ
   #
   #   if inputfile and tf2name:
   #       Epos = np.zeros_like(Enu)
@@ -423,7 +517,7 @@ class Spectrum:
   #       Epos = []
   #       for Enu_i in Enu:
   #           Epos_temp = 0.0
-  #           epsilon_nu = Enu_i / Mp
+  #           epsilon_nu = Enu_i / mp
   #           for cos_theta in cos_theta_vals:
   #               kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
   #               if kappa <= 0:
@@ -432,25 +526,25 @@ class Spectrum:
   #               # Exact substitution for Ee (Equation 11)
   #               Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
   #                         epsilon_nu * cos_theta *
-  #                         np.sqrt((Enu_i - delta)**2 + kappa * Me**2)) / kappa
+  #                         np.sqrt((Enu_i - delta)**2 + kappa * me**2)) / kappa
   #
   #               EPSILON = 1e-10
   #
   #               # Exact substitution for ve (pe/Ee)
-  #               ve = np.sqrt(max(0, Epos_i**2 - Me**2)) / Epos_i if Epos_i > Me else EPSILON
+  #               ve = np.sqrt(max(0, Epos_i**2 - me**2)) / Epos_i if Epos_i > me else EPSILON
   #
   #               # Adjust Jacobian to handle ve -> 0 safely
   #               if abs(ve) < EPSILON:
   #                   jacobian = 1.0  # Default value when ve is negligible
   #               else:
-  #                   jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
-  #                             (1 - Epos_i / Mp * (1 - ve * cos_theta)))
+  #                   jacobian = ((1 + Enu_i / mp * (1 - 1 / ve * cos_theta)) /
+  #                             (1 - Epos_i / mp * (1 - ve * cos_theta)))
   #               print(Epos_i, jacobian)
   #               Epos_temp += jacobian * Epos_i
   #           Epos.append(Epos_temp / len(cos_theta_vals))  # Averaging
   #
   #       Epos = np.array(Epos)
-  #   Evis = Epos + 0.511  # Add 0.511 MeV for visible energy
+  #   Evis = Epos + 0.511  # Add 0.511 meV for visible energy
   #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
   #
   # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
@@ -458,16 +552,16 @@ class Spectrum:
   #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
   #
   #   # Constants
-  #   Mn = 939.56536  # Neutron mass (MeV)
-  #   Mp = 938.27203  # Proton mass (MeV)
-  #   Me = 0.51099893  # Electron mass (MeV)
-  #   delta = (Mn**2 - Mp**2 - Me**2) / (2.0 * Mp)  # Exact substitution for δ
+  #   mn = 939.56536  # Neutron mass (meV)
+  #   mp = 938.27203  # Proton mass (meV)
+  #   me = 0.51099893  # Electron mass (meV)
+  #   delta = (mn**2 - mp**2 - me**2) / (2.0 * mp)  # Exact substitution for δ
   #
   #   # Using exact equations for Ee and Jacobian
   #   Epos = []
   #   for Enu_i in Enu:
   #       Epos_temp = 0.0
-  #       epsilon_nu = Enu_i / Mp
+  #       epsilon_nu = Enu_i / mp
   #       for cos_theta in cos_theta_vals:
   #           kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
   #           if kappa <= 0:
@@ -476,19 +570,19 @@ class Spectrum:
   #           # Exact substitution for Ee (Equation 11)
   #           Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
   #                     epsilon_nu * cos_theta *
-  #                     np.sqrt((Enu_i - delta)**2 + kappa * Me**2)) / kappa
+  #                     np.sqrt((Enu_i - delta)**2 + kappa * me**2)) / kappa
   #
   #           EPSILON = 1e-10
-  #           #Tn_i = 2 * Enu_i**2 / (Mn + Mp) * (1 - cos_theta)
+  #           #Tn_i = 2 * Enu_i**2 / (mn + mp) * (1 - cos_theta)
   #           # Exact substitution for ve (pe/Ee)
-  #           ve = np.sqrt(max(0, Epos_i**2 - Me**2)) / Epos_i if Epos_i > Me else EPSILON
+  #           ve = np.sqrt(max(0, Epos_i**2 - me**2)) / Epos_i if Epos_i > me else EPSILON
   #
   #           # Adjust Jacobian to handle ve -> 0 safely
   #           if abs(ve) < EPSILON:
   #               jacobian = 1.0  # Default value when ve is negligible
   #           else:
-  #               jacobian = ((1 + Enu_i / Mp * (1 - 1 / ve * cos_theta)) /
-  #                         (1 - Epos_i / Mp * (1 - ve * cos_theta)))
+  #               jacobian = ((1 + Enu_i / mp * (1 - 1 / ve * cos_theta)) /
+  #                         (1 - Epos_i / mp * (1 - ve * cos_theta)))
   #
   #
   #           #print(Epos_i, jacobian)
@@ -496,7 +590,7 @@ class Spectrum:
   #       Epos.append((Epos_temp / len(cos_theta_vals)))  # Averaging
   #
   #   Epos = np.array(Epos)
-  #   Evis = Epos + Me  # Add 0.511 MeV for visible energy
+  #   Evis = Epos + me  # Add 0.511 meV for visible energy
   #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
   #
   #
@@ -649,7 +743,7 @@ class Spectrum:
   #   sigma : float
   #       Relative bin-to-bin uncertainty (defined for source bin width w_source).
   #   w_source : float
-  #       Bin width (in MeV) for which sigma is defined.
+  #       Bin width (in meV) for which sigma is defined.
 
   #   Returns
   #   -------
@@ -680,7 +774,7 @@ class Spectrum:
     sigma : float
         Relative bin-to-bin uncertainty (defined for source bin width w_source).
     w_source : float
-        Bin width (in MeV) for which sigma is defined.
+        Bin width (in meV) for which sigma is defined.
     mu_pred : array-like, optional
         Predicted counts per bin for this background. If None, uses self.bin_cont.
 
@@ -785,7 +879,8 @@ class Spectrum:
     
     bins = self.bins
     bin_cont = self.bin_cont
-    
+
+    print("Bins", len(bins))
     # Create the histogram
     # Note: ROOT.gDirectory will now point to your target folder
     hist = ROOT.TH1D(histname, histname, len(bins) - 1, array('d', bins))
@@ -1046,8 +1141,8 @@ class RespMatrix():
     fig, ax = plt.subplots()
     counts, xedges, yedges, im = plt.hist2d(x,y,bins=[self.ebins, self.pebins], weights=val, cmap=plt.get_cmap("jet"))
     plt.colorbar(im, ax=ax)
-    plt.xlabel("True energy (MeV)")
-    plt.ylabel("Visual energy (MeV)")
+    plt.xlabel("True energy (meV)")
+    plt.ylabel("Visual energy (meV)")
     plt.ylim(pecrop)
     plt.savefig(fname)
     plt.close()
@@ -1086,7 +1181,7 @@ def LoadRespMatrix(fname):
   f.close()
   return m
     
-def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_MeV", verbose=True):
+def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_meV", verbose=True):
     evis = 0.5*(ebins[1:] + ebins[:-1]) + eshift
     rel_res = np.sqrt(a**2 / evis + b**2 + c**2 / evis**2)  # in fraction
 
@@ -1109,7 +1204,7 @@ def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="
     rm_data *= pe_bin_width
 
     return RespMatrix(rm_data, ebins=ebins, pebins=pebins)
-# def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_MeV", verbose=True):
+# def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_meV", verbose=True):
 #   evis = 0.5*(ebins[1:]+ebins[:-1]) + eshift
 
 
@@ -1138,7 +1233,7 @@ def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="
 # import scipy.stats as sp
 
 # def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0.,
-#                        norm_mode="per_MeV", verbose=True, method="cdf"):
+#                        norm_mode="per_meV", verbose=True, method="cdf"):
 #     """
 #     Construct detector response matrix with Gaussian energy resolution.
     
@@ -1149,13 +1244,13 @@ def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="
 #     ebins : array
 #         True energy bin edges.
 #     pebins : array
-#         Measured energy (PE) bin edges (can be nonuniform).
+#         measured energy (PE) bin edges (can be nonuniform).
 #     escale : float
 #         Energy scale factor.
 #     eshift : float
-#         Energy shift (MeV).
+#         Energy shift (meV).
 #     norm_mode : str
-#         If "per_MeV", normalize by true bin width.
+#         If "per_meV", normalize by true bin width.
 #     method : str
 #         "cdf" (exact, recommended) or "pdf" (approx).
 #     """
@@ -1193,14 +1288,14 @@ def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="
 #         raise ValueError(f"Unknown method={method}")
 
 #     # Optional normalization
-#     if norm_mode == "per_MeV":
+#     if norm_mode == "per_meV":
 #         bin_widths = np.diff(ebins)
 #         rm_data = rm_data / bin_widths[:, None]
 
 #     return RespMatrix(rm_data, ebins=ebins, pebins=pebins)
 
 
-def CalcRespMatrix_abc_flu(a, b, c, unc, ebins, pebins, escale=1., eshift=0., norm_mode='per_MeV', sample_size=100):
+def CalcRespMatrix_abc_flu(a, b, c, unc, ebins, pebins, escale=1., eshift=0., norm_mode='per_meV', sample_size=100):
   print(" # Fluctuating (a,b,c) parameters...")
   a_err, b_err, c_err = unc
   a_flu = np.random.normal(loc=a, scale=a_err, size=sample_size)
@@ -1259,7 +1354,7 @@ def spectrum_integral(E_j, E_j1, A, B, C):
   integral, _ = quad(integrand, E_j, E_j1)
   return integral
 
-def GetSpectrumFromROOT(fname, hname, scale=1., eshift=0, xlabel="Energy (MeV)"):
+def GetSpectrumFromROOT(fname, hname, scale=1., eshift=0, xlabel="Energy (meV)"):
     rf = uproot.open(fname)
     obj = rf[hname]
     
@@ -1555,17 +1650,17 @@ def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0
     """
     Read neutrino flux data from a .dat file with columns:
     E_nu [keV], flux_235, flux_239, flux_241, flux_238 (#nu / fission / keV)
-    Convert energy to MeV and return Spectrum (same class as GetSpectrumFromROOT).
+    Convert energy to meV and return Spectrum (same class as GetSpectrumFromROOT).
     """
     data = np.loadtxt(filename)
 
     # Columns: E(keV), 235, 239, 241, 238
     E_keV = data[:, 0]
-    E_MeV = E_keV / 1000.0  # convert keV → MeV
-    E_edges = centers_to_edges(E_MeV)
-    keV_to_MeV = 1000.0
+    E_meV = E_keV / 1000.0  # convert keV → meV
+    E_edges = centers_to_edges(E_meV)
+    keV_to_meV = 1000.0
 
-    total_flux = keV_to_MeV * (
+    total_flux = keV_to_meV * (
         data[:, 1] * scale_U235 +
         data[:, 2] * scale_Pu239 +
         data[:, 3] * scale_Pu241 +

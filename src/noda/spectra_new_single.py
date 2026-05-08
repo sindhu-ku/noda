@@ -15,10 +15,11 @@ import csv
 import numpy as np
 import pandas as pd
 import scipy as sp
-from scipy.integrate import simpson, trapezoid
+from scipy.integrate import simpson, trapezoid, quad
 from scipy import constants
 from joblib import Parallel, delayed
 from datetime import datetime
+
 
 from .noda import *
 
@@ -139,29 +140,6 @@ def _build_energy_leak(args, detector, ebins):
     raise ValueError(f"Unknown detector for energy-leak calculation: {detector!r}")
 
 
-# ---------------------------------------------------------------------------
-# IBD cross-section / flux helpers
-# ---------------------------------------------------------------------------
-
-def _build_ibd_interpolator(args):
-    """Return (spectrum, interpolator) for the IBD cross-section."""
-    sibd_spec = GetSpectrumFromROOT(args.input_data_file, "IBDXsec_VogelBeacom_DYB")
-    s_ibd = sp.interpolate.interp1d(
-        sibd_spec.GetBinCenters(), sibd_spec.bin_cont,
-        kind="slinear", bounds_error=False, fill_value=(0.0, 0.0),
-    )
-    return sibd_spec, s_ibd
-
-
-def _build_bump_interpolator(args):
-    bump = GetSpectrumFromROOT(args.input_data_file, "DYBFluxBump_ratio")
-    return sp.interpolate.interp1d(
-        bump.GetBinCenters(), bump.bin_cont,
-        kind="slinear", bounds_error=False,
-        fill_value=(bump.bin_cont[0], bump.bin_cont[-1]),
-    ), bump
-
-
 def _build_huber_mueller_flux(args, fracs, ebins):
     """Sum Huber-Mueller isotope fluxes, rebinned to *ebins*."""
     flux = (
@@ -279,7 +257,7 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, cor
 
     # --- Accumulate group totals ---
     for grp in ("snf", "noneq"):
-        for lbl in ("YJ", "TS", "HM", "final"):
+        for lbl in ("YJ", "TS", "HM", "final", "osc"):
             ensp[f"{grp}_{lbl}"] = _zero_spectrum(ebins)
 
     for i in range(n_cores):
@@ -294,7 +272,9 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, cor
             L=[core_baselines[i]], core_powers=[core_powers[i]],
             me_rho=args.me_rho, ene_mode="true", args=args,
         )
-
+        ensp["snf_osc"] +=  s_osc
+        ensp["noneq_osc"] += n_osc
+        
         final_snf_i   = _apply_full_energy_response(s_osc, args, ensp, resp_matrix)
         final_noneq_i = _apply_full_energy_response(n_osc, args, ensp, resp_matrix)
 
@@ -520,7 +500,7 @@ def _assemble_total_spectrum_tao(ensp, args):
         if args.rebin_nonuniform:
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
 
-    return  ([ensp['data'], ensp['bckg']],
+    return  ([ensp['rtot'], ensp['bckg']],
             ['TAO expectation', 'TAO data', 'TAO background'],
             ['brown', 'steelblue', 'orange'])
 
@@ -589,7 +569,7 @@ def _write_juno_output(ensp, args, backgrounds):
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=None):
+def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=None, backgrounds=None, args=None):
     """
     Build all reactor antineutrino spectra for *detector* over *ndays* days.
 
@@ -618,10 +598,78 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
     # ------------------------------------------------------------------
     # 1. Common ingredients
     # ------------------------------------------------------------------
-    sibd_spec, s_ibd  = _build_ibd_interpolator(args)
-    ensp["sibd"]      = sibd_spec
-    s_bump_lin, ensp["bump_corr"] = _build_bump_interpolator(args)
+  
+    energy_min =  1.8  # MeV
+    energy_max = 12.0 # MeV
+    step_size = 0.01  # 10 keV in MeV
+    # 2. Generate the evaluation points
+    energies =np.arange(energy_min, energy_max + step_size, step_size)
+    cross_sections =  s_ibd(energies)
 
+    
+    # 3. Create the TGraph
+    # n is the number of points, energies and cross_sections are the data
+    graph = ROOT.TGraph(len(energies), energies.astype(float), cross_sections.astype(float))
+    graph.SetName("ibdxsec")
+    graph.SetTitle("IBD Cross Section;Energy [MeV];Cross Section")
+    
+    if detector == "JUNO":
+    # 4. Save to a ROOT file
+      output_file = ROOT.TFile("NODA_Apr31.root", "update")
+      graph.Write()
+    
+      output_file.Close()
+
+    # 1. Setup Energy Range
+    energies = np.arange(0.8, 12.0 + 0.01, 0.01)
+    L = 52.5e3
+    rho = 2.55
+    sin2_th13_nom = 0.0216
+    
+    # 2. Define the Parameter Sets
+    parameter_sets = [
+        (0.307, 7.50e-5, 2.451e-3, "oscprob1"),
+        (0.307, 7.50e-5, -2.527e-3, "oscprob2"),
+        (0.283, 7.88e-5, 2.503e-3, "oscprob3"),
+        (0.331, 7.12e-5, -2.459e-3, "oscprob4")
+    ]
+    
+    # 3. Open the ROOT file (UPDATE mode)
+    output_file = ROOT.TFile("NODA_Apr31.root", "UPDATE")
+    
+    for sin2_th12, dm2_21, dm2_32, graph_name in parameter_sets:
+        dm2_31 = dm2_32 + dm2_21
+    
+        # Calculate survival probability
+        pee = nuosc.AntiNueSurvProb(
+            energies, L,
+            sin2_th12=sin2_th12,
+            sin2_th13=sin2_th13_nom,
+            dm2_21=dm2_21,
+            dm2_31=dm2_31,
+            dm2_32=dm2_32,
+            me_rho=rho
+        )
+    
+        # Calculate oscillation probability: P_osc = 1 - P_ee
+        posc = pee
+    
+        # Create TGraph
+        graph = ROOT.TGraph(len(energies), energies.astype(float), posc.astype(float))
+        graph.SetName(graph_name)
+        graph.SetTitle(f"Oscillation Probability (1-Pee) {graph_name};Energy [MeV];P_osc")
+    
+    
+        # Write to file
+        if detector =="JUNO": graph.Write()
+    
+    output_file.Close()
+    print("Graphs saved as 1 - Pee.")
+    
+    print("File 'ibd_output.root' created successfully with TGraph 'ibdxsec'.")
+
+    
+   
     resp_matrix = _load_or_build_resp_matrix(args, detector, ebins)
     # Keep ene_leak_nd for TAO return value
     if detector == "TAO":
@@ -629,6 +677,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
 
     _load_nonlinearity(ensp, args, detector)
 
+    
     # ------------------------------------------------------------------
     # 2. Reactor flux  (per-core JUNO path vs. simple single-flux path)
     # ------------------------------------------------------------------
@@ -656,14 +705,13 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
         _build_snf_noneq_corrections_per_core(
             ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,
         )
-    else:
+    if detector == "TAO" or (detector == "DYB" and args.model == "CPC"):
         _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix)
 
     # ------------------------------------------------------------------
     # 4. Oscillated spectrum
     # ------------------------------------------------------------------
     ensp["ribd"] = ensp["rfis"].Copy()
-
     if detector == "JUNO":
         ensp["rosc"] = ensp["ribd"].GetOscillated(
             L=list(core_baselines), core_powers=list(core_powers),
@@ -688,21 +736,33 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", backgrounds=None, args=
     print("# Applying energy-response chain …")
 
     if detector == "DYB" and args.model == "PRL":
+        ensp["rosc"].WritetoROOT("dyb_pred_enu", "NODA_Apr31.root")
+        return None, None
         ensp["rdet"] = ensp["rosc"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
     else:
         ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args)
         ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args)
-    
+        ensp["rvis_nonl_temp_wcorr"] = _apply_positron_energy((ensp["rosc"]+ensp['snf_osc']+ensp['noneq_osc']), args)
+        print(len(ensp["rvis_nonl"].bins), len( ensp["rvis_nonl_temp_wcorr"].bins))
+        ensp["rvis_nonl"].WritetoROOT("juno_pred_dep_nocorr", "NODA_Apr31.root")
+        ensp["rvis_nonl_temp_wcorr"].WritetoROOT("juno_pred_dep", "NODA_Apr31.root")
+        
         if detector != "DYB":
             ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl"],      args, ensp)
             ensp["rvis_temp"] = _apply_nonlinearity(ensp["rvis_nonl_temp"], args, ensp)
+            ensp["rvis_temp_wcorr"] = _apply_nonlinearity(ensp["rvis_nonl_temp_wcorr"], args, ensp)
         else:
             ensp["rvis"]      = ensp["rvis_nonl"]
             ensp["rvis_temp"] = ensp["rvis_nonl_temp"]
+            ensp["rvis_temp_wcorr"] = ensp["rvis_nonl_temp_wcorr"]
     
         ensp["rdet"] = ensp["rvis"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["rdet_temp"] = ensp["rvis_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["rdet_temp_wcorr"] = ensp["rvis_temp_wcorr"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
+        ensp["rvis_temp_wcorr"].WritetoROOT("juno_pred_vis", "NODA_Apr31.root")
+        ensp["rdet_temp_wcorr"].WritetoROOT("juno_pred_rec", "NODA_Apr31.root")
     # Add corrections
     if detector == "DYB":
         if args.model == "CPC":

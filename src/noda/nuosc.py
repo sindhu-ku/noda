@@ -1,36 +1,49 @@
 #!/usr/bin/env python3
 import numpy as np
+
+from .constants import G_F, N_A, hbarc, prob_factor
+
+phase_factor = 1e-3 * prob_factor / 4  # ≈ 1.2669e-3  [1/(m/MeV * eV^2)]
+
 def potential(rho, E):
-    
     """
     Calculates the matter potential for neutrino oscillations.
-    
+
     Args:
         rho (float): Matter density in g/cm^3.
         E (float): Neutrino energy in MeV.
-        
+
     Returns:
         float: The potential 'A' in units of eV^2.
     """
-    # Physical Constants
-    # G_F is Fermi constant, N_A is Avogadro's number
-    # The factor ~7.6e-5 converts (g/cm^3 * MeV) to eV^2
-    # For antineutrinos, the potential is technically negative, 
-    # but often the absolute value is passed if the signs are 
-    # handled later in the oscillation formulas.
-    
     Ye = 0.5  # Electron fraction (approx. 0.5 for Earth's crust/mantle)
 
-    a = -1.52*1e-7*Ye*rho*E
-    return a
+    # G_F [MeV^-2] -> eV^-2: * 1e-12
+    # hbarc [MeV·fm] -> eV·cm: * 1e-13 (fm->cm) * 1e6 (MeV->eV)
+    # N_A * rho [g/cm^3] -> number density [cm^-3]
+    # E [MeV] -> eV: * 1e6
+    hbarc_eV_cm = hbarc * 1e-13 * 1e6  # eV·cm
+    G_F_eV2 = G_F * 1e-12              # eV^-2
+
+    factor = 2 * np.sqrt(2) * G_F_eV2 * N_A * hbarc_eV_cm**3 * 1e6
+
+    return -factor * Ye * rho * E  # eV^2
+
+
 def sin2_nb(x, dm2):
     """
-    x: baseline / energy (km / MeV)
-    dm2: mass squared difference (eV^2)
+    Calculates sin^2(phase) for neutrino oscillations.
+
+    Args:
+        x (float): baseline / energy in m/MeV.
+        dm2 (float): mass squared difference in eV^2.
+
+    Returns:
+        float: sin^2(phase_factor * dm2 * x)
     """
-    # 1.267 is (G_natural / 4) converted to units of km, MeV, eV^2
-    phase = 1.267 * dm2 * x
-    return np.sin(phase)**2 
+    phase = phase_factor * dm2 * x  # x in [m/MeV]
+    return np.sin(phase)**2
+
 op_nom = {}
 
 def SetOscillationParameters(opt, NO, silent=True):
@@ -92,7 +105,7 @@ def SetOscillationParameters(opt, NO, silent=True):
   #
   elif opt == 'PDG2025': # https://pdg.lbl.gov/2025/tables/contents_tables.html
     op_nom['sin2_th12'] = 0.307
-    op_nom['sin2_th13'] = 0.02190 
+    op_nom['sin2_th13'] = 0.02169
     op_nom['sin2_th13_err'] = 0.00058 
     op_nom['dm2_21'] = 7.50e-5
     if NO:
@@ -102,8 +115,20 @@ def SetOscillationParameters(opt, NO, silent=True):
       op_nom['sin2_th23'] = 0.537
       op_nom['dm2_32'] = -2.527e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
-    op_nom['dm2_31_err'] = np.sqrt(pow(op_nom["dm2_32_err"], 2) + pow(op_nom["dm2_21_err"], 2))
-      
+
+  elif opt == 'xchecks': # https://pdg.lbl.gov/2025/tables/contents_tables.html
+    op_nom['sin2_th12'] = 0.307
+    op_nom['sin2_th13'] = 0.02160 
+    op_nom['sin2_th13_err'] = 0.00058 
+    op_nom['dm2_21'] = 7.50e-5
+    if NO:
+      op_nom['sin2_th23'] = 0.534
+      op_nom['dm2_32'] = 2.451e-3
+    else:
+      op_nom['sin2_th23'] = 0.537
+      op_nom['dm2_32'] = -2.527e-3
+    op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
+
   elif opt == 'DYB': 
     op_nom['sin2_th12'] = 0.307
     op_nom['sin2_th13'] = 0.0217
@@ -126,6 +151,114 @@ def SetOscillationParameters(opt, NO, silent=True):
   #
   if not silent:
     print(f"Oscillation parameters are set to \"{opt}\":", op_nom)
+
+
+
+def AntiNueSurvProb(E, baseline, dm2_21=None, dm2_31=None, dm2_32=None, sin2_th12=None, sin2_th13=None, me_rho=0.0, component="both"):
+    """
+    Calculates the neutrino survival probability in matter.
+
+    Args:
+        E (float or ndarray): Neutrino energy in MeV.
+        baseline (float): Baseline in km.
+        dm2_21 (float): Mass-squared difference (2-1) in eV^2.
+        dm2_31 (float): Mass-squared difference (3-1) in eV^2.
+        sin2_th12 (float): sin^2(theta_12).
+        sin2_th13 (float): sin^2(theta_13).
+        rho (float): Matter density in g/cm^3.
+        component (str, optional): Which component to calculate ('both', 'slow', 'fast'). Defaults to 'both'.
+
+    Returns:
+        float or ndarray: Survival probability.
+
+    Raises:
+        Exception: If an invalid component is specified.
+    """
+    if sin2_th12 == None: sin2_th12 = op_nom["sin2_th12"]
+    if sin2_th13 == None: sin2_th13 = op_nom["sin2_th13"]
+    if dm2_21 == None:    dm2_21=op_nom["dm2_21"]
+    if dm2_31 == None:    dm2_31=op_nom["dm2_31"]
+    if dm2_32 == None:
+        if dm2_31 == None or dm2_21 == None:
+            print("this should not ever happen")
+            dm2_32=op_nom["dm2_32"]
+        else: dm2_32 = dm2_31 - dm2_21
+    rho=me_rho
+    x = baseline  / E
+
+    deltam_ee = dm2_31 - sin2_th12 * dm2_21
+
+    c2_12  = 1.0 - sin2_th12
+    c2_13  = 1.0 - sin2_th13
+    c_2_12 = 1.0 - 2.0 * sin2_th12
+
+    pot = potential(rho, E)
+    appo_12 = c2_13 * pot / dm2_21
+
+    sin2_th12_m = sin2_th12 * (
+        1.0 + 2.0 * c2_12 * appo_12 + 3.0 * c2_12 * c_2_12 * appo_12**2
+    )
+    dm2_21_m = dm2_21 * (
+        1.0 - c_2_12 * appo_12 + 2.0 * sin2_th12 * c2_12 * appo_12**2
+    )
+    sin2_th13_m = sin2_th13 * (1.0 + 2.0 * c2_13 * pot / deltam_ee)
+    dm2_31_m = dm2_31 * (
+        1.0 - pot / dm2_31 * (c2_12 * c2_13 - sin2_th13 - sin2_th12 * c2_12 * c2_13 * appo_12)
+    )
+    dm2_32_m = dm2_32 * (
+        1.0 - pot / dm2_32 * (sin2_th12 * c2_13 - sin2_th13 + sin2_th12 * c2_12 * c2_13 * appo_12)
+    )
+
+    aa = (1.0 - sin2_th13_m)**2 * 4.0 * sin2_th12_m * (1.0 - sin2_th12_m)
+    bb = (1.0 - sin2_th12_m) * 4 * sin2_th13_m * (1.0 - sin2_th13_m)
+    cc = sin2_th12_m * 4 * sin2_th13_m * (1.0 - sin2_th13_m)
+
+    slow_comp = aa * sin2_nb(x, dm2_21_m)
+    fast_comp = bb * sin2_nb(x, dm2_31_m) + cc * sin2_nb(x, dm2_32_m)  # FIX: dm2_32_m not dm2_31_m
+
+    matter_prob = 1.0 - slow_comp - fast_comp
+
+    if component == "both":
+        return matter_prob
+    elif component == "slow":
+        return 1 - slow_comp
+    elif component == "fast":
+        return 1 - fast_comp
+    else:
+        raise Exception("Choose between slow, fast, both")
+def AntiNueSurvProbYB(E, L,
+                      sin2_th12=None,
+                      sin2_th13=None,
+                      dm2_21=None,
+                      dm2_ee=None,
+                      me_rho=0.0,
+                      NO = True):
+  if sin2_th12 == None: sin2_th12 = op_nom["sin2_th12"]
+  if sin2_th13 == None: sin2_th13 = op_nom["sin2_th13"]
+  if dm2_21 == None:    dm2_21=op_nom["dm2_21"]
+  if dm2_ee == None:    dm2_ee=op_nom["dm2_ee"]
+  #
+  if me_rho != 0.:
+    mat_eff_corr = 0.005*E/4.*me_rho/3.  # YB eq.3.8, p.45
+    sin2_th12 = sin2_th12 * (1 + 2*mat_eff_corr)   # YB eq.3.6, p.45
+    dm2_21 = dm2_21 * (1 - mat_eff_corr)
+  #
+  cos2_th12 = 1. - sin2_th12
+  sin2_2th12 = 4.*sin2_th12*cos2_th12
+  cos2_th13 = 1. - sin2_th13
+  sin2_2th13 = 4.*sin2_th13*cos2_th13
+  cos4_th13 = np.power(cos2_th13, 2)
+  #
+  d_21 = 1.267 * dm2_21 * L / E
+  d_ee = 1.267 * dm2_ee * L / E
+  #
+  sqrt = np.sqrt(1. - sin2_2th12*np.power(np.sin(d_21),2))
+  phi = np.arcsin( (cos2_th12 * np.sin(2.*sin2_th12*d_21) - sin2_th12 * np.sin(2.*cos2_th12*d_21)) / sqrt  )
+  #
+  if NO:  t1 = 0.5*sin2_2th13 * (1. - sqrt * np.cos(2*d_ee + phi))
+  else:   t1 = 0.5*sin2_2th13 * (1. - sqrt * np.cos(2*d_ee - phi))
+  t2 = sin2_2th12 * cos4_th13 * np.power(np.sin(d_21), 2)
+  return 1. - t1 - t2
 
 
 
@@ -185,115 +318,4 @@ def SetOscillationParameters(opt, NO, silent=True):
 #   t3 = sin2_2th13 * sin2_th12 * np.sin(1.267 * dm2_32 * L / E)**2
 #   return 1. - t1 - t2 - t3
 
-
-
-
-
-def AntiNueSurvProb(E, baseline, dm2_21=None, dm2_31=None, dm2_32=None, sin2_th12=None, sin2_th13=None, me_rho=0.0, component="both"):
-    """
-    Calculates the neutrino survival probability in matter.
-
-    Args:
-        E (float or ndarray): Neutrino energy in MeV.
-        baseline (float): Baseline in km.
-        dm2_21 (float): Mass-squared difference (2-1) in eV^2.
-        dm2_31 (float): Mass-squared difference (3-1) in eV^2.
-        sin2_th12 (float): sin^2(theta_12).
-        sin2_th13 (float): sin^2(theta_13).
-        rho (float): Matter density in g/cm^3.
-        component (str, optional): Which component to calculate ('both', 'slow', 'fast'). Defaults to 'both'.
-
-    Returns:
-        float or ndarray: Survival probability.
-
-    Raises:
-        Exception: If an invalid component is specified.
-    """
-    if sin2_th12 == None: sin2_th12 = op_nom["sin2_th12"]
-    if sin2_th13 == None: sin2_th13 = op_nom["sin2_th13"]
-    if dm2_21 == None:    dm2_21=op_nom["dm2_21"]
-    if dm2_31 == None:    dm2_31=op_nom["dm2_31"]
-    if dm2_32 == None:
-        if dm2_31 == None or dm2_21 == None:
-            print("this should not ever happen")
-            dm2_32=op_nom["dm2_32"]
-        else: dm2_32 = dm2_31 - dm2_21
-    rho=me_rho
-    x = baseline  / E
-
-    deltam_ee = dm2_31 - sin2_th12 * dm2_21
-
-    c2_12 = 1.0 - sin2_th12
-    c2_13 = 1.0 - sin2_th13
-    c_2_12 = 1.0 - 2.0 * sin2_th12
-    pot = potential(rho, E)
-    appo_12 = c2_13 * pot / dm2_21
-
-    sin2_th12_m = sin2_th12 * (
-        1.0 + 2.0 * c2_12 * appo_12 + 3.0 * c2_12 * c_2_12 * appo_12 * appo_12
-    )
-    dm2_21_m = dm2_21 * (
-        1.0 - c_2_12 * appo_12 + 2.0 * sin2_th12 * c2_12 * appo_12 * appo_12
-    )
-    sin2_th13_m = sin2_th13 * (1.0 + 2.0 * c2_13 * pot / deltam_ee)
-
-    dm2_31_m = dm2_31 * (
-        1.0 - pot / dm2_31 * (c2_12 * c2_13 - sin2_th13 - sin2_th12 * c2_12 * c2_13 * appo_12)
-    )
-    dm2_32_m = dm2_32 * (
-        1.0 - pot / dm2_32 * (sin2_th12 * c2_13 - sin2_th13 + sin2_th12 * c2_12 * c2_13 * appo_12)
-    )
-
-    aa = np.power(1.0 - sin2_th13_m, 2) * 4.0 * sin2_th12_m * (1.0 - sin2_th12_m)
-    bb = (1.0 - sin2_th12_m) * 4 * sin2_th13_m * (1.0 - sin2_th13_m)
-    cc = sin2_th12_m * 4 * sin2_th13_m * (1.0 - sin2_th13_m)
-
-    slow_comp = aa * sin2_nb(x, dm2_21_m)
-    fast_comp = bb * sin2_nb(x, dm2_31_m) + cc * sin2_nb(x, dm2_32_m)
-
-    matter_prob = 1.0 - slow_comp - fast_comp
-
-    if component == "both":
-        return matter_prob
-    elif component == "slow":
-        return 1 - slow_comp
-    elif component == "fast":
-        return 1 - fast_comp
-    else:
-        raise Exception("Choose between slow, fast, both")
-
-
-def AntiNueSurvProbYB(E, L,
-                      sin2_th12=None,
-                      sin2_th13=None,
-                      dm2_21=None,
-                      dm2_ee=None,
-                      me_rho=0.0,
-                      NO = True):
-  if sin2_th12 == None: sin2_th12 = op_nom["sin2_th12"]
-  if sin2_th13 == None: sin2_th13 = op_nom["sin2_th13"]
-  if dm2_21 == None:    dm2_21=op_nom["dm2_21"]
-  if dm2_ee == None:    dm2_ee=op_nom["dm2_ee"]
-  #
-  if me_rho != 0.:
-    mat_eff_corr = 0.005*E/4.*me_rho/3.  # YB eq.3.8, p.45
-    sin2_th12 = sin2_th12 * (1 + 2*mat_eff_corr)   # YB eq.3.6, p.45
-    dm2_21 = dm2_21 * (1 - mat_eff_corr)
-  #
-  cos2_th12 = 1. - sin2_th12
-  sin2_2th12 = 4.*sin2_th12*cos2_th12
-  cos2_th13 = 1. - sin2_th13
-  sin2_2th13 = 4.*sin2_th13*cos2_th13
-  cos4_th13 = np.power(cos2_th13, 2)
-  #
-  d_21 = 1.267 * dm2_21 * L / E
-  d_ee = 1.267 * dm2_ee * L / E
-  #
-  sqrt = np.sqrt(1. - sin2_2th12*np.power(np.sin(d_21),2))
-  phi = np.arcsin( (cos2_th12 * np.sin(2.*sin2_th12*d_21) - sin2_th12 * np.sin(2.*cos2_th12*d_21)) / sqrt  )
-  #
-  if NO:  t1 = 0.5*sin2_2th13 * (1. - sqrt * np.cos(2*d_ee + phi))
-  else:   t1 = 0.5*sin2_2th13 * (1. - sqrt * np.cos(2*d_ee - phi))
-  t2 = sin2_2th12 * cos4_th13 * np.power(np.sin(d_21), 2)
-  return 1. - t1 - t2
 
