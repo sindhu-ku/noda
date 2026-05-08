@@ -70,9 +70,10 @@ def _zero_spectrum(ebins):
 # Energy-response chain helpers
 # ---------------------------------------------------------------------------
 
-def _apply_positron_energy(spec, args):
+def _apply_positron_energy(spec, args, s_ibd=None):
     return spec.GetWithPositronEnergy(
         type=args.posE_shift,
+        s_ibd=s_ibd,
         inputfile=args.input_data_file,
         tf2name=args.pos_ene_TF2,
     )
@@ -86,9 +87,9 @@ def _apply_nonlinearity(spec, args, ensp):
     )
 
 
-def _apply_full_energy_response(spec, args, ensp, resp_matrix):
+def _apply_full_energy_response(spec, args, ensp, resp_matrix, s_ibd):
     """positron shift → non-linearity → detector response."""
-    s = _apply_positron_energy(spec, args)
+    s = _apply_positron_energy(spec, args, s_ibd=s_ibd)
     s = _apply_nonlinearity(s, args, ensp)
     return s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
@@ -193,7 +194,7 @@ def _load_nonlinearity(ensp, args, detector):
 # SNF / Non-equilibrium corrections  (JUNO per-core path)
 # ---------------------------------------------------------------------------
 
-def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix):
+def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix, s_ibd):
     """
     Build oscillated, smeared SNF and Non-Eq spectra for each of the 10 JUNO
     cores and accumulate group totals.  Modifies *ensp* in-place.
@@ -275,8 +276,8 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, cor
         ensp["snf_osc"] +=  s_osc
         ensp["noneq_osc"] += n_osc
         
-        final_snf_i   = _apply_full_energy_response(s_osc, args, ensp, resp_matrix)
-        final_noneq_i = _apply_full_energy_response(n_osc, args, ensp, resp_matrix)
+        final_snf_i   = _apply_full_energy_response(s_osc, args, ensp, resp_matrix, s_ibd)
+        final_noneq_i = _apply_full_energy_response(n_osc, args, ensp, resp_matrix, s_ibd)
 
         ensp["snf_final"]   += final_snf_i
         ensp["noneq_final"] += final_noneq_i
@@ -291,7 +292,7 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, cor
     print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral():.2f}")
 
 
-def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix):
+def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd):
     """
     SNF / Non-Eq for the single-baseline path (TAO, DYB, CI-powers JUNO).
     Modifies *ensp* in-place.
@@ -324,8 +325,8 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix):
         ensp["noneq_final"] = _apply_full_energy_response(ensp["noneq_osc"], args, ensp, resp_matrix)
     else:
         # DYB: positron shift only, no NL
-        ensp["snf_final"]   = _apply_positron_energy(ensp["snf_osc"],   args).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-        ensp["noneq_final"] = _apply_positron_energy(ensp["noneq_osc"], args).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["snf_final"]   = _apply_positron_energy(ensp["snf_osc"],   args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["noneq_final"] = _apply_positron_energy(ensp["noneq_osc"], args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +400,7 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
         spec_scaled = spec.GetScaledFit(
             ndays * scale_rate / (args.duty_cycle * spec.GetIntegral())
         )
-        vis = _apply_positron_energy(spec_scaled, args)
+        vis = _apply_positron_energy(spec_scaled, args, s_ibd=s_ibd)
         vis_nl = _apply_nonlinearity(vis, args, ensp)
         reco = vis_nl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         if args.rebin_nonuniform:
@@ -418,14 +419,14 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
 # Background loading  (JUNO)
 # ---------------------------------------------------------------------------
 
-def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays):
+def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_ibd):
     """Load and scale all JUNO backgrounds. Returns combined background spectrum."""
     bckg = None
     for key, info in backgrounds["JUNO"].items():
         ensp[key] = GetSpectrumFromROOT(info["rootfile"], info["histname"])
 
         if key == "wr":
-            ensp[key] = _process_world_reactor(ensp[key], args, ensp, resp_matrix, ebins)
+            ensp[key] = _process_world_reactor(ensp[key], args, ensp, resp_matrix, ebins, s_ibd)
 
         scale = float(info["rate"]) * ndays / (args.duty_cycle * ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
@@ -439,9 +440,9 @@ def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays):
     return bckg
 
 
-def _process_world_reactor(wr_spec, args, ensp, resp_matrix, ebins):
+def _process_world_reactor(wr_spec, args, ensp, resp_matrix, ebins, s_ibd):
     wr_spec.Rebin(ebins, mode="spline-not-keep-norm")
-    pos = _apply_positron_energy(wr_spec, args)
+    pos = _apply_positron_energy(wr_spec, args,s_ibd=s_ibd)
     ensp['rfis_wr_pos'] = pos
     vis = _apply_nonlinearity(pos, args, ensp)
     return vis.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
@@ -703,10 +704,10 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
 
     if detector == "JUNO" and not args.CI_powers:
         _build_snf_noneq_corrections_per_core(
-            ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,
+            ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd,
         )
     if detector == "TAO" or (detector == "DYB" and args.model == "CPC"):
-        _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix)
+        _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd)
 
     # ------------------------------------------------------------------
     # 4. Oscillated spectrum
@@ -741,9 +742,9 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         ensp["rdet"] = ensp["rosc"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
     else:
-        ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args)
-        ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args)
-        ensp["rvis_nonl_temp_wcorr"] = _apply_positron_energy((ensp["rosc"]+ensp['snf_osc']+ensp['noneq_osc']), args)
+        ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args,s_ibd=s_ibd)
+        ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args, s_ibd=s_ibd)
+        ensp["rvis_nonl_temp_wcorr"] = _apply_positron_energy((ensp["rosc"]+ensp['snf_osc']+ensp['noneq_osc']), args, s_ibd=s_ibd)
         print(len(ensp["rvis_nonl"].bins), len( ensp["rvis_nonl_temp_wcorr"].bins))
         ensp["rvis_nonl"].WritetoROOT("juno_pred_dep_nocorr", "NODA_Apr31.root")
         ensp["rvis_nonl_temp_wcorr"].WritetoROOT("juno_pred_dep", "NODA_Apr31.root")
@@ -782,7 +783,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     print("# Assembling total spectrum …")
 
     if detector == "JUNO":
-        ensp["bckg"] = _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays)
+        ensp["bckg"] = _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_ibd=s_ibd)
         # ------------------------------------------------------------------
         # 6. Geo-neutrino spectra  (JUNO analytic path)
         # ------------------------------------------------------------------

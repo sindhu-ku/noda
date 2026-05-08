@@ -71,7 +71,7 @@ def _build_ibd_interpolator(ebins=None):
             sum_sigma_1 += w * t1
         xsec[i] = (sum_sigma_0 + sum_sigma_1) * dc * MeV_to_cm
     return sp.interpolate.interp1d(
-        enu_array, xsec, kind='slinear', bounds_error=False, fill_value=(0.0, 0.0)
+        enu_array, xsec, kind='cubic', bounds_error=False, fill_value=(0.0, 0.0)
     )
 
 
