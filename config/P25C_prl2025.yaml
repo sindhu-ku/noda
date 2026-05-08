@@ -6,7 +6,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: xchecks # PDG option
+  PDG_opt: DYB # PDG option
   NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
@@ -16,7 +16,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
-  run_hesse: false
+  run_hesse: true
   solar_contour: false
   CI_powers: false
   calc_minuit_errors: false
@@ -32,8 +32,8 @@ fit_options:
   dcp: 212.0
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
-  include_tao: False
-  include_dyb: False
+  include_tao: True
+  include_dyb: True
   geo_fit: true
   apply_bump: true
   geo_fit_type: total #UThfree , mantle or total (default)
@@ -122,7 +122,7 @@ common_det_inputs:
   geo_rate: 1.2554280 #1.2955 #1.229 # 1.239 #1.255 #1.147
   wr_rate: 0.90390814 #0.892 #0.78 #0.903 #1.185
 
-  me_rho: 2.55 #2.45
+  me_rho: 2.45
   me_rho_scale: 0.15
   duty_cycle: 1.0 #0.91666667
   alpha: [0.58, 0.07, 0.30, 0.05]
@@ -152,7 +152,7 @@ juno_inputs:
   stat_opt: 58.9148days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7173874092 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   eff_unc: 0.02086471217 #rel
-  bins: 1201 #566
+  bins: 601
   min_ene: 0.0  # Minimum energy
   max_ene: 12
   ene_crop:
@@ -246,7 +246,7 @@ juno_inputs:
 dyb_inputs:
   is_data: true
   model: PRL
-  bins: 1201 #241 #241 # Number of bins
+  bins: 241 #241 # Number of bins
   ene_crop:
     - 0.0 #0 #7
     - 12.0 #8.0
@@ -315,7 +315,7 @@ dyb_inputs:
 
 
 tao_inputs:
-  is_data: false
+  is_data: true
   bins: 601 #241 # Number of bins
   ene_crop:
     - 0.0 #0 #7

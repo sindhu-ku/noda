@@ -74,6 +74,14 @@ def _build_ibd_interpolator(ebins=None):
         enu_array, xsec, kind='cubic', bounds_error=False, fill_value=(0.0, 0.0)
     )
 
+def _build_ibd_interpolator_root(input_data_file):
+    """Return (spectrum, interpolator) for the IBD cross-section."""
+    sibd_spec = GetSpectrumFromROOT(input_data_file, "IBDXsec_VogelBeacom_DYB")
+    s_ibd = sp.interpolate.interp1d(
+        sibd_spec.GetBinCenters(), sibd_spec.bin_cont,
+        kind="slinear", bounds_error=False, fill_value=(0.0, 0.0),
+    )
+    return s_ibd
 
 def _build_bump_interpolator(input_data_file):
     bump = GetSpectrumFromROOT(input_data_file, "DYBFluxBump_ratio")
@@ -168,6 +176,8 @@ def main(argv=None):
 
       #Create reactor spectra and get backgrounds spectra, function inside spectra.py
   s_ibd  = _build_ibd_interpolator(ebins)
+ # s_ibd = _build_ibd_interpolator_root(args_juno.input_data_file)
+
   s_bump_lin = _build_bump_interpolator(args_juno.input_data_file)
 
   
@@ -190,8 +200,7 @@ def main(argv=None):
                                     detector="DYB",
                                     backgrounds=backgrounds,
                                     s_ibd=s_ibd, s_bump_lin=s_bump_lin,                
-                                    args=args_dyb)
-      return          
+                                    args=args_dyb) 
       ensp_nom_tao, resp_matrix_tao, ene_leak_tao  = spec.CreateSpectra(ndays=ndays_tao,
                                     ebins=ebins_tao,
                                     detector="TAO",

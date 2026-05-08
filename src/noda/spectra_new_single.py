@@ -321,8 +321,8 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd):
         ensp["noneq_osc"] = ensp["noneq"]
 
     if detector != "DYB":
-        ensp["snf_final"]   = _apply_full_energy_response(ensp["snf_osc"],   args, ensp, resp_matrix)
-        ensp["noneq_final"] = _apply_full_energy_response(ensp["noneq_osc"], args, ensp, resp_matrix)
+        ensp["snf_final"]   = _apply_full_energy_response(ensp["snf_osc"],   args, ensp, resp_matrix, s_ibd)
+        ensp["noneq_final"] = _apply_full_energy_response(ensp["noneq_osc"], args, ensp, resp_matrix, s_ibd)
     else:
         # DYB: positron shift only, no NL
         ensp["snf_final"]   = _apply_positron_energy(ensp["snf_osc"],   args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
@@ -500,7 +500,8 @@ def _assemble_total_spectrum_tao(ensp, args):
         ensp["data"].ScaleByBinWidth()
         if args.rebin_nonuniform:
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
-
+        ensp['rtot'] = ensp['data']
+ 
     return  ([ensp['rtot'], ensp['bckg']],
             ['TAO expectation', 'TAO data', 'TAO background'],
             ['brown', 'steelblue', 'orange'])
@@ -596,80 +597,6 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     print(f"  Building spectra  |  detector={detector}  ndays={ndays}")
     print(f"{'='*50}\n")
 
-    # ------------------------------------------------------------------
-    # 1. Common ingredients
-    # ------------------------------------------------------------------
-  
-    energy_min =  1.8  # MeV
-    energy_max = 12.0 # MeV
-    step_size = 0.01  # 10 keV in MeV
-    # 2. Generate the evaluation points
-    energies =np.arange(energy_min, energy_max + step_size, step_size)
-    cross_sections =  s_ibd(energies)
-
-    
-    # 3. Create the TGraph
-    # n is the number of points, energies and cross_sections are the data
-    graph = ROOT.TGraph(len(energies), energies.astype(float), cross_sections.astype(float))
-    graph.SetName("ibdxsec")
-    graph.SetTitle("IBD Cross Section;Energy [MeV];Cross Section")
-    
-    if detector == "JUNO":
-    # 4. Save to a ROOT file
-      output_file = ROOT.TFile("NODA_Apr31.root", "update")
-      graph.Write()
-    
-      output_file.Close()
-
-    # 1. Setup Energy Range
-    energies = np.arange(0.8, 12.0 + 0.01, 0.01)
-    L = 52.5e3
-    rho = 2.55
-    sin2_th13_nom = 0.0216
-    
-    # 2. Define the Parameter Sets
-    parameter_sets = [
-        (0.307, 7.50e-5, 2.451e-3, "oscprob1"),
-        (0.307, 7.50e-5, -2.527e-3, "oscprob2"),
-        (0.283, 7.88e-5, 2.503e-3, "oscprob3"),
-        (0.331, 7.12e-5, -2.459e-3, "oscprob4")
-    ]
-    
-    # 3. Open the ROOT file (UPDATE mode)
-    output_file = ROOT.TFile("NODA_Apr31.root", "UPDATE")
-    
-    for sin2_th12, dm2_21, dm2_32, graph_name in parameter_sets:
-        dm2_31 = dm2_32 + dm2_21
-    
-        # Calculate survival probability
-        pee = nuosc.AntiNueSurvProb(
-            energies, L,
-            sin2_th12=sin2_th12,
-            sin2_th13=sin2_th13_nom,
-            dm2_21=dm2_21,
-            dm2_31=dm2_31,
-            dm2_32=dm2_32,
-            me_rho=rho
-        )
-    
-        # Calculate oscillation probability: P_osc = 1 - P_ee
-        posc = pee
-    
-        # Create TGraph
-        graph = ROOT.TGraph(len(energies), energies.astype(float), posc.astype(float))
-        graph.SetName(graph_name)
-        graph.SetTitle(f"Oscillation Probability (1-Pee) {graph_name};Energy [MeV];P_osc")
-    
-    
-        # Write to file
-        if detector =="JUNO": graph.Write()
-    
-    output_file.Close()
-    print("Graphs saved as 1 - Pee.")
-    
-    print("File 'ibd_output.root' created successfully with TGraph 'ibdxsec'.")
-
-    
    
     resp_matrix = _load_or_build_resp_matrix(args, detector, ebins)
     # Keep ene_leak_nd for TAO return value
@@ -737,17 +664,12 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     print("# Applying energy-response chain …")
 
     if detector == "DYB" and args.model == "PRL":
-        ensp["rosc"].WritetoROOT("dyb_pred_enu", "NODA_Apr31.root")
-        return None, None
         ensp["rdet"] = ensp["rosc"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
     else:
         ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args,s_ibd=s_ibd)
         ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args, s_ibd=s_ibd)
         ensp["rvis_nonl_temp_wcorr"] = _apply_positron_energy((ensp["rosc"]+ensp['snf_osc']+ensp['noneq_osc']), args, s_ibd=s_ibd)
-        print(len(ensp["rvis_nonl"].bins), len( ensp["rvis_nonl_temp_wcorr"].bins))
-        ensp["rvis_nonl"].WritetoROOT("juno_pred_dep_nocorr", "NODA_Apr31.root")
-        ensp["rvis_nonl_temp_wcorr"].WritetoROOT("juno_pred_dep", "NODA_Apr31.root")
         
         if detector != "DYB":
             ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl"],      args, ensp)
@@ -762,8 +684,6 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         ensp["rdet_temp"] = ensp["rvis_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         ensp["rdet_temp_wcorr"] = ensp["rvis_temp_wcorr"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
-        ensp["rvis_temp_wcorr"].WritetoROOT("juno_pred_vis", "NODA_Apr31.root")
-        ensp["rdet_temp_wcorr"].WritetoROOT("juno_pred_rec", "NODA_Apr31.root")
     # Add corrections
     if detector == "DYB":
         if args.model == "CPC":
@@ -831,7 +751,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     # ------------------------------------------------------------------
     # 8. Diagnostics
     # ------------------------------------------------------------------
-    _print_diagnostics(ensp, detector)
+    _print_diagnostics(ensp, detector, args)
 
     if detector == "TAO":
         return ensp, resp_matrix, ene_leak_nd
@@ -842,11 +762,12 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
 # Diagnostics
 # ---------------------------------------------------------------------------
 
-def _print_diagnostics(ensp, detector):
+def _print_diagnostics(ensp, detector, args):
     print("\n--- Spectral integrals ---")
     for key in ("rfis0", "rfis", "ribd", "rosc", "rvis_nonl", "rvis", "rdet",
                 "snf_final", "noneq_final", "rtot"):
         if key in ensp:
             print(f"  {key:<20s}: {ensp[key].GetIntegral():.2f}")
-    print()
+    if args.is_data:
+        print(f"data: {ensp['data'].GetIntegral():.2f}")
     print(f"  2–6 MeV (ribd): {ensp['ribd'].GetIntegral(left_edge=2, right_edge=6):.2f}")
