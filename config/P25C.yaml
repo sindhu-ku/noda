@@ -16,6 +16,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
+  run_hesse: true
   solar_contour: false
   CI_powers: false
   calc_minuit_errors: false
@@ -30,8 +31,8 @@ fit_options:
   theta23: 43.279
   dcp: 212.0
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
-  fit_mode: combined #prefit_wosegs
-  include_tao: True
+  fit_mode: prefit_wosegs
+  include_tao: False
   include_dyb: True
   geo_fit: true
   apply_bump: true
@@ -135,7 +136,7 @@ common_det_inputs:
   noneq_unc: 0.3 #rel
   core_flux_unc: 0.008 #rel
   ff: 0.0005
-  posE_shift: ana
+  posE_shift: 2d
   pos_ene_TF2: Epositron_Enu_cos_StrumiaVissani
 
   unc_corr_ind: r2+snf+noneq
@@ -149,11 +150,11 @@ juno_inputs:
   stat_opt: 58.9148days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7173874092 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   eff_unc: 0.02086471217 #rel
-  bins: 566
-  min_ene: 0.7  # Minimum energy
+  bins: 601
+  min_ene: 0.0  # Minimum energy
   max_ene: 12
   ene_crop:
-    - 0.7
+    - 0.0
     - 12.0
   NL: real
   NL_data_file:  /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root

@@ -184,40 +184,23 @@ class Spectrum:
     self.bins = s_new.bins
     del s_new
 
-  def Rebin_spline(self, new_bins, keep_norm=True):
-    from scipy.interpolate import CubicSpline
-    
-    # 1. Work with Density (dN/dE) to make integration meaningful
-    bin_widths = self.bins[1:] - self.bins[:-1]
-    y_density = self.bin_cont / bin_widths
-    
-    # 2. Use CubicSpline (not slinear) for smooth reactor peaks
-    # We spline the centers of the old bins
-    x_centers = 0.5 * (self.bins[:-1] + self.bins[1:])
-    spline = CubicSpline(x_centers, y_density, extrapolate=False)
-    
-    # 3. Create the new container
-    new_counts = np.zeros(len(new_bins)-1)
-    
-    # 4. INTEGRATE the spline over each new bin width
-    # This is the "GNA way" - it accounts for the whole bin area
-    for i in range(len(new_bins)-1):
-        x1, x2 = new_bins[i], new_bins[i+1]
-        # integrate returns the area under the dN/dE curve
-        new_counts[i] = spline.integrate(x1, x2)
-    
-    # Handle NaNs from extrapolation
-    new_counts = np.nan_to_num(new_counts)
-    
+  def Rebin_spline(self, new_bins, keep_norm=True):   # Better for binning with much more bins
+    s_new = Spectrum(np.zeros(len(new_bins)-1), new_bins, xlabel=self.xlabel, ylabel=self.ylabel)
+    #x = [(b1+b2)/2. for b1,b2 in zip(self.bins[:-1],self.bins[1:])]  # center of bins
+    #y = values
+    x = self.bins
+    y = [(v1+v2)/2. for v1,v2 in zip([0]+list(self.bin_cont), list(self.bin_cont)+[0])]
+    spline = sp.interpolate.interp1d(x, y, kind='slinear', bounds_error=False, fill_value=(0,0))
+    #new_x = [(b1+b2)/2. for b1,b2 in zip(s_new.bins[:-1],s_new.bins[1:])]  # center of bins
+    for i, (x1, x2) in enumerate(zip(s_new.bins[:-1], s_new.bins[1:])):
+      bw_new = x2-x1
+      s_new.AddToBin(i, spline((x1+x2)/2.))
     if keep_norm:
-        # Match integral of original spectrum in the overlapping range
-        old_int = self.GetIntegral(left_edge=new_bins[0], right_edge=new_bins[-1])
-        new_int = np.sum(new_counts)
-        if new_int > 0:
-            new_counts *= (old_int / new_int)
+      s_new.Normalize(self.GetIntegral(left_edge=new_bins[0], right_edge=new_bins[-1], mode='per_bin'))
+    self.bin_cont = s_new.bin_cont
+    self.bins = s_new.bins
+    del s_new
 
-    self.bin_cont = new_counts
-    self.bins = new_bins
 
   def Rebin_nonuniform(self, bins_nonuniform):
     new_bins = []
