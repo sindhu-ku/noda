@@ -16,7 +16,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
-  run_hesse: true
+  run_hesse: False
   solar_contour: false
   CI_powers: false
   calc_minuit_errors: false
@@ -25,13 +25,14 @@ fit_options:
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
-  pull_dm2_31_lbl: false
-  dm2_31_lbl_err: 2.65e-5
-  dm2_31_lbl: 2.517e-3
+  pull_dm2_31_lbl: true #false
+  dm2_31_lbl_err: 0.035e-03
+  dm2_31_lbl: 0.0025043000
   theta23: 43.279
   dcp: 212.0
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
+  save_prefit: True
   include_tao: True
   include_dyb: True
   geo_fit: true
@@ -69,7 +70,8 @@ fit_options:
   geo_MC_U_file: /junofs/users/sindhu/NODA/noda/data/geo_U_promptFV.root
   geo_MC_Th_file: /junofs/users/sindhu/NODA/noda/data/geo_Th_promptFV.root
   geo_MC_file: /junofs/users/sindhu/NODA/noda/data/xc_pdfs_2023-08-25.root
-
+  geoU_hist_name: 'geoU'
+  geoTh_hist_name: 'geoTh'
   reactor_model: Huber-Mueller
 
   main_data_folder: /junofs/users/sindhu/NODA/noda/Geo_sens_Jan14
@@ -330,7 +332,8 @@ tao_inputs:
   NL_data_file: /junofs/users/sindhu/NODA/noda/data/TAOInputs_2026_3_31.root
   data_spectrum: /junofs/users/sindhu/NODA/noda/data/TAOInputs_2026_3_31.root
   data_hist_name: IBD_spectrum_bkg_not_subtracted
-  bckg_hist_name: Bkg_spectrum
+  bckg_hist_name: Bkg_spectrum  
+  bckg_rate_unc: 0.0356
   IAV_hist: Energy_leakage
   FV_cov_matrix: FVcut_covariance
   rebin_nonuniform:  True
@@ -353,7 +356,7 @@ tao_inputs:
   eff_unc: 0.1
   veto: 1.0
   nl_hist_name: positronNL
-  nl_pull_hist_name: positronNLpull
+  nl_pull_hist_name: positronNLpullkey
 
   a: 0.0211 
   b: 0.0091

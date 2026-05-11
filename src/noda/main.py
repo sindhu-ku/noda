@@ -11,6 +11,7 @@ from . import spectra_new_single as spec
 from . import matrices as mat
 from . import scan as scan
 from .noda import *
+
 from .bayesian import bayesian as bayes
 from .bayesian import bayesian_results as bayes_res
 from . import grid_scan_results as scan_res
@@ -376,7 +377,7 @@ def main(argv=None):
           scan_res.get_results(args=args_juno)
       else:
           cm_tao = {}
-          cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_spectrum, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
+          cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_file, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
           
           if args_juno.fit_type == 'PMOP_combined':
               if not args_juno.use_dagflow:

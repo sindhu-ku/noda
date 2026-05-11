@@ -128,7 +128,7 @@ def _load_dyb_resp_matrix(filepath, ebins):
 def _build_energy_leak(args, detector, ebins):
     if detector == "TAO":
         return CalcEnergyLeak(
-            rootfile=args.data_spectrum,
+            rootfile=args.data_file,
             histname=args.IAV_hist,
             ebins=ebins,
             pebins=ebins,
@@ -176,7 +176,7 @@ def _load_nonlinearity(ensp, args, detector):
 
     ensp["scintNL"] = GetSpectrumFromROOT(args.NL_data_file, args.nl_hist_name)
     ensp["NL_pull"] = [
-        GetSpectrumFromROOT(args.NL_data_file, f"{args.nl_pull_hist_name}{k}")
+        GetSpectrumFromROOT(args.NL_data_file, f"{args.nl_pull_hist_name.replace('key', str(k))}")
         for k in range(4)
     ]
 
@@ -410,8 +410,8 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
     rate_u  = rate / (1 + ratio)
     rate_th = rate * ratio / (1 + ratio)
 
-    ensp[f"{name}u"]  = _geo_component("geoU",  rate_u, "u")
-    ensp[f"{name}th"] = _geo_component("geoTh", rate_th, "th")
+    ensp[f"{name}u"]  = _geo_component(args.geoU_hist_name,  rate_u, "u")
+    ensp[f"{name}th"] = _geo_component( args.geoTh_hist_name, rate_th, "th")
     return ensp[f"{name}u"] + ensp[f"{name}th"]
 
 
@@ -425,8 +425,8 @@ def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_
     for key, info in backgrounds["JUNO"].items():
         ensp[key] = GetSpectrumFromROOT(info["rootfile"], info["histname"])
 
-        if key == "wr":
-            ensp[key] = _process_world_reactor(ensp[key], args, ensp, resp_matrix, ebins, s_ibd)
+        # if key == "wr":
+        #     ensp[key] = _process_world_reactor(ensp[key], args, ensp, resp_matrix, ebins, s_ibd)
 
         scale = float(info["rate"]) * ndays / (args.duty_cycle * ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
@@ -487,9 +487,11 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
     )
 
 
-def _assemble_total_spectrum_tao(ensp, args):
-    ensp["bckg"] = GetSpectrumFromROOT(args.data_spectrum, args.bckg_hist_name)
+def _assemble_total_spectrum_tao(ensp, args, ndays):
+    ensp["bckg"] = GetSpectrumFromROOT(args.data_file, args.bckg_hist_name)
     ensp["bckg"].ScaleByBinWidth()
+    ensp["bckg"].GetScaled(ndays*790 / 21.851)
+    print("TAO background: ", ensp['bckg'].GetIntegral())
     if args.rebin_nonuniform:
         ensp["bckg"].Rebin_nonuniform(args.bins_nonuniform)
 
@@ -497,7 +499,7 @@ def _assemble_total_spectrum_tao(ensp, args):
 
     if args.is_data:
         ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, args.data_hist_name)
-        ensp["data"].ScaleByBinWidth()
+        #ensp["data"].ScaleByBinWidth()
         if args.rebin_nonuniform:
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
         ensp['rtot'] = ensp['data']
@@ -737,7 +739,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_dyb(ensp, args, ndays)
 
     elif detector == "TAO":
-        extra_spectra, leg_labels, colors = _assemble_total_spectrum_tao(ensp, args)
+        extra_spectra, leg_labels, colors = _assemble_total_spectrum_tao(ensp, args, ndays)
 
     ensp["rdet"].Plot(
             f"{args.plots_folder}/det_spectra_{detector}.png",

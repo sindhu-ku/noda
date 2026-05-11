@@ -416,10 +416,34 @@ class Spectrum:
     dE_in = E_nu[1] - E_nu[0]                          # uniform input bin width
 
     if type == 'TF2':
-        pass    # ... unchanged ...
+        Epos = np.zeros_like(Enu)
+        file = ROOT.TFile(inputfile)
+        func = file.Get(tf2name)
+        for i, energy in enumerate(Enu):
+            Epos_temp = 0.
+            for cos_theta in range(-1, 1, 100):
+                Epos_temp += func.Eval(energy, cos_theta)
+            Epos[i] = Epos_temp
+        Evis = Epos + me
+        return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
     elif type == 'ana':
-        pass    # ... unchanged ...
-
+        # Exact replication of nu2dep(E_nu, has_recoil=True):
+        #   delta = (mf^2 - mi^2 - me^2) / (2*mi)  with mi=mp, mf=mn
+        delta   = (mn**2 - mp**2 - me**2) / (2.0 * mp)
+        s       = 2.0 * mp * E_nu + mp**2
+        sqrt_s  = np.sqrt(s)
+        E_nu_CM = (s - mp**2) / (2.0 * sqrt_s)
+        E_e_CM  = (s - mn**2 + me**2) / (2.0 * sqrt_s)
+        coeff   = (s - (mn - me)**2) * (s - (mn + me)**2)
+        p_e_CM = np.where(coeff > 0, np.sqrt(np.maximum(coeff, 0.0)) / (2.0 * sqrt_s), 0.0)
+        # Average of the two kinematic extremes — matches nu2dep exactly
+        E1   = E_nu - delta - (E_nu_CM / mp) * (E_e_CM + p_e_CM)  # max recoil (backward)
+        E2   = E_nu - delta - (E_nu_CM / mp) * (E_e_CM - p_e_CM)  # min recoil (forward)
+        E_e  = 0.5 * (E1 + E2)
+        Evis = E_e + me                                            # T_e+ + 2me = E_e + me
+        Evis = np.where(Evis < 2.0 * me, 2.0 * me, Evis)
+        return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
+        
     elif type == '2d':
         # ----- masses, couplings, derived constants -----
         Delta    = mn - mp
@@ -450,10 +474,10 @@ class Spectrum:
             g3 = (fsq + 3.0*gsq) * A
             g4 = (fsq -      gsq) * A * ve0 * ct
             sigma1b = -0.5 * sEe0 * pe0 * (g1 + g2 + g3 + g4) / M_nuc
-            hbar_MeV = 1.0e-6 * hbar / qe
-            MeV_to_cm = (hbar * c * (1.0 / (1.0e6 * qe)))**2 * 1.0e4 
-            sigma0 = (2.0 * np.pi**2 / (phase_space * (fsq + 3.0*gsq) * (me**5) * n_lifetime / hbar_MeV))
-            return np.where(ok0 & ok1, (sigma1a + sigma1b) * sigma0 * MeV_to_cm, 0.0)
+            hbar_meV = 1.0e-6 * hbar / qe
+            meV_to_cm = (hbar * c * (1.0 / (1.0e6 * qe)))**2 * 1.0e4 
+            sigma0 = (2.0 * np.pi**2 / (phase_space * (fsq + 3.0*gsq) * (me**5) * n_lifetime / hbar_meV))
+            return np.where(ok0 & ok1, (sigma1a + sigma1b) * sigma0 * meV_to_cm, 0.0)
 
         # ----- smooth building block  h(Enu) = bin_cont / sigma  =  Phi * dE_in
         sig_in = np.asarray(s_ibd(E_nu), dtype=float)
@@ -518,6 +542,7 @@ class Spectrum:
 
     else:
         raise ValueError(f"Unknown type for positron energy shift: {type!r}")
+    
   #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
   #
   #   # Constants
