@@ -30,6 +30,7 @@ fit_options:
   dm2_31_lbl: 0.0025043000
   theta23: 43.279
   dcp: 212.0
+  lin_resp: False
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
   save_prefit: True
@@ -149,7 +150,7 @@ common_det_inputs:
   noneq_file: /junofs/users/sindhu/NODA/noda/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  is_data: true
+  is_data: false
   reactor_summary_yaml:  /junofs/users/sindhu/NODA/noda/config/reactor_summary.yaml
   stat_opt: 58.9148days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7173874092 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
@@ -246,7 +247,7 @@ juno_inputs:
     - stat
 
 dyb_inputs:
-  is_data: true
+  is_data: false
   model: PRL
   bins: 241 #241 # Number of bins
   ene_crop:
@@ -317,7 +318,7 @@ dyb_inputs:
 
 
 tao_inputs:
-  is_data: true
+  is_data: false
   bins: 601 #241 # Number of bins
   ene_crop:
     - 0.0 #0 #7

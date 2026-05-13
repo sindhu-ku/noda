@@ -70,6 +70,27 @@ class TAODetector:
         self._resp_matrix_cache = {}
         self._osc_cache         = {}
         self._nuisance_fine_cache  = {}
+        self._linearize_resp = args.lin_resp
+        if self._linearize_resp:
+            a0, b0, c0 = args.a, args.b, args.c
+            eps_a, eps_b, eps_c = args.a_err, args.b_err, args.c_err
+            EL = self.ene_leak.data   # constant
+        
+            def _M(a, b, c):
+                R = CalcRespMatrix_abc(a, b, c, escale=1,
+                                       ebins=self.fine_bins, pebins=self.fine_bins)
+                return EL @ R.data
+        
+            M0  = _M(a0, b0, c0)
+            Map = _M(a0 + eps_a, b0, c0); Mam = _M(a0 - eps_a, b0, c0)
+            Mbp = _M(a0, b0 + eps_b, c0); Mbm = _M(a0, b0 - eps_b, c0)
+            Mcp = _M(a0, b0, c0 + eps_c); Mcm = _M(a0, b0, c0 - eps_c)
+        
+            self._M0   = M0
+            self._dMda = (Map - Mam) / (2.0 * eps_a)
+            self._dMdb = (Mbp - Mbm) / (2.0 * eps_b)
+            self._dMdc = (Mcp - Mcm) / (2.0 * eps_c)
+            self._a0, self._b0, self._c0 = a0, b0, c0
 
     # ════════════════════════════════════════════════════════════════════════
     #  Nuisance parameter interface
@@ -87,6 +108,8 @@ class TAODetector:
             + [f"snf_noneq_norm_tao{i}" for i in range(2)]
             + ["core_power_tao"]
             + ["eff_nuis_tao"]
+            + ["bckg_rate"]
+        
         )
 
     def get_start_values(self):
@@ -101,15 +124,16 @@ class TAODetector:
             + [0.0, 0.0]
             + [0.0]      # core_power_tao
             + [0.0]      # eff_nuis_tao
+            + [0.0]
         )
 
     def apply_limits(self, m):
         """Apply Minuit limits for TAO-specific parameters."""
-        for p in ["Nrea_tao", "core_power_tao", "eff_nuis_tao", "snf_noneq_norm_tao0", "snf_noneq_norm_tao1"]:
+        for p in ["Nrea_tao", "core_power_tao", "eff_nuis_tao", "snf_noneq_norm_tao0", "snf_noneq_norm_tao1", "bckg_rate"]:
             m.limits[p] = [-1, None]
         # NL pull params: unconstrained below (pull penalty handles it)
-        # for i in range(5):
-        #     m.limits[f"NL_tao{i}"] = [-1, None]
+        for i in range(5):
+            m.limits[f"NL_tao{i}"] = [-1, None]
 
         # abc: unconstrained (individual pull penalties)
         # no explicit limits needed beyond [-inf, inf]
@@ -123,6 +147,7 @@ class TAODetector:
             + [f"snf_noneq_norm_tao{i}" for i in range(2)]
             + ["core_power_tao"]
             + ["eff_nuis_tao"]
+            + ["bckg_rate"]
         )
 
     # ════════════════════════════════════════════════════════════════════════
@@ -130,10 +155,20 @@ class TAODetector:
     # ════════════════════════════════════════════════════════════════════════
 
     def _get_resp_matrix(self, a, b, c):
+        if self._linearize_resp:
+            M = (self._M0
+                 + (a - self._a0) * self._dMda
+                 + (b - self._b0) * self._dMdb
+                 + (c - self._c0) * self._dMdc)
+            return RespMatrix(data=M, ebins=self.fine_bins, pebins=self.fine_bins)
+        # fallback
         key = (a, b, c)
         if key not in self._resp_matrix_cache:
-            resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1, ebins=self.fine_bins, pebins=self.fine_bins)
-            self._resp_matrix_cache[key] = RespMatrix(data=self.ene_leak.data @ resp_matrix.data, ebins=self.fine_bins, pebins=self.fine_bins)
+            resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1,
+                                             ebins=self.fine_bins, pebins=self.fine_bins)
+            self._resp_matrix_cache[key] = RespMatrix(
+                data=self.ene_leak.data @ resp_matrix.data,
+                ebins=self.fine_bins, pebins=self.fine_bins)
         return self._resp_matrix_cache[key]
 
     def _get_nuisance_fine(self, nuisance_coarse):
@@ -146,9 +181,9 @@ class TAODetector:
     #  Main spectrum builder
     # ════════════════════════════════════════════════════════════════════════
 
-    def build_spectrum(self, sin2_12, sin2_13, dm2_21, dm2_31, me_rho,
+    def build_spectrum(self,
                        Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao, 
-                       core_power_tao, eff_nuis_tao, nuisance, opp=False):
+                       core_power_tao, eff_nuis_tao, bckg_rate, nuisance):
         """
         Builds the TAO predicted spectrum.
 
@@ -184,16 +219,11 @@ class TAODetector:
         raw_ibd_tot     = raw_ibd_tot * nuisance_multiplier
         rfis_param_post = Spectrum(bins=self.dummy_sp.bins, bin_cont=raw_ibd_tot)
 
-        # ── oscillation (uses shared me_rho) ─────────────────────────────────
-        s_tao = rfis_param_post.GetOscillated(
-                L=list(self.core_baselines),
-                sin2_th12=sin2_12, sin2_th13=sin2_13,
-                dm2_21=dm2_21, dm2_31=dm2_31,
-                core_powers=list(core_powers_new),
-                me_rho=me_rho, ene_mode='true', opp=opp, args=self.args)
+
+        s_tao = rfis_param_post
 
         # ── positron energy shift ────────────────────────────────────────────
-        s_tao = s_tao.GetWithPositronEnergy(inputfile=args.input_data_file,
+        s_tao = s_tao.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=args.input_data_file,
                                              tf2name=args.pos_ene_TF2)
 
         # ── NL: always pull mode ─────────────────────────────────────────────
@@ -231,23 +261,28 @@ class TAODetector:
         else:
             s_tao = s_tao + ensp['snf_final'] +  ensp['noneq_final']
         # ── efficiency ───────────────────────────────────────────────────────
-        if eff_nuis_tao:
-            pulls.append(eff_nuis_tao)
-            pull_unc.append(args.eff_unc)
-            s_tao.GetScaled(1 + eff_nuis_tao)
+        #if eff_nuis_tao:
+        pulls.append(eff_nuis_tao)
+        pull_unc.append(args.eff_unc)
+        s_tao.GetScaled(1 + eff_nuis_tao)
 
         # ── reactor normalisation ────────────────────────────────────────────
-        if Nrea_tao:
-            pulls.append(Nrea_tao)
-            pull_unc.append(args.r2_unc)
-            s_tao = s_tao.GetScaledFit(1 + Nrea_tao)
+        #if Nrea_tao:
+        pulls.append(Nrea_tao)
+        pull_unc.append(args.r2_unc)
+        s_tao = s_tao.GetScaledFit(1 + Nrea_tao)
 
         if args.rebin_nonuniform:
             s_tao.Rebin_nonuniform(args.bins_nonuniform)
 
-        bckg = ensp['bckg']
+        bckg = ensp['bckg'].GetScaledFit(1+bckg_rate)
+        if bckg_rate:
+            pulls.append(bckg_rate)
+            pull_unc.append(args.bckg_rate_unc)
 
         s_tot_tao = s_tao + bckg
+
+        #print(s_tot_tao.GetIntegral())
 
         return s_tao, s_tot_tao, pulls, pull_unc, rfis_param_post
 
@@ -255,10 +290,10 @@ class TAODetector:
     #  chi2 contribution
     # ════════════════════════════════════════════════════════════════════════
 
-    def chi2_contribution(self, sin2_12, sin2_13, dm2_21, dm2_31, me_rho,
+    def chi2_contribution(self, 
                           Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao, 
-                          core_power_tao, eff_nuis_tao,
-                          unc, nuisance, opp=False):
+                          core_power_tao, eff_nuis_tao,bckg_rate,
+                          unc, nuisance):
         """
         Returns (chi2_tao, chi2_nolog, s_tao, s_tot_tao).
         """
@@ -266,19 +301,20 @@ class TAODetector:
 
         (s_tao, s_tot_tao, pulls, pull_unc,
          rfis_param_post) = self.build_spectrum(
-            sin2_12, sin2_13, dm2_21, dm2_31, me_rho,
             Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao, 
-            core_power_tao, eff_nuis_tao, nuisance, opp=opp)
+            core_power_tao, eff_nuis_tao,bckg_rate, nuisance)
 
         sp_obs = self._get_obs_spectrum()
 
         if unc != 'stat':
-            cm_t = self.cm[unc]
+            cm_t  = CovMatrix(
+            data=self.cm['all'].data * np.outer(s_tao.bin_cont, s_tao.bin_cont),
+            bins=self.cm['all'].bins)
         else:
             ebins = self.ensp_nom['rdet'].bins
             nbins = len(ebins)
             cm_t  = CovMatrix(data=np.zeros((nbins - 1, nbins - 1)), bins=ebins)
-
+            
         chi2_nolog, chi2_tao = Chi2(
             cm_t, sp_obs, s_tot_tao, sp_obs, s_tot_tao,
             'all', args.stat_method_opt,
@@ -289,9 +325,7 @@ class TAODetector:
     def _get_obs_spectrum(self):
         ensp = self.ensp_nom
         args = self.args
-        if bool(args.toymc):
-            return ensp["rtot_toy"]
-        elif args.is_data:
+        if args.is_data:
             return ensp['data']
         else:
             return ensp["rtot"]

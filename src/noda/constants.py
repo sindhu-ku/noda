@@ -29,7 +29,7 @@ qe = 1.602176634e-19  # electron charge [C]
 hbarc = 197.3269804  # MeV fm
 x = np.sqrt(2) * np.pi * alpha * r2 / (3 * G_F)  # elastic scattering variable
 AMU2MeV = 931.5  # 1 AMU = 931 MeV
-n_lifetime = 879.4 #880.3  # neutron life time [s] (PDG2014)
+n_lifetime = 880.3  # neutron life time [s] (PDG2014)
 F_A0 = 0.711
 F_M0 = 1.516e-3 # Mev^-1
 F_T0 = F_A0*2.01e-3 # Mev^-1
@@ -41,7 +41,7 @@ M_unified_atomic_kg = (
 )
 
 phase_space = 1.71465
-g = 1.2723 #1.2701  # axial-vector coupling constant (PDG 2022/SV)
+g = 1.2762 #1.2723 #1.2701  # axial-vector coupling constant (PDG 2022/SV)
 f = 1.0  # vector coupling constant
 f2 = 3.706  # anomalous nucleon isovector magnetic moment
 

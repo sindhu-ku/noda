@@ -224,11 +224,11 @@ import csv
 DM31_FIELDS = ['mode', 'seed', 'true_dm31', 'true_NO',
                'chi2_free', 'chi2_fix', 'TS_dm31',
                'best_dm31', 'best_dm21', 'best_sin12', 'best_sin13',
-               'free_valid', 'fix_valid']
+               'free_valid', 'fix_valid', 'time']
 NMO_FIELDS  = ['mode', 'seed', 'true_NO',
                'chi2_NO', 'chi2_IO', 'T_nmo',
                'NO_valid', 'IO_valid',
-               'dm31_NO', 'dm31_IO']
+               'dm31_NO', 'dm31_IO', 'time']
 
 def fieldnames_for_mode(mode):
     if mode == 'dm31': return DM31_FIELDS

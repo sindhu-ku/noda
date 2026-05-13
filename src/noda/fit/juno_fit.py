@@ -44,6 +44,7 @@ class JUNODetector:
         self.E_segments     = E_segments
         self.s_ibd          = s_ibd
         self.s_bump_lin     = s_bump_lin
+        self._linearize_resp = args.lin_resp
         self._external_cov = None
         # ── pre-build fission arrays (expensive, do once) ──────────────────
         args_juno = args
@@ -59,7 +60,7 @@ class JUNODetector:
             fission_fracs.append([frac['U235'], frac['U238'],
                                    frac['Pu239'], frac['Pu241']])
         self.fission_fracs = fission_fracs
-
+        self.fission_fracs = np.asarray(fission_fracs, dtype=float)
         fission_arrays = np.zeros((n_cores, len(dummy_sp.bin_cont)))
         for i in range(n_cores):
             if args_juno.CI_powers:
@@ -75,6 +76,7 @@ class JUNODetector:
             dummy_rfis.GetScaled(ndays)
             fission_arrays[i] = dummy_rfis.bin_cont
         self.fission_arrays = fission_arrays
+        
         self.n_cores = n_cores
 
         # ── per-call caches ─────────────────────────────────────────────────
@@ -91,6 +93,41 @@ class JUNODetector:
             args.a, args.b, args.c,
             args.kB, args.fC, args.kI, args.LY_shared
         ])
+
+        if args.NL == "pull" and 'rfis0_geou' in ensp_nom and 'rfis0_geoth' in ensp_nom:
+            self._geo_U_pos = ensp_nom['rfis0_geou'].GetWithPositronEnergy(
+                type=args.posE_shift, s_ibd=s_ibd,
+                inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+            self._geo_Th_pos = ensp_nom['rfis0_geoth'].GetWithPositronEnergy(
+                type=args.posE_shift, s_ibd=s_ibd,
+                inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+            self._geo_U_pos_integral  = self._geo_U_pos.GetIntegral()
+            self._geo_Th_pos_integral = self._geo_Th_pos.GetIntegral()
+        else:
+            self._geo_U_pos = self._geo_Th_pos = None
+    
+        # ── precompute linearized response matrix in (a, b, c) ────────────────────
+        if self._linearize_resp:
+            a0, b0, c0 = args.a, args.b, args.c
+            eps_a, eps_b, eps_c = args.a_err, args.b_err, args.c_err
+        
+            def _R(a, b, c):
+                return CalcRespMatrix_abc(a, b, c, escale=1,
+                                          ebins=self.fine_bins,
+                                          pebins=self.fine_bins)
+        
+            R0  = _R(a0, b0, c0)
+            Rap = _R(a0 + eps_a, b0, c0); Ram = _R(a0 - eps_a, b0, c0)
+            Rbp = _R(a0, b0 + eps_b, c0); Rbm = _R(a0, b0 - eps_b, c0)
+            Rcp = _R(a0, b0, c0 + eps_c); Rcm = _R(a0, b0, c0 - eps_c)
+        
+            self._R0      = R0.data
+            self._dRda    = (Rap.data - Ram.data) / (2.0 * eps_a)
+            self._dRdb    = (Rbp.data - Rbm.data) / (2.0 * eps_b)
+            self._dRdc    = (Rcp.data - Rcm.data) / (2.0 * eps_c)
+            self._R_ebins = R0.ebins
+            self._R_pebins = R0.pebins
+            self._a0, self._b0, self._c0 = a0, b0, c0
 
     # ════════════════════════════════════════════════════════════════════════
     #  Nuisance parameter interface (consumed by combined_fit.py)
@@ -213,14 +250,19 @@ class JUNODetector:
     # ════════════════════════════════════════════════════════════════════════
     #  Internal cached helpers  (identical logic to original run_minuit)
     # ════════════════════════════════════════════════════════════════════════
-
     def _get_resp_matrix(self, a, b, c):
+        if self._linearize_resp:
+            R = (self._R0
+                 + (a - self._a0) * self._dRda
+                 + (b - self._b0) * self._dRdb
+                 + (c - self._c0) * self._dRdc)
+            return RespMatrix(data=R, ebins=self._R_ebins, pebins=self._R_pebins)
+        # fallback: original full recompute (cached on raw floats — rarely hits)
         key = (a, b, c)
         if key not in self._resp_matrix_cache:
             self._resp_matrix_cache[key] = CalcRespMatrix_abc(
                 a, b, c, escale=1, ebins=self.fine_bins, pebins=self.fine_bins)
         return self._resp_matrix_cache[key]
-
     def _get_nuisance_fine(self, nuisance_coarse):
         key = tuple(nuisance_coarse)
         if key not in self._nuisance_fine_cache:
@@ -249,10 +291,10 @@ class JUNODetector:
                 ThU_ratio * scale / ((1 + ThU_ratio) * ensp['rfis0_geoth'].GetIntegral()))
             U  = ensp['rfis0_geou'].GetScaledFit(
                 scale / ((1 + ThU_ratio) * ensp['rfis0_geou'].GetIntegral()))
-            U  = U.GetWithPositronEnergy(type=args.posE_shift,
+            U  = U.GetWithPositronEnergy(type=args.posE_shift,s_ibd=self.s_ibd,
                                          inputfile=args.input_data_file,
                                          tf2name=args.pos_ene_TF2)
-            Th = Th.GetWithPositronEnergy(type=args.posE_shift,
+            Th = Th.GetWithPositronEnergy(type=args.posE_shift,s_ibd=self.s_ibd,
                                           inputfile=args.input_data_file,
                                           tf2name=args.pos_ene_TF2)
             U  = U.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC, kI=kI, LY_shared=LY_shared)
@@ -264,6 +306,54 @@ class JUNODetector:
             self._geo_spectrum_cache[key] = Th + U
         return self._geo_spectrum_cache[key]
 
+    def _get_geo_spectrum_pull(self, ThU_ratio, NL, abc, new_nonl, resp_matrix):
+            """
+            Compute the geo background under NL='pull' mode, cached by (ThU_ratio, NL, abc).
+            `resp_matrix` is derived from abc and `new_nonl` from NL, so the key captures
+            all dependencies — when those values are unchanged the cached spectrum is reused.
+            """
+            args  = self.args
+            ndays = self.ndays
+        
+            key = (round(ThU_ratio, 10),) \
+                + tuple(round(x, 10) for x in NL) \
+                + tuple(round(x, 10) for x in abc)
+        
+            if key in self._geo_spectrum_cache:
+                cached = self._geo_spectrum_cache[key]
+                # Hand out a copy — downstream may rebin / scale in place
+                return Spectrum(bins=cached.bins, bin_cont=cached.bin_cont.copy())
+        
+            # ── cache miss: compute it ───────────────────────────────────────────
+            rate  = float(args.geo_tnu_rate) * float(args.tnu_to_cpd)
+            scale = rate * ndays / args.duty_cycle
+        
+            U_pos  = self._geo_U_pos.GetScaledFit(
+                scale / ((1 + ThU_ratio) * self._geo_U_pos_integral))
+            Th_pos = self._geo_Th_pos.GetScaledFit(
+                ThU_ratio * scale / ((1 + ThU_ratio) * self._geo_Th_pos_integral))
+        
+            U_nonl  = U_pos.GetWithModifiedEnergy(mode='spectrum',
+                                                  spectrum=new_nonl, LY_shared=NL[4])
+            Th_nonl = Th_pos.GetWithModifiedEnergy(mode='spectrum',
+                                                   spectrum=new_nonl, LY_shared=NL[4])
+            U_final  = U_nonl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            Th_final = Th_nonl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            if args.rebin_nonuniform:
+                U_final.Rebin_nonuniform(args.bins_nonuniform)
+                Th_final.Rebin_nonuniform(args.bins_nonuniform)
+            bckg = U_final + Th_final
+        
+            # ── store (with FIFO eviction) ──────────────────────────────────────
+            if len(self._geo_spectrum_cache) > 100:
+                for k in list(self._geo_spectrum_cache.keys())[:50]:
+                    del self._geo_spectrum_cache[k]
+        
+            # Store a copy so future hits aren't poisoned by anyone mutating `bckg`
+            self._geo_spectrum_cache[key] = Spectrum(
+                bins=bckg.bins, bin_cont=bckg.bin_cont.copy())
+            return bckg
+            
     def _get_wr_spectrum(self, resp_matrix, a, b, c, kB, fC, kI, LY_shared):
         key = (a, b, c, kB, fC, kI, LY_shared)
         if key not in self._wr_spectrum_cache:
@@ -337,7 +427,6 @@ class JUNODetector:
                                  dm2_21, args.theta23, args.dcp, ordering)
             pulls.append(dm2_31 - dm2_31_lbl)
             pull_unc.append(args.dm2_31_lbl_err)
-
         # ── core powers ─────────────────────────────────────────────────────
         if len(core_powers_delta):
             core_powers_new = list(
@@ -364,15 +453,12 @@ class JUNODetector:
             nuisance_multiplier = 1.0
 
         # ── build raw IBD spectrum ───────────────────────────────────────────
-        core_scales = np.zeros(self.n_cores)
-        for i in range(self.n_cores):
-            core_scales[i] = compute_extrafactors(
-                args,
-                efission=efission_scaled,
-                alpha=self.fission_fracs[i],
-                core_baselines=[self.core_baselines[i]],
-                core_powers=[core_powers_new[i]]
-            )
+        core_scales = compute_extrafactors_vec(
+            args, efission=efission_scaled,
+            alpha=self.fission_fracs,
+            core_baselines=self.core_baselines,
+            core_powers=core_powers_new)
+
         raw_ibd_tot    = np.sum(self.fission_arrays * core_scales[:, np.newaxis], axis=0)
         raw_ibd_tot    = raw_ibd_tot * nuisance_multiplier
         rfis_param_post = Spectrum(bins=self.dummy_sp.bins, bin_cont=raw_ibd_tot)
@@ -386,15 +472,40 @@ class JUNODetector:
             rho = args.me_rho
 
         # ── oscillation ──────────────────────────────────────────────────────
-        s_juno = rfis_param_post.GetOscillated(
-                L=list(self.core_baselines),
-                sin2_th12=sin2_12, sin2_th13=sin2_13,
-                dm2_21=dm2_21, dm2_31=dm2_31,
-                core_powers=list(core_powers_new),
-                me_rho=rho, ene_mode='true', opp=opp, args=self.args)
+        osc_key = (
+            round(sin2_12, 12), round(sin2_13, 12),
+            round(dm2_21, 14),  round(dm2_31, 14),
+            round(rho, 8),
+            tuple(round(p, 10) for p in core_powers_new),
+            tuple(round(e, 10) for e in efission_scaled),
+            tuple(round(n, 10) for n in nuisance) if nuisance is not None else (),
+            bool(opp),
+        )
+        if osc_key in self._osc_cache:
+            cached = self._osc_cache[osc_key]
+            s_juno = Spectrum(bins=cached.bins, bin_cont=cached.bin_cont.copy())
+        else:
+            s_juno = rfis_param_post.GetOscillated(
+                    L=list(self.core_baselines),
+                    sin2_th12=sin2_12, sin2_th13=sin2_13,
+                    dm2_21=dm2_21, dm2_31=dm2_31,
+                    core_powers=list(core_powers_new),
+                    me_rho=rho, ene_mode='true', opp=opp, args=self.args)
+            if len(self._osc_cache) > 200:
+                # FIFO eviction; Python dicts keep insertion order
+                for k in list(self._osc_cache.keys())[:100]:
+                    del self._osc_cache[k]
+            self._osc_cache[osc_key] = Spectrum(bins=s_juno.bins,
+                                                bin_cont=s_juno.bin_cont.copy())
+        # s_juno = rfis_param_post.GetOscillated(
+        #         L=list(self.core_baselines),
+        #         sin2_th12=sin2_12, sin2_th13=sin2_13,
+        #         dm2_21=dm2_21, dm2_31=dm2_31,
+        #         core_powers=list(core_powers_new),
+        #         me_rho=rho, ene_mode='true', opp=opp, args=self.args)
 
         # ── positron energy shift ────────────────────────────────────────────
-        s_juno = s_juno.GetWithPositronEnergy(inputfile=args.input_data_file,
+        s_juno = s_juno.GetWithPositronEnergy(inputfile=args.input_data_file,s_ibd=self.s_ibd,
                                                tf2name=args.pos_ene_TF2)
 
         # ── non-linearity ────────────────────────────────────────────────────
@@ -411,7 +522,7 @@ class JUNODetector:
                                                       spectrum=new_nonl, LY_shared=NL[4])
                 pulls.extend([NL[0], NL[1], NL[2], NL[3], NL[4]])
                 pull_unc.extend([args.NL_sd] * 4)
-                pull_unc.append(0.005)
+                pull_unc.append(args.ene_scale_unc)
             else:
                 kB = NL[0]; fC = NL[1]; kI = NL[2]; LY_shared = NL[3]
                 s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC,
@@ -470,30 +581,8 @@ class JUNODetector:
             if key == "geo":
                 pulls.append(ThU_ratio - args.Th_U_ratio)
                 pull_unc.append(args.Th_U_ratio_err)
-
                 if args.NL == "pull":
-                    rate  = float(args.geo_tnu_rate) * float(args.tnu_to_cpd)
-                    scale = rate * ndays / args.duty_cycle
-                    Th = ensp['rfis0_geoth'].GetScaledFit(
-                        ThU_ratio * scale / ((1 + ThU_ratio) * ensp['rfis0_geoth'].GetIntegral()))
-                    U  = ensp['rfis0_geou'].GetScaledFit(
-                        scale / ((1 + ThU_ratio) * ensp['rfis0_geou'].GetIntegral()))
-                    U_pos  = U.GetWithPositronEnergy(type=args.posE_shift,
-                                                     inputfile=args.input_data_file,
-                                                     tf2name=args.pos_ene_TF2)
-                    Th_pos = Th.GetWithPositronEnergy(type=args.posE_shift,
-                                                      inputfile=args.input_data_file,
-                                                      tf2name=args.pos_ene_TF2)
-                    U_nonl  = U_pos.GetWithModifiedEnergy(mode='spectrum',
-                                                          spectrum=new_nonl, LY_shared=NL[4])
-                    Th_nonl = Th_pos.GetWithModifiedEnergy(mode='spectrum',
-                                                           spectrum=new_nonl, LY_shared=NL[4])
-                    U_final  = U_nonl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-                    Th_final = Th_nonl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-                    if args.rebin_nonuniform:
-                        U_final.Rebin_nonuniform(args.bins_nonuniform)
-                        Th_final.Rebin_nonuniform(args.bins_nonuniform)
-                    bckg = U_final + Th_final
+                    bckg = self._get_geo_spectrum_pull(ThU_ratio, NL, abc, new_nonl, resp_matrix)
                 else:
                     bckg = self._get_geo_spectrum(ThU_ratio, resp_matrix,
                                                   abc[0], abc[1], abc[2],
@@ -502,23 +591,23 @@ class JUNODetector:
                                                   NL[2] if NL else args.kI,
                                                   NL[3] if NL else args.LY_shared)
 
-            elif key == "wr":
-                if args.NL == "pull":
-                    bckg = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
-                        mode='spectrum', spectrum=new_nonl, LY_shared=NL[4])
-                    bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-                    rate  = self.backgrounds['JUNO']['wr']['rate']
-                    scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
-                    bckg  = bckg.GetScaledFit(scale)
-                    if args.rebin_nonuniform:
-                        bckg.Rebin_nonuniform(args.bins_nonuniform)
-                else:
-                    bckg = self._get_wr_spectrum(resp_matrix,
-                                                 abc[0], abc[1], abc[2],
-                                                 NL[0] if NL else args.kB,
-                                                 NL[1] if NL else args.fC,
-                                                 NL[2] if NL else args.kI,
-                                                 NL[3] if NL else args.LY_shared)
+            # elif key == "wr":
+            #     if args.NL == "pull":
+            #         bckg = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
+            #             mode='spectrum', spectrum=new_nonl, LY_shared=NL[4])
+            #         bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            #         rate  = self.backgrounds['JUNO']['wr']['rate']
+            #         scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
+            #         bckg  = bckg.GetScaledFit(scale)
+            #         if args.rebin_nonuniform:
+            #             bckg.Rebin_nonuniform(args.bins_nonuniform)
+            #     else:
+            #         bckg = self._get_wr_spectrum(resp_matrix,
+            #                                      abc[0], abc[1], abc[2],
+            #                                      NL[0] if NL else args.kB,
+            #                                      NL[1] if NL else args.fC,
+            #                                      NL[2] if NL else args.kI,
+            #                                      NL[3] if NL else args.LY_shared)
             else:
                 bckg = ensp[key]
 
@@ -531,9 +620,9 @@ class JUNODetector:
             if info["b2b"] > 0:
                 b2bunc = info["b2b"]
                 if cm_bckg is None:
-                    cm_bckg = bckg.GetB2BCovMatrix(b2bunc, 0.1)
+                    cm_bckg = bckg.GetB2BCovMatrix(b2bunc, info['b2b_scale'])
                 else:
-                    cm_bckg += bckg.GetB2BCovMatrix(b2bunc, 0.1)
+                    cm_bckg += bckg.GetB2BCovMatrix(b2bunc, info['b2b_scale'])
 
             s_tot_juno += bckg
             fit_bckgs_spectra[info["name"]] = bckg

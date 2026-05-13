@@ -72,8 +72,6 @@ def plot_correlation_pair(nuis_cov, C_reco, ensp_nom_juno, n_nuis, save_path="co
     plt.close()
     print(f"Saved: {save_path}")
 
-
-
 def f_lbl(dm2_31, sin2_12, sin2_13, dm2_21, theta23, dcp, ordering):
     if ordering == "NO":
         return dm2_31

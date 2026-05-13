@@ -839,7 +839,10 @@ class Spectrum:
 
     # rescaling factor: s = w_source / w_target
     #s = 1.0
-    s = w_source / w_target
+    if w_source != 0: 
+        s = w_source / w_target
+    else:
+        s = 1.0
 
     # use provided prediction if available
     if pred is None:
@@ -1760,7 +1763,7 @@ def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=N
         efficiency = eff
     else:
         efficiency = args.detector_efficiency
-    prefactor = args.detector_efficiency * args.veto * args.Np / (4 * np.pi)
+    prefactor = efficiency * args.veto * args.Np / (4 * np.pi)
 
     # Compute normalization denominator (total weighted fission energy)
     norm = np.sum(alpha_arr * efission_arr)
@@ -1773,7 +1776,52 @@ def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=N
 
     extrafactor = prefactor * geo_term / norm
     return extrafactor
+    
+def compute_extrafactors_vec(args, efission=None, core_baselines=None,
+                              core_powers=None, alpha=None, eff=0.0):
+    """
+    Vectorized per-core extrafactor computation.
 
+    Returns an array of shape (n_cores,), where entry i is
+        prefactor * (P_i / L_i^2) / sum_j(alpha[i,j] * efission[j])
+
+    Parameters
+    ----------
+    efission       : (n_iso,) fission energies, shared across cores
+    core_baselines : (n_cores,) baselines in metres
+    core_powers    : (n_cores,) thermal powers
+    alpha          : (n_cores, n_iso) fission fractions per core,
+                     or (n_iso,) if shared across all cores
+    eff            : optional efficiency override
+    """
+    power_conv = 6.24e21 * 60 * 60 * 24
+
+    alpha_arr = np.asarray(args.alpha if alpha is None else alpha,
+                            dtype=float)
+    if alpha_arr.ndim == 1:                       # broadcast shared α
+        alpha_arr = alpha_arr[np.newaxis, :]
+
+    efission_arr = np.asarray(args.efission if efission is None else efission,
+                               dtype=float)        # (n_iso,)
+    L_arr   = np.asarray(args.core_baselines if core_baselines is None
+                          else core_baselines, dtype=float) * 100.0   # m → cm
+    Pth_arr = np.asarray(args.core_powers if core_powers is None
+                          else core_powers, dtype=float) * power_conv
+
+    efficiency = eff if eff else args.detector_efficiency
+    prefactor  = efficiency * args.veto * args.Np / (4.0 * np.pi)
+
+    # per-core normalisation  norm[i] = Σ_j α[i,j] · e_fission[j]
+    norm = alpha_arr @ efission_arr               # (n_cores,)
+
+    # per-core geometric term  P_i / L_i² (preserve original L=0 fallback)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        geo = np.where(L_arr == 0.0,
+                       Pth_arr,
+                       Pth_arr / (L_arr * L_arr))
+
+    return prefactor * geo / norm                 # (n_cores,)
+    
 def compute_extrafactors_per_core(args, core_powers, core_baselines, fission_fracs, eff=0.0):
     """
     Compute normalization extrafactor for each core separately,

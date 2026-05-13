@@ -58,7 +58,7 @@ def build_juno_asimov(juno_det, args_juno, backgrounds: Dict[str, Any],
     bckgs = {}
     for k, info in backgrounds["JUNO"].items():
         bckgs[k] = {"pull": 0.0, "sigma": info["rate_unc"],
-                    "b2b": info["b2b_unc"], "name": info["name"]}
+                    "b2b": info["b2b_unc"], "name": info["name"],"b2b_scale": info['b2b_scale']}
 
     NL = ([args_juno.kB, args_juno.fC, args_juno.kI, args_juno.LY_shared]
           if args_juno.NL != "pull" else [0.0] * n_NL)
@@ -170,6 +170,8 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
     `true_dm2_31_minuit` is in 1e-3 eV² (Minuit convention; positive number).
     Sign is set by `true_NO`: NO uses +, IO uses −.
     """
+    fits_start  = datetime.now()
+    
     rng = np.random.default_rng(seed)
     sign      = +1.0 if true_NO else -1.0
     true_phys = sign * true_dm2_31_minuit
@@ -188,7 +190,9 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
         ensp_nom_juno=ensp_nom_juno, prefit_cache=prefit_cache,
         fix_dm2_31_to=true_dm2_31_minuit, force_NO=true_NO,
         common_kwargs=common_kwargs)
-
+    
+    fits_stop  = datetime.now()
+    
     return {
         'seed':       int(seed),
         'true_dm31':  float(true_dm2_31_minuit),
@@ -202,6 +206,7 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
         'best_sin13': free['sin2_th13'],
         'free_valid': int(free['is_valid']),
         'fix_valid':  int(fixed['is_valid']),
+        'time': (fits_stop-fits_start).total_seconds()
     }
 
 
@@ -219,6 +224,7 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
     One toy for the NMO test. Toy generated under `true_NO`. Then JUNO fit
     once with NO assumption (using prefit_cache)
     """
+    fits_start  = datetime.now()
     rng = np.random.default_rng(seed)
 
     asimov = build_juno_asimov(
@@ -236,6 +242,7 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
         ensp_nom_juno=ensp_nom_juno, prefit_cache=prefit_cache,
         fix_dm2_31_to=None, force_NO=False, common_kwargs=common_kwargs)
 
+    fits_stop  = datetime.now()
     return {
         'seed':     int(seed),
         'true_NO':  int(true_NO),
@@ -246,4 +253,5 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
         'IO_valid': int(fit_IO['is_valid']),
         'dm31_NO':  fit_NO['dm2_31'],
         'dm31_IO':  fit_IO['dm2_31'],
+        'time': (fits_stop-fits_start).total_seconds()
     }

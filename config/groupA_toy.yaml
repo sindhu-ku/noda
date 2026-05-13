@@ -2,13 +2,13 @@ config: ''
 # Fit options configuration
 
 fit_options:
-
+  is_data: True
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: DYB # PDG option
-  NMO_opt: False  # NMO option, true is normal
-  NMO_sig: False
+  NMO_opt: True  # NMO option, true is normal
+  NMO_sig: True
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
@@ -16,7 +16,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
-  run_hesse: true
+  run_hesse: false
   solar_contour: false
   CI_powers: false
   calc_minuit_errors: false
@@ -24,15 +24,18 @@ fit_options:
   profile_points: 100
   silent_print: false
   geo_spectra: ana
-  pull_dm2_31: false
-  pull_dm2_31_lbl: true #false
+  pull_dm2_31: true
+  pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.035e-03
   dm2_31_lbl: 0.0025043000
   theta23: 43.279
   dcp: 212.0
+  lin_resp: True
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
   save_prefit: False
+  use_prefit: False
+  prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/FC.npz
   include_tao: True
   include_dyb: True
   geo_fit: true
@@ -58,7 +61,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: False
-  file_prefix: 'Apr13_P25C_JUNO_DYB'
+  file_prefix: 'GroupC_toy_240days_May11_2026_21segs_100keV'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -150,7 +153,6 @@ common_det_inputs:
   noneq_file: /junofs/users/sindhu/NODA/noda/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  is_data: True
   reactor_summary_yaml:  /junofs/users/sindhu/NODA/noda/config/reactor_summary_groupA_toy.yaml
   stat_opt: 240days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency:  0.6933279241338788 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
@@ -168,23 +170,25 @@ juno_inputs:
   data_hist_name: JUNO_obs
   rebin_nonuniform: true
   bins_nonuniform: 
-    - [0.7, 1.0, 1]
+    # - [0.7, 1.0, 1]
     # - [1.0, 6.6, 56]
     # - [6.6, 7.4, 4]
     # - [7.4, 7.7, 1]
     # - [7.7, 8.1, 1]
     # - [8.1, 8.6, 1]
     # - [8.6, 9.4, 1]
-    - [1.0, 9.4, 211]
-    - [9.4, 12.0, 1]
+    # - [9.4, 12.0, 1]
+    
+    - [0.7, 0.9, 1]
+    - [0.9, 7.02, 153]
+    - [7.02, 8.22, 12]
+    - [8.22, 8.46, 1]
+    - [8.46, 12.0, 1]
 
-    # - [0.8, 1.0, 1]
-    # - [1.0, 7.0, 300]
-    # - [7.0, 9.0, 10]
-    # - [9.0, 10.0, 2]
-    # - [10.0, 12.0, 1]
+    
 
-  seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
+  seg_bins_nonuniform: [1.800, 1.905, 2.015, 2.125, 2.240, 2.360, 2.485, 2.610, 2.740, 2.875, 3.015, 3.160, 3.310, 3.470, 3.635, 3.810, 3.995, 4.185, 4.385, 4.595, 4.810, 5.035, 5.270, 5.510,5.760, 6.020, 6.290, 6.570, 6.860, 7.165, 7.480, 7.805, 8.140, 8.480, 8.830]
+  #seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
     
   U235_scale: 0.58
   U238_scale: 0.07
@@ -250,7 +254,6 @@ juno_inputs:
     - stat
 
 dyb_inputs:
-  is_data: true
   model: PRL
   bins: 241 #241 # Number of bins
   ene_crop:
@@ -321,7 +324,6 @@ dyb_inputs:
 
 
 tao_inputs:
-  is_data: True
   bins: 601 #241 # Number of bins
   ene_crop:
     - 0.0 #0 #7
@@ -338,11 +340,16 @@ tao_inputs:
   data_spectrum: /junofs/users/sindhu/NODA/noda/data/groupA_toy/joint_toy_juno_tao_dyb_seed1203.root
   data_hist_name: TAO_obs
   bckg_hist_name: TAOBkg20KeV
+  bckg_rate: 36.154
   bckg_rate_unc: 0.0356
   IAV_hist: TAOEnergyLeakageMatrix
   FV_cov_matrix: CovMatrixFVCut_3_5
   rebin_nonuniform:  True
   bins_nonuniform:
+    # - [0.8, 0.94, 1]
+    # - [0.94, 7.94, 70]
+    # - [7.94, 8.2, 2]
+    # - [8.2, 12, 1]
     - [0.8, 0.94, 1]
     - [0.94,5.52, 229]
     - [5.52, 6.60, 27]

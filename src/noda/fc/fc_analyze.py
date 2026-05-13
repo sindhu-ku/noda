@@ -143,37 +143,78 @@ def analyze_nmo(df: pd.DataFrame, out_dir: str):
     ax.legend(); ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(os.path.join(out_dir, "fc_nmo_distribution.pdf"))
+
+
     
-def report_dm31_overall(df: pd.DataFrame, out_dir: str):
-    """One median ± 1σ per ordering, pooled across all dm31-mode toys."""
+def plot_fc_interval(df: pd.DataFrame, observed_csv: str, cls, out_dir: str):
+    """
+    Canonical FC plot: TS_obs(dm31) overlaid on FC critical curves.
+    Reports the FC interval as the candidate range where TS_obs ≤ critical.
+    """
     sub = df[df['mode'] == 'dm31'].copy()
-    valid = sub[(sub['free_valid'] == 1) & np.isfinite(sub['best_dm31'])]
+    valid = sub[(sub['free_valid'] == 1) & (sub['fix_valid'] == 1)
+                & np.isfinite(sub['TS_dm31']) & (sub['TS_dm31'] >= 0)]
     if valid.empty:
         return
 
-    rows = []
-    print(f"\n{'ord':<4} {'median':>10} {'+1σ':>8} {'−1σ':>8} "
-          f"{'mean':>10} {'std':>8} {'n':>6}")
-    print("─" * 60)
+    # FC critical curves per (true_dm31, true_NO)
+    crit_rows = []
+    for (dm31, no), g in valid.groupby(['true_dm31', 'true_NO']):
+        row = {'true_dm31': dm31, 'true_NO': no}
+        for cl in cls:
+            row[f'crit_{int(cl*1e4):04d}'] = float(np.quantile(g['TS_dm31'], cl))
+        crit_rows.append(row)
+    crit = pd.DataFrame(crit_rows).sort_values(['true_NO', 'true_dm31'])
 
-    for no, g in valid.groupby('true_NO'):
-        bf = g['best_dm31'].values
-        lo, med, hi = np.quantile(bf, [0.1587, 0.5, 0.8413])
+    obs = pd.read_csv(observed_csv).sort_values('true_dm31')
+
+    for no in sorted(crit['true_NO'].unique()):
+        c = crit[crit['true_NO'] == no]
+        o = obs[obs['true_NO'] == no] if 'true_NO' in obs.columns else obs
+        if o.empty:
+            continue
         label = "NO" if no else "IO"
-        print(f"{label:<4} {med:>10.4f} {hi-med:>+8.4f} {-(med-lo):>+8.4f} "
-              f"{np.mean(bf):>10.4f} {np.std(bf, ddof=1):>8.4f} {len(bf):>6d}")
-        rows.append({
-            'ordering':         label,
-            'best_dm31_median': med,
-            'plus_1sig':        hi - med,
-            'minus_1sig':       med - lo,
-            'best_dm31_mean':   np.mean(bf),
-            'best_dm31_std':    np.std(bf, ddof=1),
-            'n_toys':           len(bf),
-        })
+        best_dm31 = float(o['best_dm31'].iloc[0])  # constant across rows
 
-    pd.DataFrame(rows).to_csv(
-        os.path.join(out_dir, "fc_dm31_overall.csv"), index=False)
+        fig, ax = plt.subplots(figsize=(8, 5))
+        styles = ['-', '--', ':']
+        for cl, ls in zip(cls, styles):
+            col = f'crit_{int(cl*1e4):04d}'
+            ax.plot(c['true_dm31'], c[col], ls, color='steelblue',
+                    label=f'FC crit. {cl*100:.2f}%')
+        ax.plot(o['true_dm31'], o['TS_obs'], 'o-', color='darkred', lw=2,
+                label='observed TS')
+        ax.axvline(best_dm31, color='darkred', ls='-', lw=1,
+                   label=f'best fit = {best_dm31:.4f}')
+
+        # interval extraction via linear interpolation
+        x_fine = np.linspace(o['true_dm31'].min(), o['true_dm31'].max(), 4000)
+        ts_int = np.interp(x_fine, o['true_dm31'], o['TS_obs'])
+        print(f"\n  {label} hypothesis: best fit = {best_dm31:.4f} × 1e-3 eV²")
+        for cl in cls:
+            crit_int = np.interp(x_fine, c['true_dm31'],
+                                 c[f'crit_{int(cl*1e4):04d}'])
+            inside = x_fine[ts_int <= crit_int]
+            if len(inside):
+                lo, hi = inside.min(), inside.max()
+                ax.axvspan(lo, hi, color='darkred', alpha=0.06)
+                print(f"    {cl*100:.2f}% CL: [{lo:.4f}, {hi:.4f}]   "
+                      f"(half-width = {(hi-lo)/2:.4f},  "
+                      f"+{hi-best_dm31:.4f}/−{best_dm31-lo:.4f})")
+            else:
+                print(f"    {cl*100:.2f}% CL: empty interval inside the scan range")
+
+        ax.set_xlabel(r'$\Delta m^2_{31}\ (\times 10^{-3}\ \mathrm{eV}^2)$')
+        ax.set_ylabel(r'$\Delta\chi^2$')
+        ax.set_title(f'FC interval — {label} hypothesis')
+        ax.set_ylim(0, max(ts_int.max() * 1.1, 12))
+        ax.legend(loc='best', fontsize=9)
+        ax.grid(alpha=0.3)
+        fig.tight_layout()
+        fig.savefig(os.path.join(out_dir, f'fc_interval_{label}.pdf'))
+        fig.savefig(os.path.join(out_dir, f'fc_interval_{label}.png'), dpi=150)
+        plt.close(fig)
+        
 def plot_dm31_profile(df: pd.DataFrame, out_dir: str, nbins: int = 60):
     """
     Empirical Δχ² profile of dm²₃₁ from the toy best-fit distribution,
@@ -348,7 +389,8 @@ def main():
     plot_dm31_profile(df, args.output_dir)  
     analyze_nmo(df, args.output_dir)
     analyze_nmo_significance(df, args.output_dir)
-    report_dm31_overall(df, args.output_dir)
+    if args.observed_csv:
+        plot_fc_interval(df, args.observed_csv, cls, args.output_dir)
     print(f"[FC] done — outputs in {args.output_dir}")
 
 

@@ -124,12 +124,23 @@ def main(argv=None):
   }
   
   for section, parsers in sections.items():
-      if section in config:
-          for option, value in config[section].items():
-              for p in parsers:
-                  # Add as argument so it can be overridden by command line
-                  p.add_argument(f"--{option}", default=value)
-  
+    if section in config:
+        for option, value in config[section].items():
+            for p in parsers:
+                if isinstance(value, bool):
+                    # Special handling — bool('0') is True, so we need a custom parser
+                    p.add_argument(
+                        f"--{option}",
+                        default=value,
+                        type=lambda x: str(x).lower() in ("1", "true", "yes", "y", "t"),
+                    )
+                else:
+                    p.add_argument(
+                        f"--{option}",
+                        default=value,
+                        type=type(value) if value is not None else str,
+                    )
+
   # --- STEP 4: Final Parse ---
   # Now parse the 'remaining_argv' (everything except the --config part)
   # Example for JUNO:
@@ -378,8 +389,9 @@ def main(argv=None):
       else:
           cm_tao = {}
           cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_file, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
-          
+          prefit_cache = None
           if args_juno.fit_type == 'PMOP_combined':
+              if args_juno.fit_mode.startswith('prefit') and args_juno.use_prefit: prefit_cache = args_juno.prefit_path
               if not args_juno.use_dagflow:
                   dyb_V = np.loadtxt(args_dyb.dyb_cm)
                   if args_dyb.model == "PRL":
@@ -406,11 +418,11 @@ def main(argv=None):
 
                   cm_dyb['all'] = DYB_rel_cm
 
-                  minuit_new.run_minuit(ndays=ndays,ndays_dyb=ndays_dyb,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='all', rm = resp_matrix,rm_dyb = resp_matrix_dyb,rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_dyb=cm_dyb,cm_tao=cm_tao,args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
+                  minuit_new.run_minuit(ndays=ndays,ndays_dyb=ndays_dyb,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='all', rm = resp_matrix,rm_dyb = resp_matrix_dyb,rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_dyb=cm_dyb,cm_tao=cm_tao,args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds, prefit_cache=prefit_cache)
               else:    
                   from .DYB_model import make_dyb_model
                   dyb_model = make_dyb_model(args_dyb)
-                  minuit_new.run_minuit(ndays=ndays,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix, rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds)
+                  minuit_new.run_minuit(ndays=ndays,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix, rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds, prefit_cache=prefit_cache)
                       
 
                       
@@ -428,7 +440,7 @@ def main(argv=None):
                       if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
               else:
                   for unc in unc_list_new_juno: 
-                      minuit_new.run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
+                      minuit_new.run_minuit(ndays=ndays,s_ibd=s_ibd, s_bump_lin=s_bump_lin,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
                      
 
 

@@ -310,23 +310,12 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd):
     del ensp["snf0"], ensp["noneq0"]
 
     if detector != "DYB":
-        osc_kwargs = dict(
-            L=args.core_baselines, core_powers=args.core_powers,
-            me_rho=args.me_rho, ene_mode="true", args=args,
-        )
-        ensp["snf_osc"]   = ensp["snf"].GetOscillated(**osc_kwargs)
-        ensp["noneq_osc"] = ensp["noneq"].GetOscillated(**osc_kwargs)
-    else:
-        ensp["snf_osc"]   = ensp["snf"]
-        ensp["noneq_osc"] = ensp["noneq"]
-
-    if detector != "DYB":
-        ensp["snf_final"]   = _apply_full_energy_response(ensp["snf_osc"],   args, ensp, resp_matrix, s_ibd)
-        ensp["noneq_final"] = _apply_full_energy_response(ensp["noneq_osc"], args, ensp, resp_matrix, s_ibd)
+        ensp["snf_final"]   = _apply_full_energy_response(ensp["snf"],   args, ensp, resp_matrix, s_ibd)
+        ensp["noneq_final"] = _apply_full_energy_response(ensp["noneq"], args, ensp, resp_matrix, s_ibd)
     else:
         # DYB: positron shift only, no NL
-        ensp["snf_final"]   = _apply_positron_energy(ensp["snf_osc"],   args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-        ensp["noneq_final"] = _apply_positron_energy(ensp["noneq_osc"], args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["snf_final"]   = _apply_positron_energy(ensp["snf"],   args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["noneq_final"] = _apply_positron_energy(ensp["noneq"], args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
 
 # ---------------------------------------------------------------------------
@@ -457,28 +446,30 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
     ensp["rtot"] = ensp["rdet"]
 
     if args.is_data:
-        if args.model == "CPC":
-            names = ["Bin_Center", "Sigma", "Rel_Unc"]
-        else:
-            names = ["Bin_lowE", "Bin_highE", "Sigma", "bin_err"]
-        dyb = pd.read_csv(
-            args.dyb_spectrum, sep='\s+',
-            names=names,
-        )
+        # if args.model == "CPC":
+        #     names = ["Bin_Center", "Sigma", "Rel_Unc"]
+        # else:
+        #     names = ["Bin_lowE", "Bin_highE", "Sigma", "bin_err"]
+        # dyb = pd.read_csv(
+        #     args.dyb_spectrum, sep='\s+',
+        #     names=names,
+        # )
         
-        ensp["rtot"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
+        # ensp["rtot"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
+        ensp["rtot"] = GetSpectrumFromROOT("data/groupA_toy/joint_toy_juno_tao_dyb_seed1203.root", "DYB_obs")
         if args.model == "PRL": 
-            ensp["rtot"].GetScaled(1e-43)
+            #ensp["rtot"].GetScaled(1e-43)
             ensp["rtot"].GetScaled(compute_extrafactors(args,core_baselines=None))
         else:
             ensp["rtot"].GetScaled(extrafactors)
         ensp["rtot"].GetScaled(ndays)
         ensp["rtot"].ScaleByBinWidth()
 
-        
+
         if args.rebin_nonuniform:
             ensp["rtot"].Rebin_nonuniform(args.bins_nonuniform)
         ensp["data"] = ensp["rtot"]
+    
 
     return (
         [ensp["rtot"]],
@@ -489,8 +480,8 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
 
 def _assemble_total_spectrum_tao(ensp, args, ndays):
     ensp["bckg"] = GetSpectrumFromROOT(args.data_file, args.bckg_hist_name)
-    ensp["bckg"].ScaleByBinWidth()
-    ensp["bckg"].GetScaled(ndays*790 / 21.851)
+    #ensp["bckg"].ScaleByBinWidth()
+    ensp["bckg"].GetScaled(ndays*args.bckg_rate)
     print("TAO background: ", ensp['bckg'].GetIntegral())
     if args.rebin_nonuniform:
         ensp["bckg"].Rebin_nonuniform(args.bins_nonuniform)
@@ -509,10 +500,6 @@ def _assemble_total_spectrum_tao(ensp, args, ndays):
             ['brown', 'steelblue', 'orange'])
 
 def _assemble_total_spectrum_juno(ensp, args):
-    if args.is_data:
-        ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, args.data_hist_name)
-        if args.rebin_nonuniform:
-            ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
 
     events = {
         "rtot":   ensp["rtot"].GetIntegral(),
@@ -538,6 +525,15 @@ def _assemble_total_spectrum_juno(ensp, args):
     ]
     colors = ["black", "darkred", "green", "navy", "orange", "magenta",
               "lightblue", "yellow", "lightgreen", "purple", "grey"]
+
+    if args.is_data:
+        ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, args.data_hist_name)
+        if args.rebin_nonuniform:
+            ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
+
+        extra.append(ensp['data'])
+        labels.append('Data')
+        colors.append('blue')
     return extra, labels, colors
 
 
@@ -563,7 +559,7 @@ def _print_juno_event_summary(ev):
 # ---------------------------------------------------------------------------
 
 def _write_juno_output(ensp, args, backgrounds):
-    tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}.root"
+    tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
     ensp["rdet"].WritetoROOT("reactor", tag, "prefit")
     for key in backgrounds["JUNO"]:
         ensp[key].WritetoROOT(key, tag, "prefit")
@@ -671,20 +667,20 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     else:
         ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args,s_ibd=s_ibd)
         ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args, s_ibd=s_ibd)
-        ensp["rvis_nonl_temp_wcorr"] = _apply_positron_energy((ensp["rosc"]+ensp['snf_osc']+ensp['noneq_osc']), args, s_ibd=s_ibd)
+        #ensp["rvis_nonl_temp_wcorr"] = _apply_positron_energy((ensp["rosc"]+ensp['snf_osc']+ensp['noneq_osc']), args, s_ibd=s_ibd)
         
         if detector != "DYB":
             ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl"],      args, ensp)
             ensp["rvis_temp"] = _apply_nonlinearity(ensp["rvis_nonl_temp"], args, ensp)
-            ensp["rvis_temp_wcorr"] = _apply_nonlinearity(ensp["rvis_nonl_temp_wcorr"], args, ensp)
+            #ensp["rvis_temp_wcorr"] = _apply_nonlinearity(ensp["rvis_nonl_temp_wcorr"], args, ensp)
         else:
             ensp["rvis"]      = ensp["rvis_nonl"]
             ensp["rvis_temp"] = ensp["rvis_nonl_temp"]
-            ensp["rvis_temp_wcorr"] = ensp["rvis_nonl_temp_wcorr"]
+            #ensp["rvis_temp_wcorr"] = ensp["rvis_nonl_temp_wcorr"]
     
         ensp["rdet"] = ensp["rvis"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         ensp["rdet_temp"] = ensp["rvis_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-        ensp["rdet_temp_wcorr"] = ensp["rvis_temp_wcorr"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        #ensp["rdet_temp_wcorr"] = ensp["rvis_temp_wcorr"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
     # Add corrections
     if detector == "DYB":
@@ -693,6 +689,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         else:
             ensp["rdet"] = ensp["rdet"]
     else:
+        print("TAO w/o corrections: ", ensp["rdet"].GetIntegral())
         ensp["rdet"] = ensp["rdet"] + ensp["snf_final"] + ensp["noneq_final"]
 
     if args.rebin_nonuniform:

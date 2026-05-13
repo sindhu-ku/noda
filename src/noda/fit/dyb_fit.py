@@ -26,7 +26,7 @@ class DYBDetector:
     """
 
     def __init__(self, ensp_nom_dyb, args_dyb, args_juno, cm_dyb,
-                 rm_dyb,
+                 rm_dyb, s_ibd,
                  dyb_model=None):
         self.ensp_nom   = ensp_nom_dyb
         self.args_dyb    = args_dyb
@@ -34,6 +34,8 @@ class DYBDetector:
         self.cm_dyb      = cm_dyb
         self.rm_dyb      = rm_dyb
         self.dyb_model  = dyb_model
+        self.is_cpc = (args_dyb.model == "CPC")
+        self.s_ibd = s_ibd
 
         # ── DAGflow setup (mirrors original run_minuit logic) ───────────────
         self._chi2_dyb_func  = None
@@ -54,12 +56,12 @@ class DYBDetector:
                 parameters=[par for par in flux_params.walkvalues()],
                 safe=False)
             self._flux_params = flux_params
-            print("DYB bins (dagflow):", self.n_dyb_bins)
+            if not args_juno.silent_print: print("DYB bins (dagflow):", self.n_dyb_bins)
         else:
             # PMOP direct path
             if args_juno.fit_type == "PMOP_combined":
                 self.n_dyb_bins = len(ensp_nom_dyb['rdet'].bins)
-                print("DYB bins (direct):", self.n_dyb_bins)
+                if not args_juno.silent_print: print("DYB bins (direct):", self.n_dyb_bins)
 
         # ── per-call cache ───────────────────────────────────────────────────
         self._chi2_cache  = {}
@@ -70,19 +72,30 @@ class DYBDetector:
     # ════════════════════════════════════════════════════════════════════════
 
     def get_param_names(self):
-        return ["snf_noneq_norm_dyb"]  
+        if self.is_cpc and not self.dyb_model:
+            return ["snf_noneq_norm_dyb"]  
+        else:
+            return []
 
     def get_start_values(self):
-        return [0.0]
+        if self.is_cpc and not self.dyb_model: 
+            return [0.0]
+        else:
+            return []
 
     def apply_limits(self, m):
-        m.limits["snf_noneq_norm_dyb"] = [-1, None]
+        if self.is_cpc and not self.dyb_model:
+            m.limits["snf_noneq_norm_dyb"] = [-1, None]
         
     def get_first_fix(self):
         """Parameters to fix in the first Minuit stage."""
-        return (
-            ["snf_noneq_norm_dyb"]  
-        )
+        if self.is_cpc and not self.dyb_model:
+            return (
+                ["snf_noneq_norm_dyb"]  
+            )
+        else:
+            return []
+        
     # ════════════════════════════════════════════════════════════════════════
     #  Internal cached helpers
     # ════════════════════════════════════════════════════════════════════════
@@ -90,10 +103,18 @@ class DYBDetector:
     def _get_chi2_dyb_dagflow(self, nuisance_coarse):
         key = tuple(nuisance_coarse)
         if key in self._chi2_cache:
-            return self._chi2_cache[key]
+            return self._chi2_cache[key], [], []
+            
         chi2_dyb = self._chi2_dyb_func(*nuisance_coarse)[0]
+        n_expected = sum(1 for _ in self._flux_params.walkvalues())
+        if len(nuisance_coarse) != n_expected:
+            raise ValueError(
+                f"dagflow expects {n_expected} nuisance params, got {len(nuisance_coarse)}. "
+                f"Check E_segments length matches dagflow's parameterisation."
+            )
+
         self._chi2_cache[key] = chi2_dyb
-        return chi2_dyb
+        return chi2_dyb, [], []
 
     def _get_dyb_spectrum(self, nuisance_coarse, E_segments):
         key = tuple(nuisance_coarse)
@@ -103,7 +124,8 @@ class DYBDetector:
         nuisance_fine = expand_nuisances_to_fine(E_segments, rfis_param_dyb.bins, nuisance_coarse)
         rfis_param_dyb = Spectrum(bins=rfis_param_dyb.bins,
                                  bin_cont=rfis_param_dyb.bin_cont * (1 + np.array(nuisance_fine)))
-        s_dyb = rfis_param_dyb.GetWithPositronEnergy(inputfile=self.args_juno.input_data_file, tf2name=self.args_juno.pos_ene_TF2)
+        s_dyb = rfis_param_dyb
+        if self.is_cpc: s_dyb = s_dyb.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=self.args_juno.input_data_file, tf2name=self.args_juno.pos_ene_TF2)
         s_dyb = s_dyb.ApplyDetResp(self.rm_dyb, pecrop=self.args_dyb.ene_crop) 
         self._dyb_spec_cache[key] = s_dyb
         return s_dyb
@@ -130,8 +152,11 @@ class DYBDetector:
         # ── direct PMOP path ─────────────────────────────────────────────────
         s_dyb = self._get_dyb_spectrum(nuisance_coarse, E_segments)
 
-        noneq = self.ensp_nom["noneq_final"].GetScaledFit(1 + snf_noneq_norm_dyb)
-        s_tot_dyb = s_dyb + noneq
+        if self.is_cpc:
+            noneq = self.ensp_nom["noneq_final"].GetScaledFit(1 + snf_noneq_norm_dyb)
+            s_tot_dyb = s_dyb + noneq
+        else:
+            s_tot_dyb = s_dyb
         
         if args_dyb.rebin_nonuniform:
             s_tot_dyb.Rebin_nonuniform(args_dyb.bins_nonuniform)
