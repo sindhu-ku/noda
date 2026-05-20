@@ -180,6 +180,17 @@ def _load_nonlinearity(ensp, args, detector):
         for k in range(4)
     ]
 
+    # new_nonl = Spectrum(bins=ensp['scintNL'].bins,
+    #                     bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
+    # new_nonl.bin_cont = (ensp['scintNL'].bin_cont
+    #     + 0.5 * (ensp['NL_pull'][0].bin_cont - ensp['scintNL'].bin_cont)
+    #     + 0.5 * (ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)
+    #     + 0.5 * (ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont)
+    #     + 0.5 * (ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont))*1.05
+
+    # ensp['scintNL'].WritetoROOT("nominal", "NL_groupA.root")
+    # new_nonl.WritetoROOT("modified", "NL_groupA.root")
+
     # Special rescaling for the J22rc0 parametrisation
     if detector == "JUNO" and args.nl_hist_name == "J22rc0_positronScintNL":
         old_nl = GetSpectrumFromROOT(args.input_data_file, "positronScintNL")
@@ -194,7 +205,7 @@ def _load_nonlinearity(ensp, args, detector):
 # SNF / Non-equilibrium corrections  (JUNO per-core path)
 # ---------------------------------------------------------------------------
 
-def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix, s_ibd):
+def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix, s_ibd, dm2_31):
     """
     Build oscillated, smeared SNF and Non-Eq spectra for each of the 10 JUNO
     cores and accumulate group totals.  Modifies *ensp* in-place.
@@ -267,11 +278,11 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, cor
 
         s_osc = s_i.GetOscillated(
             L=[core_baselines[i]], core_powers=[core_powers[i]],
-            me_rho=args.me_rho, ene_mode="true", args=args,
+            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args, 
         )
         n_osc = n_i.GetOscillated(
             L=[core_baselines[i]], core_powers=[core_powers[i]],
-            me_rho=args.me_rho, ene_mode="true", args=args,
+            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
         )
         ensp["snf_osc"] +=  s_osc
         ensp["noneq_osc"] += n_osc
@@ -569,7 +580,7 @@ def _write_juno_output(ensp, args, backgrounds):
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=None, backgrounds=None, args=None):
+def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=None, backgrounds=None, args=None, dm2_31=None):
     """
     Build all reactor antineutrino spectra for *detector* over *ndays* days.
 
@@ -603,7 +614,6 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
 
     _load_nonlinearity(ensp, args, detector)
 
-    
     # ------------------------------------------------------------------
     # 2. Reactor flux  (per-core JUNO path vs. simple single-flux path)
     # ------------------------------------------------------------------
@@ -629,7 +639,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
 
     if detector == "JUNO" and not args.CI_powers:
         _build_snf_noneq_corrections_per_core(
-            ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd,
+            ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
         )
     if detector == "TAO" or (detector == "DYB" and args.model == "CPC"):
         _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd)
@@ -641,7 +651,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     if detector == "JUNO":
         ensp["rosc"] = ensp["ribd"].GetOscillated(
             L=list(core_baselines), core_powers=list(core_powers),
-            me_rho=args.me_rho, ene_mode="true", args=args,
+            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
         )
     else:
         ensp["rosc"] = ensp["ribd"]

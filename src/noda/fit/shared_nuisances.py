@@ -27,13 +27,13 @@ SHARED_PARAM_NAMES = OSC_PARAM_NAMES + ["me_rho"]   # 5 params total before any 
 N_SHARED           = len(SHARED_PARAM_NAMES)        # 5
 
 
-def get_shared_start_values(args_juno):
+def get_shared_start_values(args_juno, dm2_31 = None):
     """Nominal start values for the shared parameter block (same order as SHARED_PARAM_NAMES)."""
     return [
         nuosc.op_nom["sin2_th12"],
         nuosc.op_nom["sin2_th13"],
         nuosc.op_nom["dm2_21"] * 1e5,   # internally stored as ×1e-5 eV²
-        nuosc.op_nom["dm2_31"] * 1e3,   # internally stored as ×1e-3 eV²
+        dm2_31*1e3 if dm2_31 is not None else nuosc.op_nom["dm2_31"] * 1e3,   # internally stored as ×1e-3 eV²
         args_juno.me_rho,
     ]
 

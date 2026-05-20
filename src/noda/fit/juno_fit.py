@@ -397,7 +397,7 @@ class JUNODetector:
                        Nrea, NL, abc, bckgs_for_chi2, snf_noneq_norm,
                        eff_nuis, ThU_ratio,
                        core_powers_delta, efission,nuisance,
-                       opp=False):
+                       opp=False, toy_dm2_31=None):
         """
         Builds the JUNO predicted spectrum.
         Returns (s_juno_reactor_only, s_tot_juno, pulls, pull_unc,
@@ -418,15 +418,25 @@ class JUNODetector:
             pulls.append(sin2_13 - nuosc.op_nom['sin2_th13'])
             pull_unc.append(nuosc.op_nom['sin2_th13_err'])
         if bool(args.pull_dm2_31):
-            pulls.append(dm2_31 - nuosc.op_nom['dm2_31'])
+            if toy_dm2_31 is not None:
+                targ_dm2_31  = toy_dm2_31
+            else:
+                targ_dm2_31  = nuosc.op_nom['dm2_31']
+            pulls.append(dm2_31 - targ_dm2_31)
             pull_unc.append(nuosc.op_nom['dm2_31_err'])
         if args.pull_dm2_31_lbl:
             from .minuit import f_lbl  # keep f_lbl where it is
             ordering    = "NO" if dm2_31 > 0 else "IO"
-            dm2_31_lbl  = f_lbl(args.dm2_31_lbl, sin2_12, sin2_13,
+            if toy_dm2_31 is not None:
+                targ_dm2_31  = toy_dm2_31
+            else:
+                targ_dm2_31  = args.dm2_31_lbl
+            dm2_31_lbl  = f_lbl(targ_dm2_31, sin2_12, sin2_13,
                                  dm2_21, args.theta23, args.dcp, ordering)
+
             pulls.append(dm2_31 - dm2_31_lbl)
             pull_unc.append(args.dm2_31_lbl_err)
+
         # ── core powers ─────────────────────────────────────────────────────
         if len(core_powers_delta):
             core_powers_new = list(
@@ -497,13 +507,6 @@ class JUNODetector:
                     del self._osc_cache[k]
             self._osc_cache[osc_key] = Spectrum(bins=s_juno.bins,
                                                 bin_cont=s_juno.bin_cont.copy())
-        # s_juno = rfis_param_post.GetOscillated(
-        #         L=list(self.core_baselines),
-        #         sin2_th12=sin2_12, sin2_th13=sin2_13,
-        #         dm2_21=dm2_21, dm2_31=dm2_31,
-        #         core_powers=list(core_powers_new),
-        #         me_rho=rho, ene_mode='true', opp=opp, args=self.args)
-
         # ── positron energy shift ────────────────────────────────────────────
         s_juno = s_juno.GetWithPositronEnergy(inputfile=args.input_data_file,s_ibd=self.s_ibd,
                                                tf2name=args.pos_ene_TF2)
@@ -638,7 +641,7 @@ class JUNODetector:
                           Nrea, NL, abc, bckgs_for_chi2, snf_noneq_norm,
                           eff_nuis, ThU_ratio,
                           core_powers_delta, efission, nuisance, 
-                          unc, opp=False):
+                          unc, opp=False, toy_dm2_31=None):
         """
         Returns (chi2_juno, chi2_penalty_er, s_juno, s_tot_juno,
                  fit_bckgs_spectra, rfis_param_post).
@@ -652,7 +655,7 @@ class JUNODetector:
             sin2_12, sin2_13, dm2_21, dm2_31,me_rho,
             Nrea, NL, abc, bckgs_for_chi2, snf_noneq_norm,
             eff_nuis, ThU_ratio,
-            core_powers_delta, efission, nuisance, opp=opp)
+            core_powers_delta, efission, nuisance, opp=opp, toy_dm2_31=toy_dm2_31)
 
         sp_obs = self._get_obs_spectrum()
 

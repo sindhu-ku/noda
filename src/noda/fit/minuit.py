@@ -101,37 +101,47 @@ def write_osc_params(name, val, err):
     value.Write("", ROOT.TObject.kOverwrite)
     error.Write("", ROOT.TObject.kOverwrite)
 
-
 def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
+    import csv
     from scipy.interpolate import CubicSpline
     print("Profiling dm2_31 using built-in mnprofile...")
-
     if NMO_opt:
         res = m.mnprofile("dm2_31", size=int(args_juno.profile_points), bound=(1.5, 3.5))
     else:
         res = m.mnprofile("dm2_31", size=int(args_juno.profile_points), bound=(-3.5, -1.5))
-
     dm2_scan_vals = res[0]
     chi2_vals     = res[1]
     delta_chi2    = chi2_vals - np.min(chi2_vals)
-
-    dm2_fine       = np.linspace(dm2_scan_vals.min(), dm2_scan_vals.max(), 500)
-    cs             = CubicSpline(dm2_scan_vals, chi2_vals)
-    chi2_smooth    = cs(dm2_fine)
+    dm2_fine          = np.linspace(dm2_scan_vals.min(), dm2_scan_vals.max(), 500)
+    cs                = CubicSpline(dm2_scan_vals, chi2_vals)
+    chi2_smooth       = cs(dm2_fine)
     delta_chi2_smooth = chi2_smooth - np.min(chi2_smooth)
 
-    plt.figure(figsize=(7, 5))
+    # --- Save raw scan points and smoothed curve to CSV ---
+    csv_path = f"Plots/profile_dm2_31_NO_{NMO_opt}_{args_juno.file_prefix}.csv"
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["dm2_31_raw", "chi2_raw", "delta_chi2_raw",
+                         "dm2_31_smooth", "chi2_smooth", "delta_chi2_smooth"])
+        # Pad raw columns with empty strings where lengths differ (raw < 500)
+        for i in range(len(dm2_fine)):
+            raw_dm2   = dm2_scan_vals[i] if i < len(dm2_scan_vals) else ""
+            raw_chi2  = chi2_vals[i]     if i < len(chi2_vals)     else ""
+            raw_dchi2 = delta_chi2[i]    if i < len(delta_chi2)    else ""
+            writer.writerow([raw_dm2, raw_chi2, raw_dchi2,
+                             dm2_fine[i], chi2_smooth[i], delta_chi2_smooth[i]])
+    print(f"Saved profile scan to {csv_path}")
+
+    plt.figure(figsize=(6, 5))
     plt.plot(dm2_fine, delta_chi2_smooth, label="Smoothed Profile", lw=2)
     plt.xlabel(r"$\Delta m^2_{31}$ [10$^{-3}$ eV$^2$]", fontsize=14)
     plt.ylabel(r"$\Delta \chi^2$", fontsize=14)
     plt.axhline(1.0, color="green", ls="--", label=r"1$\sigma$")
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig(f"Plots/profile_dm2_31_NO_{NMO_opt}_{args_juno.file_prefix}.png")
-
-    best_index       = np.argmin(delta_chi2)
-    best_fit_val     = dm2_scan_vals[best_index]
-
+    plt.savefig(f"Plots/profile_dm2_31_NO_{NMO_opt}_{args_juno.file_prefix}.png", dpi=300)
+    best_index    = np.argmin(delta_chi2)
+    best_fit_val  = dm2_scan_vals[best_index]
     if write:
         n_points = len(dm2_fine)
         graph    = ROOT.TGraph(n_points,
@@ -141,19 +151,17 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
         graph.SetMarkerStyle(2)
         out_file = ROOT.TFile(
             f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
-            f"_dm2_31_pull_{args_juno.pull_dm2_31}.root", "update")
+            f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root", "update")
         dir_prof = out_file.mkdir("profiles")
         dir_prof.cd()
         graph.Write()
         out_file.Close()
-
-    best_dm2_from_scan    = dm2_fine[np.argmin(chi2_smooth)]
+    best_dm2_from_scan  = dm2_fine[np.argmin(chi2_smooth)]
     print(best_dm2_from_scan)
-    m.values["dm2_31"]   = best_dm2_from_scan
+    m.values["dm2_31"] = best_dm2_from_scan
     print(m.values["dm2_31"])
     m.migrad()
-
-
+    
 def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, args_juno,
                        write_output=False):
     """
@@ -338,3 +346,13 @@ def plot_profile(m, i, param, plotname):
     plt.xlabel(param)
     plt.savefig(plotname)
     plt.close()
+
+
+def load_prefit_cache(path: str) -> dict:
+    """Read a prefit cache produced by run_minuit (save_prefit_path)."""
+    z = np.load(path)
+    C = z['C_reco']
+    return {'nuis_best': z['nuis_best'],
+            'nuis_cov':  z['nuis_cov'],
+            'C_reco':    None if C.size == 0 else C}
+

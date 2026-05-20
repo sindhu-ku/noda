@@ -8,7 +8,7 @@ fit_options:
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
   PDG_opt: DYB # PDG option
   NMO_opt: True  # NMO option, true is normal
-  NMO_sig: True
+  NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
@@ -25,9 +25,9 @@ fit_options:
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: true
-  pull_dm2_31_lbl: false #false
+  pull_dm2_31_lbl: false
   dm2_31_lbl_err: 0.035e-03
-  dm2_31_lbl: 0.0025043000
+  dm2_31_lbl: 2.5043e-03
   theta23: 43.279
   dcp: 212.0
   lin_resp: True
@@ -35,7 +35,7 @@ fit_options:
   fit_mode: prefit_wosegs
   save_prefit: False
   use_prefit: False
-  prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/FC.npz
+  prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/FC_data.npz
   include_tao: True
   include_dyb: True
   geo_fit: true
@@ -61,7 +61,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: False
-  file_prefix: 'GroupC_toy_240days_May11_2026_21segs_100keV'
+  file_prefix: 'GroupC_toy_240days_May14_2026'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -224,7 +224,7 @@ juno_inputs:
   #Irvine
   a_err: 0.0033095846 # 5.52553579e-04
   b_err: 0.00038389546 #6.05760616e-04
-  c_err: 0.16528359 #7.60974158e-04
+  c_err: 0.0030482893 #7.60974158e-04
 
   #Padova
   kB: 1.33122880e-02 #1.45305820e-02 #0.016439 #0.0162 #0.016439

@@ -12,7 +12,8 @@ setup(
         'console_scripts': [
             'run_noda = noda.main:main',
             'fc_analyze = noda.fc.fc_analyze:main',
-            'run_fc_toy = noda.fc.fc_toy:main'
+            'run_fc_toy = noda.fc.fc_toy:main',
+            'run_fc_observed = noda.fc.fc_observed:main'
         ],
     },
 

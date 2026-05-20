@@ -200,7 +200,10 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
                prefit_cache=None,        # dict {'nuis_best','nuis_cov','C_reco'}
                prefit_only=False,        # return after prefit, skip JUNO fit
                return_prefit=False,      # return (m, prefit_dict) instead of m
-               fix_dm2_31_to=None,       # in 1e-3 eV² (Minuit convention)
+               return_cost_fn=False,
+               fix_dm2_31_to=None,# in 1e-3 eV² (Minuit convention)
+               toy_dm2_31=None,
+               true_dm2_31=None,
                toy_quiet=False):         # silence ALL post-fit output
     full_fit_start = datetime.now()
     """
@@ -353,12 +356,13 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     # ════════════════════════════════════════════════════════════════════════
 
     start_values = (
-        get_shared_start_values(args_juno)          # sin2_12 sin2_13 dm2_21 dm2_31 me_rho
+        get_shared_start_values(args_juno, dm2_31=true_dm2_31)          # sin2_12 sin2_13 dm2_21 dm2_31 me_rho
         + juno_start_values
         + get_shape_nuis_start_values(n_nuis)
         + tao_start_values
         + dyb_start_values
     )
+
 
     param_names = (
         SHARED_PARAM_NAMES                           # sin2_th12 sin2_th13 dm2_21 dm2_31 me_rho
@@ -438,7 +442,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         if args_juno.save_prefit and prefit_cache is None:
             os.makedirs("prefit_data", exist_ok=True)
             np.savez_compressed(
-                f"prefit_data/FC",
+                f"{args_juno.prefit_path}",
                 nuis_best=nuis_best,
                 nuis_cov=nuis_cov,
                 C_reco=C_reco if C_reco is not None else np.array([]))
@@ -482,7 +486,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             core_powers_delta=core_powers_delta,
             efission=efission,
             nuisance=nuisance,
-            unc=unc_juno, opp=opp)
+            unc=unc_juno, opp=opp, toy_dm2_31=toy_dm2_31)
 
         sp_obs_tot = juno_det._get_obs_spectrum()
 
@@ -720,7 +724,8 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             return m, {'nuis_best': nuis_best,
                        'nuis_cov':  nuis_cov,
                        'C_reco':    C_reco}
-            
+        if return_cost_fn:
+            return m, chi2_wrapper
         return m
 
     # ── diagnostics ───────────────────────────────────────────────────────────
@@ -797,7 +802,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         print(f"kI: {m.values['NL2']}  +/- {m.errors['NL2']}")
         print(f"LY: {m.values['NL3']}  +/- {m.errors['NL3']}")
 
-        if use_tao:
+        if use_tao and not prefit_cache:
             print("************TAO Detector response************")
             for pname in tao_param_names:
                 if fit_mode == "combined": 
@@ -851,7 +856,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     if args_juno.write_output:
         output_file = ROOT.TFile(
             f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
-            f"_dm2_31_pull_{args_juno.pull_dm2_31}.root", "update")
+            f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root", "update")
         dir_osc = output_file.mkdir("oscillation_parameters")
         dir_osc.cd()
 
@@ -875,7 +880,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
 
     # ── post-fit plot ─────────────────────────────────────────────────────────
     best_params = [m.values[name] for name in m.parameters]
-    chi2_NO     = m.fval
+    chi2_true     = m.fval
 
     # ── solar contour ─────────────────────────────────────────────────────────
     if args_juno.solar_contour:
@@ -894,6 +899,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     if args_juno.NMO_sig:
         nuosc.SetOscillationParameters(opt=args_juno.PDG_opt,
                                        NO=not bool(args_juno.NMO_opt))
+        #start_values[3] = nuosc.op_nom['dm2_31'] * 1e3
         m.values['dm2_31'] = nuosc.op_nom['dm2_31'] * 1e3
         chi2_func_opp = make_chi2_func(n_fixed=5, n_total=len(start_values), opp=True)
         m_opp = Minuit(chi2_func_opp, *m.values, name=param_names)
@@ -907,11 +913,16 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             for i in range(n_nuis):
                 m_opp.fixed[f'nuis{i}'] = True
     
-        for p in SHARED_PARAM_NAMES: m_opp.fixed[p] = True
-        for p in first_fix:           m_opp.fixed[p] = True
-        m_opp.migrad()
+        for p in SHARED_PARAM_NAMES: 
+            m_opp.fixed[p] = True
+        for p in first_fix:
+            m_opp.fixed[p] = True
+        
+        if not (args_juno.fit_type == 'PMOP_combined' and fit_mode == 'prefit_wosegs'):
+            m_opp.migrad()
     
-        for p in SHARED_PARAM_NAMES: m_opp.fixed[p] = False
+        for p in SHARED_PARAM_NAMES: 
+            m_opp.fixed[p] = False
         m_opp.migrad()
         #m_opp.strategy = 2
     
@@ -919,16 +930,11 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             if m_opp.fixed[p]: m_opp.fixed[p] = False
         m_opp.migrad()
     
-        if merrors:
-            m_opp.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31")
-
         if not args_juno.silent_print: print(m_opp)
   
-        chi2_IO = m_opp.fval
-        if args_juno.profile_dm2_31:
-            profile_dm2_31(m_opp, args_juno,
-                           NMO_opt=not bool(args_juno.NMO_opt), write=False)
-        if not args_juno.silent_print: print("NMO significance: ", abs(chi2_NO-chi2_IO))
+        chi2_opp = m_opp.fval
+
+        if not args_juno.silent_print: print("NMO significance: ",chi2_true, chi2_opp)
 
 
     # ── profile / matrix plots ────────────────────────────────────────────────

@@ -48,9 +48,9 @@ from datetime import datetime
 import noda.spectra_new_single as spec
 import noda.matrices as mat
 from noda.fit import combined_fit as minuit_new
-from noda.fc.feldman_cousins import (
-    load_prefit_cache, run_one_toy_dm31, run_one_toy_nmo,
+from noda.fc.feldman_cousins import (run_one_toy_dm31, run_one_toy_nmo,
 )
+from noda.fit.minuit import load_prefit_cache
 from noda.noda import (
     CovMatrix, Spectrum, GetCovMatrixFromROOT, GetRelCM, LoadObject,
     rebin_cov_matrix, calculate_ndays,
@@ -65,16 +65,30 @@ def parse():
     p.add_argument("--n-toys",      type=int, default=50)
     p.add_argument("--seed-base",   type=int, default=0,
                    help="Global seed offset; toy seed = seed_base + task_id*n_toys + i")
-    p.add_argument("--true-dm31",   type=float, required=True,
+    p.add_argument("--true-dm31",   type=float, default=2.5e-3,
                    help="True dm²₃₁ in 1e-3 eV² (always positive; sign comes from --true-no)")
     p.add_argument("--true-no",     type=int, choices=(0, 1), default=1)
     p.add_argument("--mode",   choices=("dm31", "nmo", "both"), default="dm31")
     p.add_argument("--output-dir",  required=True)
-    p.add_argument("--prefit-cache",
-                   help="Path to .npz prefit cache produced")
+    p.add_argument("--initial-fits", help="path to initial fits of the grid points")
+    p.add_argument("--prefit-cache", help="Path to .npz prefit cache produced")
     return p.parse_args()
 
-
+def load_initial_fits(filepath):
+    """Extracts the exact data needed for toy sampling from the npz archive."""
+    if not filepath or not os.path.exists(filepath):
+        raise FileNotFoundError(f"Could not find initial fits file: {filepath}")
+        
+    data = np.load(filepath, allow_pickle=True)
+    print(data)
+    # Unpack the 0-d object arrays back into standard Python objects
+    return {
+        'grid_best_fits': data['grid_best_fits'][0],
+        'truncate_below_zero': data['truncate_below_zero'].tolist(),
+        'truncate_below_mone': data['truncate_belpw_mone'].tolist(),
+        'nominal_uncertainties': data['nominal_uncertainties'][0],
+        'param_names': data['param_names'].tolist()
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Setup builder — replicates the relevant parts of main.py
@@ -105,7 +119,7 @@ def build_args_from_yaml(config_path):
             parsers['tao'].parse_args([]))
 
 
-def build_setup(args_juno, args_dyb, args_tao):
+def build_setup(args_juno, args_dyb, args_tao, dm2_31=None):
     """
     Build everything main.py builds, up to (but not including) the run_minuit
     call. Returns a dict ready to splat into run_minuit().
@@ -130,7 +144,7 @@ def build_setup(args_juno, args_dyb, args_tao):
 
     ensp_nom_juno, rm = spec.CreateSpectra(
         ndays=ndays, ebins=ebins, detector="JUNO", backgrounds=backgrounds,
-        s_ibd=s_ibd, s_bump_lin=s_bump_lin, args=args_juno)
+        s_ibd=s_ibd, s_bump_lin=s_bump_lin, args=args_juno, dm2_31 =dm2_31)
 
     ensp_nom_dyb, rm_dyb = spec.CreateSpectra(
         ndays=ndays_dyb, ebins=ebins_dyb, detector="DYB", backgrounds=backgrounds,
@@ -243,10 +257,16 @@ def fieldnames_for_mode(mode):
 def main():
     cli = parse()
     t0 = datetime.now()
-
+    initial_fits = load_initial_fits(cli.initial_fits)
     args_juno, args_dyb, args_tao = build_args_from_yaml(cli.config)
     args_juno.toymc = True
-    setup = build_setup(args_juno, args_dyb, args_tao)
+    args_juno.NMO_opt = bool(cli.true_no)
+    if cli.mode == "dm31":
+        sign      = +1.0 if args_juno.NMO_opt else -1.0
+        dm2_31    = sign*cli.true_dm31*1e-3
+    else:
+        dm2_31 = None
+    setup = build_setup(args_juno, args_dyb, args_tao, dm2_31=dm2_31)
     print(f"[FC] setup built in {datetime.now() - t0}", flush=True)
 
     E_segments = np.array(args_juno.seg_bins_nonuniform)
@@ -280,7 +300,7 @@ def main():
             seed  = seed0 + i
             toy_t = datetime.now()
 
-            if cli.mode in ("dm31", "both"):
+            if cli.mode == "dm31":
                 args_juno.pull_dm2_31     = True
                 args_juno.pull_dm2_31_lbl = False
                 r = run_one_toy_dm31(
@@ -292,14 +312,16 @@ def main():
                     args_juno_truth=args_juno,
                     backgrounds=setup['backgrounds'],
                     ensp_nom_juno=setup['ensp_nom_juno'],
+                    initial_fits=initial_fits,
                     prefit_cache=prefit,
                     common_kwargs=common_kwargs)
                 r['mode'] = 'dm31'
                 writer.writerow(r); fh.flush(); n_written += 1
 
-            if cli.mode in ("nmo", "both"):
+            if cli.mode == "nmo":
                 args_juno.pull_dm2_31     = False
                 args_juno.pull_dm2_31_lbl = True
+                args_juno.PDG_opt = "NT2K"
                 r = run_one_toy_nmo(
                     seed=seed,
                     true_NO=bool(cli.true_no),

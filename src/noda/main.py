@@ -12,8 +12,6 @@ from . import matrices as mat
 from . import scan as scan
 from .noda import *
 
-from .bayesian import bayesian as bayes
-from .bayesian import bayesian_results as bayes_res
 from . import grid_scan_results as scan_res
 from . import minuit as minuit
 from . import minuit_pull as minuit_pull
@@ -203,7 +201,6 @@ def main(argv=None):
                                     s_ibd=s_ibd, s_bump_lin=s_bump_lin,
                                     args=args_juno)
   
-
   
   if args_juno.fit_type == 'PMOP_combined':
       if not args_juno.use_dagflow:
@@ -369,78 +366,63 @@ def main(argv=None):
   #              cm_corr[args_juno.unc_corr_ind+args_juno.unc_corr_dep] += LoadObject(f"{args_juno.data_matrix_folder}/cm_correlated_{u}_{args_juno.bayes_chi2}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins.dat")
   #              #cm_corr_dep[u]
 
-  #run bayesian, function inside bayesian.py and get_results inside bayesian_results.py
-  if args_juno.stat_method_opt == 'bayesian':
-       dm2_31_val = 2.583e-3
-       dm2_31_list = np.linspace((dm2_31_val - dm2_31_val*0.2),(dm2_31_val + dm2_31_val*0.2), 10)
-       bayes_res.get_results(args=args_juno)
 
- #For frequentist, function inside scan.py
-  else:
-      if(args_juno.grid_scan):
-          #Form grid for the gridscan
-          grid ={'sin2_12': np.linspace(args_juno.grid_params['sin2_12'][0],args_juno.grid_params['sin2_12'][1],args_juno.grid_points),
-          'sin2_13': np.linspace(args_juno.grid_params['sin2_13'][0],args_juno.grid_params['sin2_13'][1],args_juno.grid_points),
-          'dm2_21': np.linspace(args_juno.grid_params['dm2_21'][0],args_juno.grid_params['dm2_21'][1],args_juno.grid_points),
-          'dm2_31': np.linspace(args_juno.grid_params['dm2_31'][0],args_juno.grid_params['dm2_31'][1],args_juno.grid_points)}
-          scan.scan_chi2(grid=grid, ensp_nom_juno =ensp_nom_juno, unc_list =unc_list_new,
-                      baselines = baselines, powers=powers, rm=resp_matrix, cm=cm, args=args_juno)
-          scan_res.get_results(args=args_juno)
-      else:
-          cm_tao = {}
-          cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_file, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
-          prefit_cache = None
-          if args_juno.fit_type == 'PMOP_combined':
-              if args_juno.fit_mode.startswith('prefit') and args_juno.use_prefit: prefit_cache = args_juno.prefit_path
-              if not args_juno.use_dagflow:
-                  dyb_V = np.loadtxt(args_dyb.dyb_cm)
-                  if args_dyb.model == "PRL":
-                      raw = dyb_V
-                      cov_75 = raw.reshape(75, 75)
-                      cov_total = cov_75[50:75, 50:75]
-                      cov_total *= 1e-86  # if needed
-                      dyb_V = cov_total
-                  DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_dyb['rdet'].bins)
+  cm_tao = {}
+  cm_tao['all'] = rebin_cov_matrix(GetCovMatrixFromROOT(args_tao.data_file, args_tao.FV_cov_matrix), args_tao.bins_nonuniform)
+  prefit_cache = None
+  if args_juno.fit_type == 'PMOP_combined':
+      if args_juno.fit_mode.startswith('prefit') and args_juno.use_prefit: 
+          from . fit.minuit import load_prefit_cache
+          prefit_cache = load_prefit_cache(args_juno.prefit_path)
+      if not args_juno.use_dagflow:
+          dyb_V = np.loadtxt(args_dyb.dyb_cm)
+          if args_dyb.model == "PRL":
+              raw = dyb_V
+              cov_75 = raw.reshape(75, 75)
+              cov_total = cov_75[50:75, 50:75]
+              cov_total *= 1e-86  # if needed
+              dyb_V = cov_total
+          DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_dyb['rdet'].bins)
 
-                  if args_dyb.model == "CPC": 
-                      DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep='\s+', names=["Bin_Center", "Sigma", "Rel_Unc"])
-                  else:
-                      DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep='\s+', names=["Bin_lowE", "Bin_highE", "Sigma", "Rel_Unc"])
-                      
-                  DYB_sp = Spectrum(bins=ensp_nom_dyb['rdet'].bins, bin_cont=DYB_spectrum["Sigma"].to_numpy())
-
-                  DYB_rel_cm = GetRelCM(DYB_CM, DYB_sp)
-
-                  obs = ensp_nom_dyb['rdet'].bin_cont
-                  DYB_abs_CM = CovMatrix(data=DYB_rel_cm.data * np.outer(obs, obs), bins=DYB_CM.bins)
-
-                  cm_dyb = {}
-
-                  cm_dyb['all'] = DYB_rel_cm
-
-                  minuit_new.run_minuit(ndays=ndays,ndays_dyb=ndays_dyb,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='all', rm = resp_matrix,rm_dyb = resp_matrix_dyb,rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_dyb=cm_dyb,cm_tao=cm_tao,args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds, prefit_cache=prefit_cache)
-              else:    
-                  from .DYB_model import make_dyb_model
-                  dyb_model = make_dyb_model(args_dyb)
-                  minuit_new.run_minuit(ndays=ndays,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix, rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds, prefit_cache=prefit_cache)
-                      
-
-                      
+          if args_dyb.model == "CPC": 
+              DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep='\s+', names=["Bin_Center", "Sigma", "Rel_Unc"])
           else:
-              if bool(args_juno.toymc):
-                  for batch_start in range(0, int(args_juno.ntoys), args_juno.toy_batch_size):
-                      batch_start_t = datetime.now()
-                      batch_end = min(batch_start + args_juno.toy_batch_size, int(args_juno.ntoys))
-                      batch_results = Parallel(n_jobs=-1, timeout=args_juno.toymc_timeout)(delayed(run_toy)(i=t, ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0],\
-                           resp_matrix=resp_matrix, cm_juno=cm_juno, args_juno=args_juno) for t in range(batch_start, batch_end))
+              DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep='\s+', names=["Bin_lowE", "Bin_highE", "Sigma", "Rel_Unc"])
+              
+          DYB_sp = Spectrum(bins=ensp_nom_dyb['rdet'].bins, bin_cont=DYB_spectrum["Sigma"].to_numpy())
 
-                      filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_UThfree_{args_juno.stat_method_opt}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit_{args_juno.toy_prefix}.hdf5"
-                      save_batch_results(filename, batch_results)
-                      del batch_results
-                      if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
-              else:
-                  for unc in unc_list_new_juno: 
-                      minuit_new.run_minuit(ndays=ndays,s_ibd=s_ibd, s_bump_lin=s_bump_lin,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
+          DYB_rel_cm = GetRelCM(DYB_CM, DYB_sp)
+
+          obs = ensp_nom_dyb['rdet'].bin_cont
+          DYB_abs_CM = CovMatrix(data=DYB_rel_cm.data * np.outer(obs, obs), bins=DYB_CM.bins)
+
+          cm_dyb = {}
+
+          cm_dyb['all'] = DYB_rel_cm
+
+          minuit_new.run_minuit(ndays=ndays,ndays_dyb=ndays_dyb,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='all', rm = resp_matrix,rm_dyb = resp_matrix_dyb,rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_dyb=cm_dyb,cm_tao=cm_tao,args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds, prefit_cache=prefit_cache)
+      else:    
+          from .DYB_model import make_dyb_model
+          dyb_model = make_dyb_model(args_dyb)
+          minuit_new.run_minuit(ndays=ndays,ndays_tao=ndays_tao, s_ibd=s_ibd, s_bump_lin=s_bump_lin, ensp_nom_juno=ensp_nom_juno, ensp_nom_tao=ensp_nom_tao, unc_juno=unc_list_new_juno[0], unc_tao='stat', rm = resp_matrix, rm_tao=resp_matrix_tao, cm_juno=cm_juno, cm_tao=cm_tao, args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,dyb_model=dyb_model,ene_leak_tao=ene_leak_tao, backgrounds=backgrounds, prefit_cache=prefit_cache)
+              
+
+                  
+      # else:
+      #     if bool(args_juno.toymc):
+      #         for batch_start in range(0, int(args_juno.ntoys), args_juno.toy_batch_size):
+      #             batch_start_t = datetime.now()
+      #             batch_end = min(batch_start + args_juno.toy_batch_size, int(args_juno.ntoys))
+      #             batch_results = Parallel(n_jobs=-1, timeout=args_juno.toymc_timeout)(delayed(run_toy)(i=t, ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0],\
+      #                  resp_matrix=resp_matrix, cm_juno=cm_juno, args_juno=args_juno) for t in range(batch_start, batch_end))
+
+      #             filename = f"{args_juno.main_data_folder}/fit_results_{args_juno.fit_type}_UThfree_{args_juno.stat_method_opt}_{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_{args_juno.stat_opt}_{args_juno.bins}bins_minuit_{args_juno.toy_prefix}.hdf5"
+      #             save_batch_results(filename, batch_results)
+      #             del batch_results
+      #             if not args_juno.silent_print: print(f"Batch time: {datetime.now() - batch_start_t}")
+      #     else:
+      #         for unc in unc_list_new_juno: 
+      #             minuit_new.run_minuit(ndays=ndays,s_ibd=s_ibd, s_bump_lin=s_bump_lin,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, backgrounds=backgrounds)
                      
 
 
