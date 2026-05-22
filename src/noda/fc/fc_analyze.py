@@ -67,7 +67,7 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
         for cl in cls:
             row[f'crit_{int(cl*1e4):04d}'] = float(np.quantile(g['TS_dm31'], cl))
         crit_rows.append(row)
-    
+
     crit = pd.DataFrame(crit_rows).sort_values(['true_NO', 'true_dm31'])
 
     # 3. Load the fine data profile directly from the ROOT file
@@ -85,100 +85,95 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
             continue
 
         label = "NO" if no else "IO"
-        best_dm31 = float(o.loc[o['TS_obs'].idxmin(), 'true_dm31'])
 
         c = c.sort_values('true_dm31', ascending=True)
         o = o.sort_values('true_dm31', ascending=True)
 
-        fig, ax = plt.subplots(figsize=(5, 4))
-        styles = ['-']
+        x_fine   = o['true_dm31'].values
+        ts_int   = o['TS_obs'].values
+        best_idx = int(np.argmin(ts_int))
+        best_dm31 = float(x_fine[best_idx])
 
-        # Plot coarse critical curves (main + inset)
+        print(f"\n  {label} hypothesis: best fit = {best_dm31:.4f} × 1e-3 eV²")
+
         if no:
             sign = 1.0
         else:
             sign = -1.0
         x_lo, x_hi = sign * 2.1, sign * 2.9
 
-        # --- Inset axis ---
-        print(c)
-        axins = ax.inset_axes([0.65, 0.6, 0.3, 0.3])
-        for cl, ls in zip(cls, styles):
-            col = f'crit_{int(cl*1e4):04d}'
-            ax.plot(c['true_dm31'], c[col], color='steelblue', linestyle=':', marker='o',markersize=3, label=f'FC crit. {cl*100:.2f}%')
-            axins.plot(c['true_dm31'], c[col], color='steelblue', linestyle=':', marker='o',markersize=3)
+        fig, ax = plt.subplots(figsize=(5, 4))
+        #axins = ax.inset_axes([0.65, 0.6, 0.3, 0.3])
 
-        # Plot fine observed data profile
-        ax.plot(o['true_dm31'], o['TS_obs'], '-', color='darkred', lw=2, label='observed profile')
-        axins.plot(o['true_dm31'], o['TS_obs'], '-', color='darkred', lw=2)
+        # ── helper: find connected crossing interval around best fit ─────────
+        def find_interval(x, ts_shifted, best_x):
+            sc = np.where(np.diff(np.sign(ts_shifted)))[0]
+            crossings = []
+            for i in sc:
+                x0, x1 = x[i], x[i + 1]
+                y0, y1 = ts_shifted[i], ts_shifted[i + 1]
+                crossings.append(x0 - y0 * (x1 - x0) / (y1 - y0))
+            left  = [xc for xc in crossings if xc < best_x]
+            right = [xc for xc in crossings if xc > best_x]
+            lo = max(left)  if left  else None
+            hi = min(right) if right else None
+            return lo, hi
 
-        print(f"\n  {label} hypothesis: best fit = {best_dm31:.4f} × 1e-3 eV²")
-
-        x_fine = o['true_dm31'].values
-        ts_int = o['TS_obs'].values
-
-        # --- Standard 1-sigma profile interval ---
-        ts_shifted = ts_int - 1.0
-        sign_changes = np.where(np.diff(np.sign(ts_shifted)))[0]
-        
-        crossings = []
-        for i in sign_changes:
-            # Linear interpolation between x_fine[i] and x_fine[i+1]
-            x0, x1 = x_fine[i], x_fine[i+1]
-            y0, y1 = ts_shifted[i], ts_shifted[i+1]
-            x_cross = x0 - y0 * (x1 - x0) / (y1 - y0)
-            crossings.append(x_cross)
-        
-        if len(crossings) >= 2:
-            s_lo, s_hi = crossings[0], crossings[-1]
-            print(f"    Standard 1-sigma profile (TS == 1.0 crossings): [{s_lo:.4f}, {s_hi:.4f}] "
-                  f"(+{s_hi-best_dm31:.4f}/-{best_dm31-s_lo:.4f})")
-        elif len(crossings) == 1:
-            print(f"    Standard 1-sigma profile: only one crossing found at {crossings[0]:.4f}")
+        # ── standard Wilks 1-sigma (TS == 1.0) ───────────────────────────────
+        lo_w, hi_w = find_interval(x_fine, ts_int - 1.0, best_dm31)
+        if lo_w is not None and hi_w is not None:
+            print(f"    Standard 1-sigma profile (TS == 1.0 crossings): "
+                  f"[{lo_w:.4f}, {hi_w:.4f}] "
+                  f"(+{hi_w - best_dm31:.4f}/-{best_dm31 - lo_w:.4f})")
+        elif lo_w is None:
+            print(f"    Standard 1-sigma profile: no left crossing found")
         else:
-            print(f"    Standard 1-sigma profile: no TS == 1.0 crossings found")
-    for cl in cls:
-        crit_int = np.interp(x_fine, c['true_dm31'], c[f'crit_{int(cl*1e4):04d}'])
-        
-        # Find crossings where TS_obs crosses the critical curve
-        ts_shifted_fc = ts_int - crit_int
-        sign_changes_fc = np.where(np.diff(np.sign(ts_shifted_fc)))[0]
-    
-        fc_crossings = []
-        for i in sign_changes_fc:
-            x0, x1 = x_fine[i], x_fine[i+1]
-            y0, y1 = ts_shifted_fc[i], ts_shifted_fc[i+1]
-            x_cross = x0 - y0 * (x1 - x0) / (y1 - y0)
-            fc_crossings.append(x_cross)
-    
-        if len(fc_crossings) >= 2:
-            lo, hi = fc_crossings[0], fc_crossings[-1]
-            ax.axvspan(lo, hi, color='darkred', alpha=0.06)
-            axins.axvspan(lo, hi, color='darkred', alpha=0.06)
-            
-            print(f"    FC {cl*100:.2f}% CL: [{lo:.4f}, {hi:.4f}]   "
-                  f"(+{hi-best_dm31:.4f}/-{best_dm31-lo:.4f})")
-            up_err = np.round((hi - best_dm31), 3)
-            low_err = np.round((best_dm31 - lo), 3)
-            print(up_err, low_err)
-            ax.axvline(best_dm31, color='darkred', ls='-', lw=1,
-                       label=fr"best fit = {best_dm31:.3f}$^{{+{up_err:.3f}}}_{{-{low_err:.3f}}}$")
-            axins.axvline(best_dm31, color='darkred', ls='-', lw=1)
+            print(f"    Standard 1-sigma profile: no right crossing found")
 
-        # --- Inset formatting ---
+        # ── FC critical curves ────────────────────────────────────────────────
+        print(c)
+        for cl, ls in zip(cls, ['-']):
+            col = f'crit_{int(cl*1e4):04d}'
+            ax.plot(c['true_dm31'], c[col], color='steelblue', linestyle=':', marker='o',
+                    markersize=3, label=f'FC crit. {cl*100:.2f}%')
+            # axins.plot(c['true_dm31'], c[col], color='steelblue', linestyle=':', marker='o',
+            #            markersize=3)
 
-        axins.set_xlim(x_lo, x_hi)
-        axins.set_ylim(0, 5)
-        axins.tick_params(labelsize=6)
-        # axins.set_xticklabels([])
-        # axins.set_yticklabels([])
-        axins.grid(alpha=0.3)
-        #ax.indicate_inset_zoom(axins, edgecolor='gray')   
+            crit_int = np.interp(x_fine, c['true_dm31'], c[col])
+            lo_fc, hi_fc = find_interval(x_fine, ts_int - crit_int, best_dm31)
+
+            if lo_fc is not None and hi_fc is not None:
+                ax.axvspan(lo_fc, hi_fc, color='darkred', alpha=0.06)
+                #axins.axvspan(lo_fc, hi_fc, color='darkred', alpha=0.06)
+
+                up_err  = np.round(hi_fc - best_dm31, 4)
+                low_err = np.round(best_dm31 - lo_fc, 4)
+                print(f"    FC {cl*100:.2f}% CL: [{lo_fc:.4f}, {hi_fc:.4f}]   "
+                      f"(+{up_err:.4f}/-{low_err:.4f})")
+                ax.axvline(best_dm31, color='darkred', ls='-', lw=1,
+                           label=fr"best fit = {best_dm31:.3f}$^{{+{up_err:.3f}}}_{{-{low_err:.3f}}}$")
+                #axins.axvline(best_dm31, color='darkred', ls='-', lw=1)
+            elif lo_fc is None:
+                print(f"    FC {cl*100:.2f}% CL: no left crossing found")
+            else:
+                print(f"    FC {cl*100:.2f}% CL: no right crossing found")
+
+        # ── observed profile ──────────────────────────────────────────────────
+        ax.plot(o['true_dm31'], o['TS_obs'], '-', color='darkred', lw=2,
+                label='observed profile')
+        # axins.plot(o['true_dm31'], o['TS_obs'], '-', color='darkred', lw=2)
+
+        # # ── inset formatting ──────────────────────────────────────────────────
+        # axins.set_xlim(x_lo, x_hi)
+        # axins.set_ylim(0, 5)
+        # axins.tick_params(labelsize=6)
+        # axins.grid(alpha=0.3)
+
         ax.set_xlabel(fr'$\Delta m^2_{{31}}\ (\times 10^{{-3}}\ \mathrm{{eV}}^2)$')
         ax.set_ylabel(fr'$\Delta\chi^2$')
         ax.set_title(f'FC interval — {label} hypothesis')
-        ax.set_ylim(0, 50)
-        ax.set_xlim(x_lo, x_hi)
+        #ax.set_xlim(x_lo, x_hi)
+        #ax.set_ylim(0, 50)
         ax.legend(loc='upper left', fontsize=9)
         ax.grid(alpha=0.3)
         fig.tight_layout()

@@ -301,7 +301,7 @@ def main():
             toy_t = datetime.now()
 
             if cli.mode == "dm31":
-                args_juno.pull_dm2_31     = True
+                args_juno.pull_dm2_31     = False
                 args_juno.pull_dm2_31_lbl = False
                 r = run_one_toy_dm31(
                     seed=seed,
