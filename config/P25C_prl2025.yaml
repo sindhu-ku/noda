@@ -2,7 +2,7 @@ config: ''
 # Fit options configuration
 
 fit_options:
-
+  is_data: true
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
@@ -34,6 +34,8 @@ fit_options:
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
   save_prefit: True
+  use_prefit: False
+  prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/P25_data.npz
   include_tao: True
   include_dyb: True
   geo_fit: true
@@ -150,7 +152,6 @@ common_det_inputs:
   noneq_file: /junofs/users/sindhu/NODA/noda/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  is_data: false
   reactor_summary_yaml:  /junofs/users/sindhu/NODA/noda/config/reactor_summary.yaml
   stat_opt: 58.9148days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7173874092 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
@@ -247,7 +248,6 @@ juno_inputs:
     - stat
 
 dyb_inputs:
-  is_data: false
   model: PRL
   bins: 241 #241 # Number of bins
   ene_crop:
@@ -318,7 +318,6 @@ dyb_inputs:
 
 
 tao_inputs:
-  is_data: false
   bins: 601 #241 # Number of bins
   ene_crop:
     - 0.0 #0 #7
@@ -330,6 +329,7 @@ tao_inputs:
   FORCE_CALC_ENE_LEAK: False
   NL: pull
   NL_sd: 1.0
+  data_file: /junofs/users/sindhu/NODA/noda/data/TAOInputs_2026_3_31.root
   NL_data_file: /junofs/users/sindhu/NODA/noda/data/TAOInputs_2026_3_31.root
   data_spectrum: /junofs/users/sindhu/NODA/noda/data/TAOInputs_2026_3_31.root
   data_hist_name: IBD_spectrum_bkg_not_subtracted

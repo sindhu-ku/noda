@@ -7,6 +7,7 @@ JUNO:
     rate: 1.92
     rate_unc: 1.30
     b2b_unc: 0.3
+    b2b_scale: 0.1
     name: "$^{9}$Li / $^{8}$He"
 
   geo:
@@ -15,6 +16,7 @@ JUNO:
     rate: 1.2554280 #1.239 #1.147
     rate_unc: 0.0
     b2b_unc: 0.05
+    b2b_scale: 0.0
     name: "Geoneutrinos"
     
   wr:
@@ -23,6 +25,7 @@ JUNO:
     rate: 0.90390814  #886 #1.185
     rate_unc: 0.1
     b2b_unc: 0.05
+    b2b_scale: 0.0
     name: "World reactor neutrinos"
     
   bipo:
@@ -31,6 +34,7 @@ JUNO:
     rate: 0.25
     rate_unc: 0.5
     b2b_unc: 0.05
+    b2b_scale: 0.1
     name: "$^{214}$Bi"
     
   acc:
@@ -39,6 +43,7 @@ JUNO:
     rate: 0.17
     rate_unc: 0.0071
     b2b_unc: 0.0352
+    b2b_scale: 0.1
     name: "Accidentals"
    
   doublen:
@@ -47,6 +52,7 @@ JUNO:
     rate: 0.05
     rate_unc: 1.0
     b2b_unc: 0.15
+    b2b_scale: 0.1
     name: "Double neutrons"
 
   atm:
@@ -55,6 +61,7 @@ JUNO:
     rate: 0.10760811
     rate_unc: 0.5
     b2b_unc: 0.5
+    b2b_scale: 0.0
     name: "Atmospheric neutrinos"
 
   alphan:
@@ -63,6 +70,7 @@ JUNO:
     rate: 0.037
     rate_unc: 0.25
     b2b_unc: 0.25
+    b2b_scale: 0.0
     name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
     
   fastn:
@@ -71,4 +79,5 @@ JUNO:
     rate: 0.006
     rate_unc: 1.0
     b2b_unc: 0.15
+    b2b_scale: 0.1
     name: "Fast neutrons"

@@ -594,23 +594,23 @@ class JUNODetector:
                                                   NL[2] if NL else args.kI,
                                                   NL[3] if NL else args.LY_shared)
 
-            # elif key == "wr":
-            #     if args.NL == "pull":
-            #         bckg = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
-            #             mode='spectrum', spectrum=new_nonl, LY_shared=NL[4])
-            #         bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-            #         rate  = self.backgrounds['JUNO']['wr']['rate']
-            #         scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
-            #         bckg  = bckg.GetScaledFit(scale)
-            #         if args.rebin_nonuniform:
-            #             bckg.Rebin_nonuniform(args.bins_nonuniform)
-            #     else:
-            #         bckg = self._get_wr_spectrum(resp_matrix,
-            #                                      abc[0], abc[1], abc[2],
-            #                                      NL[0] if NL else args.kB,
-            #                                      NL[1] if NL else args.fC,
-            #                                      NL[2] if NL else args.kI,
-            #                                      NL[3] if NL else args.LY_shared)
+            elif key == "wr":
+                if args.NL == "pull":
+                    bckg = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
+                        mode='spectrum', spectrum=new_nonl, LY_shared=NL[4])
+                    bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+                    rate  = self.backgrounds['JUNO']['wr']['rate']
+                    scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
+                    bckg  = bckg.GetScaledFit(scale)
+                    if args.rebin_nonuniform:
+                        bckg.Rebin_nonuniform(args.bins_nonuniform)
+                else:
+                    bckg = self._get_wr_spectrum(resp_matrix,
+                                                 abc[0], abc[1], abc[2],
+                                                 NL[0] if NL else args.kB,
+                                                 NL[1] if NL else args.fC,
+                                                 NL[2] if NL else args.kI,
+                                                 NL[3] if NL else args.LY_shared)
             else:
                 bckg = ensp[key]
 

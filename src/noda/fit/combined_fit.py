@@ -881,6 +881,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     # ── post-fit plot ─────────────────────────────────────────────────────────
     best_params = [m.values[name] for name in m.parameters]
     chi2_true     = m.fval
+    plotchi2 = chi2_wrapper(*best_params, plot_fit=True)
 
     # ── solar contour ─────────────────────────────────────────────────────────
     if args_juno.solar_contour:

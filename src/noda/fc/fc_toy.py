@@ -85,7 +85,7 @@ def load_initial_fits(filepath):
     return {
         'grid_best_fits': data['grid_best_fits'][0],
         'truncate_below_zero': data['truncate_below_zero'].tolist(),
-        'truncate_below_mone': data['truncate_belpw_mone'].tolist(),
+        'truncate_below_mone': data['truncate_below_mone'].tolist(),
         'nominal_uncertainties': data['nominal_uncertainties'][0],
         'param_names': data['param_names'].tolist()
     }

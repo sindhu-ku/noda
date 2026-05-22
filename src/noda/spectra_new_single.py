@@ -425,8 +425,8 @@ def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_
     for key, info in backgrounds["JUNO"].items():
         ensp[key] = GetSpectrumFromROOT(info["rootfile"], info["histname"])
 
-        # if key == "wr":
-        #     ensp[key] = _process_world_reactor(ensp[key], args, ensp, resp_matrix, ebins, s_ibd)
+        if key == "wr":
+            ensp[key] = _process_world_reactor(ensp[key], args, ensp, resp_matrix, ebins, s_ibd)
 
         scale = float(info["rate"]) * ndays / (args.duty_cycle * ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
@@ -457,19 +457,19 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
     ensp["rtot"] = ensp["rdet"]
 
     if args.is_data:
-        # if args.model == "CPC":
-        #     names = ["Bin_Center", "Sigma", "Rel_Unc"]
-        # else:
-        #     names = ["Bin_lowE", "Bin_highE", "Sigma", "bin_err"]
-        # dyb = pd.read_csv(
-        #     args.dyb_spectrum, sep='\s+',
-        #     names=names,
-        # )
+        if args.model == "CPC":
+            names = ["Bin_Center", "Sigma", "Rel_Unc"]
+        else:
+            names = ["Bin_lowE", "Bin_highE", "Sigma", "bin_err"]
+        dyb = pd.read_csv(
+            args.dyb_spectrum, sep='\s+',
+            names=names,
+        )
         
-        # ensp["rtot"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
-        ensp["rtot"] = GetSpectrumFromROOT("data/groupA_toy/joint_toy_juno_tao_dyb_seed1203.root", "DYB_obs")
+        ensp["rtot"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
+        #ensp["rtot"] = GetSpectrumFromROOT("data/groupA_toy/joint_toy_juno_tao_dyb_seed1203.root", "DYB_obs")
         if args.model == "PRL": 
-            #ensp["rtot"].GetScaled(1e-43)
+            ensp["rtot"].GetScaled(1e-43)
             ensp["rtot"].GetScaled(compute_extrafactors(args,core_baselines=None))
         else:
             ensp["rtot"].GetScaled(extrafactors)
@@ -491,8 +491,8 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
 
 def _assemble_total_spectrum_tao(ensp, args, ndays):
     ensp["bckg"] = GetSpectrumFromROOT(args.data_file, args.bckg_hist_name)
-    #ensp["bckg"].ScaleByBinWidth()
-    ensp["bckg"].GetScaled(ndays*args.bckg_rate)
+    ensp["bckg"].ScaleByBinWidth()
+    #ensp["bckg"].GetScaled(ndays*args.bckg_rate)
     print("TAO background: ", ensp['bckg'].GetIntegral())
     if args.rebin_nonuniform:
         ensp["bckg"].Rebin_nonuniform(args.bins_nonuniform)
@@ -501,7 +501,7 @@ def _assemble_total_spectrum_tao(ensp, args, ndays):
 
     if args.is_data:
         ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, args.data_hist_name)
-        #ensp["data"].ScaleByBinWidth()
+        ensp["data"].ScaleByBinWidth()
         if args.rebin_nonuniform:
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
         ensp['rtot'] = ensp['data']
