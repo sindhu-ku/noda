@@ -1667,35 +1667,35 @@ import numpy as np
 
 #     return interp_weights
 
-def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
-    fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
-    
-    # Shift to multiplicative space (0 becomes 1, 0.1 becomes 1.1)
-    multiplicative_coarse = 1.0 + nuisance_coarse
-    
-    # Interpolate in log-space
-    interp_log = np.interp(
-        fine_centers, 
-        coarse_edges, 
-        np.log(multiplicative_coarse)
-    )
-    
-    # Transform back and subtract the 1 to return to "shift" space
-    return np.exp(interp_log) - 1.0
-
 # def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
-
 #     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
     
-#     expanded_nuisance = np.zeros_like(fine_centers)
+#     # Shift to multiplicative space (0 becomes 1, 0.1 becomes 1.1)
+#     multiplicative_coarse = 1.0 + nuisance_coarse
     
-#     indices = np.digitize(fine_centers, coarse_edges) - 1
+#     # Interpolate in log-space
+#     interp_log = np.interp(
+#         fine_centers, 
+#         coarse_edges, 
+#         np.log(multiplicative_coarse)
+#     )
     
-#     valid_mask = (indices >= 0) & (indices < len(nuisance_coarse))
+#     # Transform back and subtract the 1 to return to "shift" space
+#     return np.exp(interp_log) - 1.0
+
+def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
+
+    fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
     
-#     expanded_nuisance[valid_mask] = np.array(nuisance_coarse)[indices[valid_mask]]
+    expanded_nuisance = np.zeros_like(fine_centers)
     
-#     return expanded_nuisance
+    indices = np.digitize(fine_centers, coarse_edges) - 1
+    
+    valid_mask = (indices >= 0) & (indices < len(nuisance_coarse))
+    
+    expanded_nuisance[valid_mask] = np.array(nuisance_coarse)[indices[valid_mask]]
+    
+    return expanded_nuisance
     
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
     """
