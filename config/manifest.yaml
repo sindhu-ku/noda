@@ -1,0 +1,37 @@
+# manifest_P25CD.yaml — top-level entry point for a multi-phase fit.
+#
+# Two accepted shapes:
+#
+#   1) Phase only (entire radius fit per phase):
+#         P25C: config/P25C_PRL2025.yaml
+#         P25D: config/P25D.yaml
+#
+#   2) Phase + radial shell:
+#         P25C:
+#           FV1: config/P25C_FV1.yaml
+#           FV2: config/P25C_FV2.yaml
+#         P25D:
+#           FV1: config/P25D_FV1.yaml
+#
+# When you mix (some phases have shells, some don't) the no-shell ones
+# get shell='ALL'. The single-config legacy run also keeps working.
+
+#P25C: config/P25C_prl2025.yaml
+#P25D: config/P25D.yaml
+phase1: config/240-day/phase1.yaml
+phase4: config/240-day/phase4.yaml
+# ─── Optional override of systematic-correlation policy ────────────────────
+# Each base name (or family — 'NL' matches NL0..NL4) maps to
+# {correlate_phase, correlate_shell}. Omitted families fall back to the
+# defaults in param_policy.DEFAULT_SYSTEMATICS.
+#
+# Defaults (encoded in code, paraphrased here so it's discoverable):
+#   NL, abc, ThU_ratio, efission, shape_nuis  → (true, true)   global
+#   Nrea, core_power, snf_noneq_norm          → (false, true)  per phase
+#   eff_nuis                                  → (false, false) per (phase, shell)
+#
+# Uncomment to override any of these:
+#
+# systematics:
+#   eff_nuis:   {correlate_phase: false, correlate_shell: true}   # share eff across shells
+#   core_power: {correlate_phase: true,  correlate_shell: true}   # share reactor between phases

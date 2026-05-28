@@ -285,26 +285,26 @@ def plot_fit_residuals(s_tot_juno, s_obs, s_juno, bckgs, ndays, args_juno,
     plt.savefig(f"Plots/fit_residuals_{args_juno.file_prefix}.png", dpi=200)
     plt.close(fig)
 
-    fig2, (ax_cum1, ax_cum2) = plt.subplots(2, 1, sharex=True, figsize=(7, 6))
-    ax_cum1.step(bin_centers, np.append(cum_chi2_ndf, cum_chi2_ndf[-1]),
-                 where='mid', color='purple', lw=1.5,
-                 label='Cumulative χ² (high→low)')
-    ax_cum1.set_ylabel("Cumulative χ²/ ndf")
-    ax_cum1.legend(loc="upper left", fontsize=9)
-    ax_cum1.grid(True, alpha=0.3)
+    # fig2, (ax_cum1, ax_cum2) = plt.subplots(2, 1, sharex=True, figsize=(7, 6))
+    # ax_cum1.step(bin_centers, np.append(cum_chi2_ndf, cum_chi2_ndf[-1]),
+    #              where='mid', color='purple', lw=1.5,
+    #              label='Cumulative χ² (high→low)')
+    # ax_cum1.set_ylabel("Cumulative χ²/ ndf")
+    # ax_cum1.legend(loc="upper left", fontsize=9)
+    # ax_cum1.grid(True, alpha=0.3)
 
-    ax_cum2.step(bin_centers, np.append(cum_chi2_global_ndf, cum_chi2_global_ndf[-1]),
-                 where='mid', color='darkgreen', lw=1.5,
-                 label='Global cumulative χ²/ndf')
-    ax_cum2.set_xlabel("Reconstructed Energy [MeV]")
-    ax_cum2.set_ylabel("Cummulative χ²/global ndf")
-    ax_cum2.legend(loc="upper right", fontsize=9)
-    ax_cum2.grid(True, alpha=0.3)
-    ax_cum1.set_xlim(0.7, 12.0)
-    ax_cum2.set_xlim(0.7, 12.0)
-    plt.tight_layout()
-    plt.savefig("Plots/cumulative_chi2.png", dpi=200)
-    plt.close(fig2)
+    # ax_cum2.step(bin_centers, np.append(cum_chi2_global_ndf, cum_chi2_global_ndf[-1]),
+    #              where='mid', color='darkgreen', lw=1.5,
+    #              label='Global cumulative χ²/ndf')
+    # ax_cum2.set_xlabel("Reconstructed Energy [MeV]")
+    # ax_cum2.set_ylabel("Cummulative χ²/global ndf")
+    # ax_cum2.legend(loc="upper right", fontsize=9)
+    # ax_cum2.grid(True, alpha=0.3)
+    # ax_cum1.set_xlim(0.7, 12.0)
+    # ax_cum2.set_xlim(0.7, 12.0)
+    # plt.tight_layout()
+    # plt.savefig("Plots/cumulative_chi2.png", dpi=200)
+    # plt.close(fig2)
 
 def get_toy_results(m, extra, merrors):
     params = []

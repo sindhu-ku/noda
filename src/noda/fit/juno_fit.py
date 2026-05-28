@@ -15,7 +15,6 @@ The only shared quantities this module *receives* from outside are:
 import numpy as np
 import scipy as sp
 from ..noda import *
-from ..energy_response_cov import covariance_er
 from .. import nuosc as nuosc
 
 
@@ -30,7 +29,7 @@ class JUNODetector:
 
     def __init__(self, ndays, ensp_nom, rm, cm, args, backgrounds,
                  core_baselines, core_powers_std, core_fractions,
-                 E_segments, s_ibd, s_bump_lin):
+                 E_segments, s_ibd, s_bump_lin, covariance_er=None):
         self.ndays          = ndays
         self.ensp_nom       = ensp_nom
         self.rm             = rm
@@ -89,11 +88,20 @@ class JUNODetector:
         self._snf_noneq_cache      = {}
 
         # ── energy response covariance reference point ──────────────────────
+
         self.theta0_er = np.array([
             args.a, args.b, args.c,
             args.kB, args.fC, args.kI, args.LY_shared
         ])
-
+ 
+        # Per-instance energy-response covariance. Falls back to the module
+        # global when not supplied, so single-phase runs are unchanged.
+        if covariance_er is None:
+            from ..energy_response_cov import covariance_er as _default_er
+            covariance_er = _default_er
+        self.covariance_er = np.asarray(covariance_er)
+        self._inv_cov_er   = np.linalg.inv(self.covariance_er)
+        
         if args.NL == "pull" and 'rfis0_geou' in ensp_nom and 'rfis0_geoth' in ensp_nom:
             self._geo_U_pos = ensp_nom['rfis0_geou'].GetWithPositronEnergy(
                 type=args.posE_shift, s_ibd=s_ibd,
@@ -247,6 +255,96 @@ class JUNODetector:
             + [f"efission{i}" for i in range(len(args.efission))]
         )
 
+    def get_pull_defs(self):
+        """
+        Return {base_name: callable(value) -> (pull/sigma)**2} mirroring
+        the pulls that build_spectrum() appends internally.
+ 
+        Used by combined_fit.dispatcher.pull_dedup_correction to remove
+        the (N-1) over-count when a Minuit parameter is shared across
+        multiple bundles (phase × shell). For a single-bundle run, the
+        correction is identically zero and behaviour is unchanged.
+        """
+        from .. import nuosc as nuosc                # local import
+        args = self.args
+        nom  = nuosc.op_nom
+        defs = {}
+ 
+        # ── oscillation parameters ────────────────────────────────────────
+        if args.sin2_th13_opt == "pull":
+            defs['sin2_th13'] = (
+                lambda v, c=nom['sin2_th13'], s=nom['sin2_th13_err']:
+                    ((v - c) / s) ** 2)
+        if bool(args.pull_dm2_31):
+            # Minuit holds dm2_31 in 1e-3 eV²; nuosc.op_nom['dm2_31'] is in eV².
+            # pulls.append(dm2_31 - nuosc.op_nom['dm2_31']) — both in physical eV²
+            # is what build_spectrum does (dm2_31 there is dm2_31_phys = Minuit*1e-3).
+            # To compute the SAME pull from the raw Minuit value we use
+            # physical-space central scaled back into Minuit units:
+            defs['dm2_31'] = (
+                lambda v, c=nom['dm2_31'] * 1e3, s=nom['dm2_31_err'] * 1e3:
+                    ((v - c) / s) ** 2)
+        # me_rho — build_spectrum emits this pull whenever me_rho != 0.0
+        defs['me_rho'] = (
+            lambda v, c=args.me_rho, s=args.me_rho_scale:
+                ((v - c) / s) ** 2 if v != 0.0 else 0.0)
+ 
+        # ── core powers (10 of them) ──────────────────────────────────────
+        for i in range(10):
+            defs[f'core_power{i}'] = (
+                lambda v, s=args.core_flux_unc: (v / s) ** 2)
+ 
+        # ── efission (length len(args.efission)) ──────────────────────────
+        # In build_spectrum: efission_scaled = efission * 100, pull =
+        # efission_scaled - args.efission, sigma = args.efission_err.
+        # In Minuit units (efission = args.efission/100), central is
+        # args.efission/100 and sigma is args.efission_err/100.
+        for i, (e_nom, e_err) in enumerate(zip(args.efission, args.efission_err)):
+            defs[f'efission{i}'] = (
+                lambda v, c=e_nom * 1e-2, s=e_err * 1e-2:
+                    ((v - c) / s) ** 2)
+ 
+        # ── NL / abc — pull mode only ─────────────────────────────────────
+        if args.NL == "pull":
+            for i in range(4):
+                defs[f'NL{i}'] = (lambda v, s=args.NL_sd: (v / s) ** 2)
+            defs['NL4'] = (lambda v, s=args.ene_scale_unc: (v / s) ** 2)
+            defs['abc0'] = (
+                lambda v, c=args.a, s=args.a_err: ((v - c) / s) ** 2)
+            defs['abc1'] = (
+                lambda v, c=args.b, s=args.b_err: ((v - c) / s) ** 2)
+            defs['abc2'] = (
+                lambda v, c=args.c, s=args.c_err: ((v - c) / s) ** 2)
+        # (When NL != "pull", the joint ER 2D-covariance penalty is handled
+        # SEPARATELY by pull_dedup_correction via _get_chi2_penalty_er().)
+ 
+        # ── SNF / non-equilibrium ─────────────────────────────────────────
+        if args.CI_powers:
+            defs['snf_noneq_norm0'] = (lambda v, s=args.snf_unc:   (v / s) ** 2)
+            defs['snf_noneq_norm1'] = (lambda v, s=args.noneq_unc: (v / s) ** 2)
+        else:
+            for i in range(6):
+                sigma = args.snf_unc if i < 3 else args.noneq_unc
+                defs[f'snf_noneq_norm{i}'] = (lambda v, s=sigma: (v / s) ** 2)
+ 
+        # ── efficiency, Nrea ──────────────────────────────────────────────
+        defs['eff_nuis'] = (lambda v, s=args.eff_unc: (v / s) ** 2)
+        defs['Nrea']     = (lambda v, s=args.r2_unc:  (v / s) ** 2)
+ 
+        # ── Th/U ratio (only meaningful when "geo" is in backgrounds) ─────
+        bckgs_keys = list(self.backgrounds['JUNO'].keys())
+        if 'geo' in bckgs_keys:
+            defs['ThU_ratio'] = (
+                lambda v, c=args.Th_U_ratio, s=args.Th_U_ratio_err:
+                    ((v - c) / s) ** 2)
+ 
+        # ── background rate pulls ─────────────────────────────────────────
+        for k in bckgs_keys:
+            sigma = self.backgrounds['JUNO'][k].get('rate_unc', 0.0)
+            if sigma > 0:
+                defs[f'bkg_{k}'] = (lambda v, s=sigma: (v / s) ** 2)
+        return defs
+
     # ════════════════════════════════════════════════════════════════════════
     #  Internal cached helpers  (identical logic to original run_minuit)
     # ════════════════════════════════════════════════════════════════════════
@@ -270,15 +368,15 @@ class JUNODetector:
                 self.E_segments, self.fine_bins, nuisance_coarse)
         return self._nuisance_fine_cache[key]
 
+        return self._chi2_penalty_er_cache[key]
     def _get_chi2_penalty_er(self, a, b, c, kB, fC, kI, LY_shared):
         key = (a, b, c, kB, fC, kI, LY_shared)
         if key not in self._chi2_penalty_er_cache:
             theta = np.array([a, b, c, kB, fC, kI, LY_shared])
             diff  = theta - self.theta0_er
-            inv_cov = np.linalg.inv(covariance_er)
-            self._chi2_penalty_er_cache[key] = diff @ inv_cov @ diff
+            self._chi2_penalty_er_cache[key] = diff @ self._inv_cov_er @ diff
         return self._chi2_penalty_er_cache[key]
-
+        
     def _get_geo_spectrum(self, ThU_ratio, resp_matrix, a, b, c, kB, fC, kI, LY_shared):
         key = (ThU_ratio, a, b, c, kB, fC, kI, LY_shared)
         if key not in self._geo_spectrum_cache:

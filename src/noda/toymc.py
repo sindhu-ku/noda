@@ -41,43 +41,6 @@ def save_batch_results(filename, batch_results):
                compression="gzip",
            )
 
-
-def run_fc_profiling(param_name="dm2_31", param_grid=[], ndays=50,ensp_nom_juno=None, unc_juno='', rm = None, cm_juno=None, args_juno=None, args_nd=None, dyb_model=None, backgrounds=None):
-    fc_results = []
-
-    for val in param_grid:
-        print(f"\n=== Feldman–Cousins: testing {param_name} = {val:.5f} ===")
-
-        chi2_toys = []
-        args_juno.fix_param = {param_name: val}  # fix this parameter
-
-        for itoy in range(ntoys):
-            # Generate a toy under the test hypothesis
-            ensp_nom_juno['rtot_toy'] = Spectrum(
-                bins=ensp_nom_juno['rtot'].bins,
-                bin_cont=np.random.poisson(ensp_nom_juno['rtot'].bin_cont)
-            )
-
-            m_free = run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds, toymc=True)
-            chi2_min_toy = m_free.fval
-
-            m_fixed = run_minuit(ndays=ndays,ensp_nom_juno=ensp_nom_juno, unc_juno=unc_list_new_juno[0], rm = resp_matrix, cm_juno=cm_juno, args_juno=args_juno, args_nd=args_nd, dyb_model=dyb_model, backgrounds=backgrounds, toymc=True, fix_param=param_name)
-            chi2_fixed = m_fixed.fval
-
-            chi2_toys.append(chi2_fixed - chi2_min_toy)
-
-            if itoy % 50 == 0:
-                print(f"  Toy {itoy}/{ntoys}: Δχ² = {chi2_fixed - chi2_min_toy:.3f}")
-
-        # Compute 68% and 90% quantiles for FC belt
-        dchi2_68 = np.quantile(chi2_toys, 0.68)
-        dchi2_90 = np.quantile(chi2_toys, 0.90)
-        fc_results.append((val, dchi2_68, dchi2_90))
-
-        print(f"  → Δχ²_68 = {dchi2_68:.3f}, Δχ²_90 = {dchi2_90:.3f}")
-
-    return np.array(fc_results)
-
 def run_toy(i, ensp_nom_juno={}, unc_juno='', resp_matrix=None, cm_juno=None, args_juno=''):
      if i%1000 == 0: print(f"Toys: {i}/{args_juno.ntoys}")
      det_sp = ensp_nom_juno['rdet']

@@ -9,6 +9,8 @@ JUNO:
     b2b_unc: 0.3
     b2b_scale: 0.1
     name: "$^{9}$Li / $^{8}$He"
+    correlate_phase: true
+    correlate_shell: true
 
   geo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
@@ -18,6 +20,8 @@ JUNO:
     b2b_unc: 0.05
     b2b_scale: 0.0
     name: "Geoneutrinos"
+    correlate_phase: true
+    correlate_shell: true
     
   wr:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/WR.root" 
@@ -27,6 +31,8 @@ JUNO:
     b2b_unc: 0.05
     b2b_scale: 0.0
     name: "World reactor neutrinos"
+    correlate_phase: true
+    correlate_shell: true
     
   bipo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" 
@@ -36,6 +42,8 @@ JUNO:
     b2b_unc: 0.05
     b2b_scale: 0.1
     name: "$^{214}$Bi"
+    correlate_phase: false
+    correlate_shell: false
     
   acc:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
@@ -45,6 +53,8 @@ JUNO:
     b2b_unc: 0.0352
     b2b_scale: 0.1
     name: "Accidentals"
+    correlate_phase: false
+    correlate_shell: false
    
   doublen:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
@@ -54,6 +64,8 @@ JUNO:
     b2b_unc: 0.15
     b2b_scale: 0.1
     name: "Double neutrons"
+    correlate_phase: true
+    correlate_shell: false
 
   atm:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
@@ -63,6 +75,8 @@ JUNO:
     b2b_unc: 0.5
     b2b_scale: 0.0
     name: "Atmospheric neutrinos"
+    correlate_phase: true
+    correlate_shell: true
 
   alphan:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
@@ -72,6 +86,8 @@ JUNO:
     b2b_unc: 0.25
     b2b_scale: 0.0
     name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
+    correlate_phase: false
+    correlate_shell: false
     
   fastn:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
@@ -81,3 +97,5 @@ JUNO:
     b2b_unc: 0.15
     b2b_scale: 0.1
     name: "Fast neutrons"
+    correlate_phase: true
+    correlate_shell: false
