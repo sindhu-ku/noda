@@ -27,6 +27,30 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+def time_chi2(chi2_func, *, label='chi2'):
+    """Wrap a chi² closure to count calls and accumulate wall time."""
+    import time, atexit
+    state = {'n': 0, 't': 0.0, 'min': float('inf'), 'max': 0.0}
+    def wrapped(*p):
+        t0 = time.perf_counter()
+        r = chi2_func(*p)
+        dt = time.perf_counter() - t0
+        state['n']  += 1
+        state['t']  += dt
+        state['min'] = min(state['min'], dt)
+        state['max'] = max(state['max'], dt)
+        return r
+    wrapped.__signature__ = chi2_func.__signature__
+    def _report():
+        n, t = state['n'], state['t']
+        if n == 0: return
+        print(f"[{label}] {n} evals, total {t:.2f}s, "
+              f"mean {1000*t/n:.2f}ms, min {1000*state['min']:.2f}ms, "
+              f"max {1000*state['max']:.2f}ms")
+    atexit.register(_report)
+    return wrapped
+    
 def plot_correlation_pair(nuis_cov, C_reco, ensp_nom_juno, n_nuis, save_path="cov_propagation.png"):
     
     # compute correlation matrices from covariances

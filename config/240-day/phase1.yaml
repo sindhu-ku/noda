@@ -25,16 +25,16 @@ fit_options:
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
-  pull_dm2_31_lbl: true #false
+  pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.035e-03
   dm2_31_lbl: 0.0025043000
   theta23: 43.279
   dcp: 212.0
   lin_resp: False
-  fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
+  fit_type: PMOP_combined #_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
   save_prefit: True
-  use_prefit: False
+  use_prefit: True
   prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/phase1_data.npz
   include_tao: True
   include_dyb: True

@@ -397,10 +397,11 @@ class JUNODetector:
                                           tf2name=args.pos_ene_TF2)
             U  = U.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC, kI=kI, LY_shared=LY_shared)
             Th = Th.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC, kI=kI, LY_shared=LY_shared)
-            U.ApplyDetResp(self.rm, pecrop=args.ene_crop)
-            Th.ApplyDetResp(self.rm, pecrop=args.ene_crop)
-            U.Rebin_nonuniform(args.bins_nonuniform)
-            Th.Rebin_nonuniform(args.bins_nonuniform)
+            U = U.ApplyDetResp(self.rm, pecrop=args.ene_crop)
+            Th = Th.ApplyDetResp(self.rm, pecrop=args.ene_crop)
+            if args.rebin_nonuniform:
+                U.Rebin_nonuniform(args.bins_nonuniform)
+                Th.Rebin_nonuniform(args.bins_nonuniform)
             self._geo_spectrum_cache[key] = Th + U
         return self._geo_spectrum_cache[key]
 
@@ -670,7 +671,7 @@ class JUNODetector:
             pulls.append(Nrea)
             pull_unc.append(args.r2_unc)
             s_juno = s_juno.GetScaledFit(1 + Nrea)
-
+    
         if args.rebin_nonuniform:
             s_juno.Rebin_nonuniform(args.bins_nonuniform)
 
@@ -692,7 +693,7 @@ class JUNODetector:
                                                   NL[2] if NL else args.kI,
                                                   NL[3] if NL else args.LY_shared)
 
-            elif key == "wr":
+            if key == "wr":
                 if args.NL == "pull":
                     bckg = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
                         mode='spectrum', spectrum=new_nonl, LY_shared=NL[4])
@@ -727,7 +728,6 @@ class JUNODetector:
 
             s_tot_juno += bckg
             fit_bckgs_spectra[info["name"]] = bckg
-
         return (s_juno, s_tot_juno, pulls, pull_unc,
                 chi2_penalty_er, fit_bckgs_spectra, cm_bckg, resp_matrix, rfis_param_post)
 

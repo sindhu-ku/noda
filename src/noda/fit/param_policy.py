@@ -50,7 +50,7 @@ DEFAULT_SYSTEMATICS: Dict[str, CorrelationPair] = {
     'core_power': (True, True),
     'snf_noneq_norm': (True, True),
     # detection efficiency — (phase, shell)
-    'eff_nuis':   (False, False),
+    'eff_nuis':   (True, True),
 }
 
 

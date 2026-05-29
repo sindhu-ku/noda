@@ -54,7 +54,7 @@ JUNO:
     b2b_scale: 0.1
     name: "Accidentals"
     correlate_phase: true
-    correlate_shell: true
+    correlate_shell: false
    
   doublen:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"

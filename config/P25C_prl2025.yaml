@@ -6,7 +6,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: DYB # PDG option
+  PDG_opt: DYB #PDG option
   NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
@@ -16,7 +16,7 @@ fit_options:
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
-  run_hesse: False
+  run_hesse: True
   solar_contour: false
   CI_powers: false
   calc_minuit_errors: false
@@ -25,7 +25,7 @@ fit_options:
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
-  pull_dm2_31_lbl: true #false
+  pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.035e-03
   dm2_31_lbl: 0.0025043000
   theta23: 43.279

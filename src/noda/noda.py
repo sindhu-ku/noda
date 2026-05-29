@@ -29,7 +29,7 @@ from .constants import *
 
 G4model = Geant4Model(particle="e+")
 G4model_gamma = Geant4Model(particle="gamma")
-
+_PE_2D_CACHE = {}
 def GetNLcurve(bins, kB, fC):
     return G4model.eval(bins, kB, fC=fC)/Geant4Model(2.2, particle="gamma")
 #TODO: Do this better in main
@@ -43,6 +43,51 @@ def SetOscFormula(opt='default'):
   osc_formula = osc_formula_options[opt]
   print(" # Oscillation formula set to '{}'".format(opt))
 
+# ─── module-level rebin caches ───────────────────────────────────────────
+_REBIN_MATRIX_CACHE = {}
+_NONUNIFORM_BINS_CACHE = {}
+
+def _build_rebin_matrix(in_bins, out_bins):
+    """
+    W[i, j] = overlap(out_i, in_j) / width(in_j)
+    so that:  out_bin_cont = W @ in_bin_cont
+    matches Rebin_simple's "count-per-bin" semantics exactly.
+    Cached by the raw bytes of (in_bins, out_bins).
+    """
+    in_bins  = np.ascontiguousarray(in_bins,  dtype=float)
+    out_bins = np.ascontiguousarray(out_bins, dtype=float)
+    key = (in_bins.tobytes(), out_bins.tobytes())
+    W = _REBIN_MATRIX_CACHE.get(key)
+    if W is None:
+        in_lo,  in_hi  = in_bins[:-1],  in_bins[1:]
+        out_lo, out_hi = out_bins[:-1], out_bins[1:]
+        out_lo = out_bins[:-1]
+        in_w = in_hi - in_lo
+        # rows = output bins, cols = input bins; broadcast
+        overlap_lo = np.maximum(out_lo[:, None], in_lo[None, :])
+        overlap_hi = np.minimum(out_hi[:, None], in_hi[None, :])
+        overlap    = np.clip(overlap_hi - overlap_lo, 0.0, None)
+        W = overlap / in_w[None, :]
+        _REBIN_MATRIX_CACHE[key] = W
+    return W
+
+
+def _build_nonuniform_bins(bins_nonuniform):
+    """Cached construction of the concatenated bin-edge array from a
+    list of (start, end, num_bins) triples — same logic as the original
+    Rebin_nonuniform but built once per unique spec."""
+    spec_key = tuple((float(s), float(e), int(n)) for s, e, n in bins_nonuniform)
+    arr = _NONUNIFORM_BINS_CACHE.get(spec_key)
+    if arr is None:
+        pieces = []
+        for start, end, num_bins in bins_nonuniform:
+            edges = np.linspace(start, end, num_bins + 1)
+            pieces.extend(edges[:-1])
+        pieces.append(bins_nonuniform[-1][1])
+        arr = np.asarray(pieces, dtype=float)
+        _NONUNIFORM_BINS_CACHE[spec_key] = arr
+    return arr
+    
 class Spectrum:
 
   def __init__(self, bin_cont=[0]*100, bins=np.linspace(0,10,101), xlabel="", ylabel=""):
@@ -164,25 +209,10 @@ class Spectrum:
     return self
 
   def Rebin_simple(self, new_bins):   # Better for similar binning
-    s_new = Spectrum(np.zeros(len(new_bins)-1), new_bins, xlabel=self.xlabel, ylabel=self.ylabel)
-    for be1, be2, val in zip(self.bins[:-1], self.bins[1:], self.bin_cont):
-      i1 = s_new.FindBin(be1)
-      i2 = s_new.FindBin(be2)
-      if i1 == i2: # if it is inside one bin
-        s_new.AddToBin(i1, val)
-      else:
-        bw = be2-be1
-
-        s_new.AddToBin(i1, val * (s_new.bins[i1+1]- be1) / bw)  # first bin
-
-        for i in range(i1+1, i2):                             # intermediate bins
-          s_new.AddToBin(i, val * (s_new.bins[i+1] - s_new.bins[i]) / bw)
-        s_new.AddToBin(i2, val * (be2 - s_new.bins[i2]) / bw)  # last bin
-    #print(s_new.bins)
-    #print(s_new.bin_cont)
-    self.bin_cont = s_new.bin_cont
-    self.bins = s_new.bins
-    del s_new
+    new_bins = np.ascontiguousarray(new_bins, dtype=float)
+    W = _build_rebin_matrix(self.bins, new_bins)
+    self.bin_cont = W @ self.bin_cont
+    self.bins = new_bins
 
   def Rebin_spline(self, new_bins, keep_norm=True):   # Better for binning with much more bins
     s_new = Spectrum(np.zeros(len(new_bins)-1), new_bins, xlabel=self.xlabel, ylabel=self.ylabel)
@@ -201,29 +231,14 @@ class Spectrum:
     self.bins = s_new.bins
     del s_new
 
-
   def Rebin_nonuniform(self, bins_nonuniform):
-    new_bins = []
-    for start, end, num_bins in bins_nonuniform:
-      bin_edges = np.linspace(start, end, num_bins + 1)
-      new_bins.extend(bin_edges[:-1])  # Exclude the last bin edge for overlap
-    new_bins.append(bins_nonuniform[-1][1])  # Append the last bin edge
-
-    new_bin_cont = np.zeros(len(new_bins) - 1)
-   
-    for i in range(len(new_bins) - 1):
-      bin_start, bin_end = new_bins[i], new_bins[i+1]
-      bin_mask = (self.bins[:-1] < bin_end) & (self.bins[1:] > bin_start)
-      for j, in_bin in enumerate(bin_mask):
-        if in_bin:
-          overlap_start = max(bin_start, self.bins[j])
-          overlap_end = min(bin_end, self.bins[j+1])
-          overlap_fraction = (overlap_end - overlap_start) / (self.bins[j+1] - self.bins[j])
-          new_bin_cont[i] += self.bin_cont[j] * overlap_fraction
-    self.bins = np.array(new_bins)
+    new_bins   = _build_nonuniform_bins(bins_nonuniform)
+    W          = _build_rebin_matrix(self.bins, new_bins)
+    new_bin_cont = W @ self.bin_cont
+    self.bins     = new_bins
     self.bin_cont = new_bin_cont
-    return Spectrum(bin_cont=new_bin_cont, bins=np.array(new_bins), xlabel=self.xlabel, ylabel=self.ylabel)
-
+    return Spectrum(bin_cont=new_bin_cont, bins=new_bins,
+                    xlabel=self.xlabel, ylabel=self.ylabel)
 
   def GetOscillated(self, L, points_per_bin=1,
                 core_powers=None,
@@ -443,205 +458,95 @@ class Spectrum:
         Evis = E_e + me                                            # T_e+ + 2me = E_e + me
         Evis = np.where(Evis < 2.0 * me, 2.0 * me, Evis)
         return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
-        
     elif type == '2d':
-        # ----- masses, couplings, derived constants -----
-        Delta    = mn - mp
-        delta_np = (mn**2 - mp**2 - me**2) / (2.0 * mp)
-        M_nuc    = 0.5 * (mn + mp)
-        y2       = 0.5 * (Delta**2 - me**2)
-        fsq, gsq = f*f, g*g
-
-        # ----- vectorised first-order Vogel-Beacom dsigma/dctheta -----
-        def _dsig_dct(Enu, ct):
-            Enu = np.asarray(Enu, dtype=float)
-            ct  = np.asarray(ct,  dtype=float)
-            Ee0  = Enu - Delta
-            ok0  = Ee0 > me
-            sEe0 = np.where(ok0, Ee0, 1.0)
-            pe0  = np.sqrt(np.maximum(0.0, sEe0*sEe0 - me*me))
-            ve0  = pe0 / sEe0
-            Ee1  = sEe0 * (1.0 - Enu/M_nuc * (1.0 - ve0*ct)) - y2/M_nuc
-            ok1  = Ee1 > me
-            sEe1 = np.where(ok1, Ee1, 1.0)
-            pe1  = np.sqrt(np.maximum(0.0, sEe1*sEe1 - me*me))
-            ve1  = pe1 / sEe1
-            sigma1a = 0.5 * ((fsq + 3.0*gsq) + (fsq - gsq) * ve1 * ct) * Ee1 * pe1
-            sve0 = np.where(ve0 > 0.0, ve0, 1.0)
-            g1 = 2.0*g*(f + f2) * ((2.0*sEe0 + Delta)*(1.0 - ve0*ct) - me*me/sEe0)
-            g2 = (fsq + gsq) * (Delta*(1.0 + ve0*ct) + me*me/sEe0)
-            A  = (sEe0 + Delta)*(1.0 - ct/sve0) - Delta
-            g3 = (fsq + 3.0*gsq) * A
-            g4 = (fsq -      gsq) * A * ve0 * ct
-            sigma1b = -0.5 * sEe0 * pe0 * (g1 + g2 + g3 + g4) / M_nuc
-            hbar_meV = 1.0e-6 * hbar / qe
-            meV_to_cm = (hbar * c * (1.0 / (1.0e6 * qe)))**2 * 1.0e4 
-            sigma0 = (2.0 * np.pi**2 / (phase_space * (fsq + 3.0*gsq) * (me**5) * n_lifetime / hbar_meV))
-            return np.where(ok0 & ok1, (sigma1a + sigma1b) * sigma0 * meV_to_cm, 0.0)
-
-        # ----- smooth building block  h(Enu) = bin_cont / sigma  =  Phi * dE_in
-        sig_in = np.asarray(s_ibd(E_nu), dtype=float)
+        # ── one-time precomputation, keyed by (bins, s_ibd, quadrature) ─────
+        cache_key = (self.bins.tobytes(), id(s_ibd), n_cos_theta, n_Ee_per_bin)
+        cached = _PE_2D_CACHE.get(cache_key)
+        if cached is None:
+            Delta    = mn - mp
+            delta_np = (mn**2 - mp**2 - me**2) / (2.0 * mp)
+            M_nuc    = 0.5 * (mn + mp)
+            y2       = 0.5 * (Delta**2 - me**2)
+            fsq, gsq = f*f, g*g
+    
+            def _dsig_dct(Enu, ct):
+                Enu = np.asarray(Enu, dtype=float); ct = np.asarray(ct, dtype=float)
+                Ee0  = Enu - Delta
+                ok0  = Ee0 > me
+                sEe0 = np.where(ok0, Ee0, 1.0)
+                pe0  = np.sqrt(np.maximum(0.0, sEe0*sEe0 - me*me))
+                ve0  = pe0 / sEe0
+                Ee1  = sEe0 * (1.0 - Enu/M_nuc * (1.0 - ve0*ct)) - y2/M_nuc
+                ok1  = Ee1 > me
+                sEe1 = np.where(ok1, Ee1, 1.0)
+                pe1  = np.sqrt(np.maximum(0.0, sEe1*sEe1 - me*me))
+                ve1  = pe1 / sEe1
+                sigma1a = 0.5 * ((fsq + 3.0*gsq) + (fsq - gsq) * ve1 * ct) * Ee1 * pe1
+                sve0 = np.where(ve0 > 0.0, ve0, 1.0)
+                g1 = 2.0*g*(f + f2) * ((2.0*sEe0 + Delta)*(1.0 - ve0*ct) - me*me/sEe0)
+                g2 = (fsq + gsq) * (Delta*(1.0 + ve0*ct) + me*me/sEe0)
+                A  = (sEe0 + Delta)*(1.0 - ct/sve0) - Delta
+                g3 = (fsq + 3.0*gsq) * A
+                g4 = (fsq -      gsq) * A * ve0 * ct
+                sigma1b = -0.5 * sEe0 * pe0 * (g1 + g2 + g3 + g4) / M_nuc
+                hbar_meV  = 1.0e-6 * hbar / qe
+                meV_to_cm = (hbar * c * (1.0 / (1.0e6 * qe)))**2 * 1.0e4
+                sigma0 = (2.0 * np.pi**2 /
+                          (phase_space * (fsq + 3.0*gsq) * (me**5) * n_lifetime / hbar_meV))
+                return np.where(ok0 & ok1,
+                                (sigma1a + sigma1b) * sigma0 * meV_to_cm, 0.0)
+    
+            E_nu  = 0.5 * (self.bins[:-1] + self.bins[1:])
+            dE_in = E_nu[1] - E_nu[0]
+            sig_in = np.asarray(s_ibd(E_nu), dtype=float)
+            Evis_lo = self.bins[:-1]; Evis_hi = self.bins[1:]
+            Evis_mid  = 0.5*(Evis_lo + Evis_hi)
+            Evis_half = 0.5*(Evis_hi - Evis_lo)
+            ct_nodes,    ct_w     = np.polynomial.legendre.leggauss(n_cos_theta)
+            Ee_sub_nodes, Ee_sub_w = np.polynomial.legendre.leggauss(n_Ee_per_bin)
+    
+            Ee_2d = (Evis_mid[:, None] + Evis_half[:, None] * Ee_sub_nodes[None, :]) - me
+            Ee_3d = Ee_2d[:, :, None]
+            ct_3d = ct_nodes[None, None, :]
+            ok_Ee = Ee_3d > me
+            Ve_3d = np.sqrt(np.maximum(0.0, 1.0 - me*me /
+                                       np.where(ok_Ee, Ee_3d*Ee_3d, 1.0)))
+            denom = 1.0 - (Ee_3d/mp) * (1.0 - Ve_3d * ct_3d)
+            sdenom = np.where(denom > 0.0, denom, 1.0)
+            Enu_3d = (Ee_3d + delta_np) / sdenom
+            in_range = ok_Ee & (denom > 0.0) & (Enu_3d >= E_nu[0]) & (Enu_3d <= E_nu[-1])
+            sVe_3d = np.where(Ve_3d > 0.0, Ve_3d, 1.0)
+            jac = (mp + (1.0 - ct_3d/sVe_3d) * Enu_3d) \
+                  / (mp - (1.0 - Ve_3d*ct_3d) * Ee_3d)
+            dsig = _dsig_dct(Enu_3d, np.broadcast_to(ct_3d, Enu_3d.shape))
+            # Precombine all the static factors that multiply h_at:
+            kernel = np.where(in_range, dsig * jac, 0.0)
+            # ctheta quadrature weights already baked in
+            ct_kernel = ct_w[None, None, :] * kernel
+            cached = {
+                'E_nu': E_nu, 'sig_in': sig_in, 'Enu_3d': Enu_3d,
+                'ct_kernel': ct_kernel, 'in_range': in_range,
+                'Ee_sub_w': Ee_sub_w, 'Evis_half': Evis_half, 'dE_in': dE_in,
+            }
+            _PE_2D_CACHE[cache_key] = cached
+    
+        # ── per-call: only the flux-dependent work ──────────────────────────
+        E_nu   = cached['E_nu']
+        sig_in = cached['sig_in']
         with np.errstate(divide='ignore', invalid='ignore'):
-            h_in = np.where(sig_in > 0.0, flux / np.where(sig_in > 0.0, sig_in, 1.0), 0.0)
-
-        
-        # from scipy.interpolate import make_interp_spline
-        
-        # h_cs = make_interp_spline(E_nu, h_in, k=3)     
+            h_in = np.where(sig_in > 0.0,
+                            self.bin_cont / np.where(sig_in > 0.0, sig_in, 1.0), 0.0)
         from scipy.interpolate import PchipInterpolator
         h_cs = PchipInterpolator(E_nu, h_in)
-        # ----- output binning: self.bins interpreted as Evis = Ee_total + me edges
-        Evis_lo  = self.bins[:-1]
-        Evis_hi  = self.bins[1:]
-        Evis_mid = 0.5 * (Evis_lo + Evis_hi)
-        Evis_half = 0.5 * (Evis_hi - Evis_lo)         # half bin width
-
-        # ----- Gauss-Legendre nodes -----
-        ct_nodes,    ct_w     = np.polynomial.legendre.leggauss(n_cos_theta)
-        Ee_sub_nodes, Ee_sub_w = np.polynomial.legendre.leggauss(n_Ee_per_bin)
-
-        # ----- 3-D evaluation grid: (Nbin, n_Ee_per_bin, n_ct) -----
-        # Sub-bin Ee_total samples for each output bin
-        Ee_2d = (Evis_mid[:, None] + Evis_half[:, None] * Ee_sub_nodes[None, :]) - me
-        Ee_3d = Ee_2d[:, :, None]
-        ct_3d = ct_nodes[None, None, :]
-
-        ok_Ee = Ee_3d > me
-        Ve_3d = np.sqrt(np.maximum(0.0, 1.0 - me*me / np.where(ok_Ee, Ee_3d*Ee_3d, 1.0)))
-
-        denom    = 1.0 - (Ee_3d/mp) * (1.0 - Ve_3d * ct_3d)
-        sdenom   = np.where(denom > 0.0, denom, 1.0)
-        Enu_3d   = (Ee_3d + delta_np) / sdenom
-        in_range = ok_Ee & (denom > 0.0) & (Enu_3d >= E_nu[0]) & (Enu_3d <= E_nu[-1])
-
-        sVe_3d = np.where(Ve_3d > 0.0, Ve_3d, 1.0)
-        jac    = (mp + (1.0 - ct_3d/sVe_3d) * Enu_3d) \
-               / (mp - (1.0 - Ve_3d*ct_3d) * Ee_3d)
-
-        dsig = _dsig_dct(Enu_3d, np.broadcast_to(ct_3d, Enu_3d.shape))
-        #prob_3d = GetPee(Enu_3d, L=core_baselines, core_powers=core_powers, args=args)
-        
-        # 3. Combine them
-        #h_at = h_cs(Enu_3d) * prob_3d
-        h_at = h_cs(Enu_3d)
-        h_at = np.where(np.isfinite(h_at) & in_range, h_at, 0.0)
-        jac  = np.where(in_range, jac,  0.0)
-        dsig = np.where(in_range, dsig, 0.0)
-
-        # ----- ctheta quadrature (innermost) -----
-        # inner[k, i] = sum_j w_j_ct * h * dsig * jac
-        inner = (ct_w[None, None, :] * h_at * dsig * jac).sum(axis=2)   # (Nbin, n_Ee)
-
-        # ----- Ee quadrature within each output bin -----
-        # events_in_bin = (Evis_half / dE_in) * sum_i w_i_Ee * inner[k,i]
-        # (the dE_in came from h = bin_cont/sigma = Phi*dE_in;
-        #  the Evis_half came from GL on [Evis_lo, Evis_hi].)
-        new_counts = (Evis_half / dE_in) * (Ee_sub_w[None, :] * inner).sum(axis=1)
-
+        h_at = h_cs(cached['Enu_3d'])
+        h_at = np.where(np.isfinite(h_at) & cached['in_range'], h_at, 0.0)
+        inner = (cached['ct_kernel'] * h_at).sum(axis=2)
+        new_counts = (cached['Evis_half'] / cached['dE_in']) \
+                     * (cached['Ee_sub_w'][None, :] * inner).sum(axis=1)
         return Spectrum(new_counts, bins=self.bins)
-
     else:
         raise ValueError(f"Unknown type for positron energy shift: {type!r}")
     
-  #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
-  #
-  #   # Constants
-  #   mn = 939.56536  # Neutron mass (meV)
-  #   mp = 938.27203  # Proton mass (meV)
-  #   me = 0.51099893  # Electron mass (meV)
-  #   delta = (mn**2 - mp**2 - me**2) / (2.0 * mp)  # Exact substitution for δ
-  #
-  #   if inputfile and tf2name:
-  #       Epos = np.zeros_like(Enu)
-  #       file = ROOT.TFile(inputfile)
-  #       func = file.Get(tf2name)
-  #       for i, energy in enumerate(Enu):
-  #           Epos_temp = 0.0
-  #           for cos_theta in cos_theta_vals:
-  #               Epos_temp += func.Eval(energy, cos_theta)
-  #           Epos[i] = Epos_temp  # Averaging over cos(θ)
-  #   else:
-  #       # Using exact equations for Ee and Jacobian
-  #       Epos = []
-  #       for Enu_i in Enu:
-  #           Epos_temp = 0.0
-  #           epsilon_nu = Enu_i / mp
-  #           for cos_theta in cos_theta_vals:
-  #               kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
-  #               if kappa <= 0:
-  #                   continue  # Avoid invalid square root
-  #
-  #               # Exact substitution for Ee (Equation 11)
-  #               Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
-  #                         epsilon_nu * cos_theta *
-  #                         np.sqrt((Enu_i - delta)**2 + kappa * me**2)) / kappa
-  #
-  #               EPSILON = 1e-10
-  #
-  #               # Exact substitution for ve (pe/Ee)
-  #               ve = np.sqrt(max(0, Epos_i**2 - me**2)) / Epos_i if Epos_i > me else EPSILON
-  #
-  #               # Adjust Jacobian to handle ve -> 0 safely
-  #               if abs(ve) < EPSILON:
-  #                   jacobian = 1.0  # Default value when ve is negligible
-  #               else:
-  #                   jacobian = ((1 + Enu_i / mp * (1 - 1 / ve * cos_theta)) /
-  #                             (1 - Epos_i / mp * (1 - ve * cos_theta)))
-  #               print(Epos_i, jacobian)
-  #               Epos_temp += jacobian * Epos_i
-  #           Epos.append(Epos_temp / len(cos_theta_vals))  # Averaging
-  #
-  #       Epos = np.array(Epos)
-  #   Evis = Epos + 0.511  # Add 0.511 meV for visible energy
-  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
-  #
-  # def GetWithPositronEnergy(self, inputfile=None, tf2name=None):
-  #   Enu = self.bins  # Neutrino energy
-  #   cos_theta_vals = np.linspace(-1, 1, 100)  # Discretize cos(θ) from -1 to 1
-  #
-  #   # Constants
-  #   mn = 939.56536  # Neutron mass (meV)
-  #   mp = 938.27203  # Proton mass (meV)
-  #   me = 0.51099893  # Electron mass (meV)
-  #   delta = (mn**2 - mp**2 - me**2) / (2.0 * mp)  # Exact substitution for δ
-  #
-  #   # Using exact equations for Ee and Jacobian
-  #   Epos = []
-  #   for Enu_i in Enu:
-  #       Epos_temp = 0.0
-  #       epsilon_nu = Enu_i / mp
-  #       for cos_theta in cos_theta_vals:
-  #           kappa = (1 + epsilon_nu)**2 - epsilon_nu**2 * cos_theta**2
-  #           if kappa <= 0:
-  #               continue  # Avoid invalid square root
-  #
-  #           # Exact substitution for Ee (Equation 11)
-  #           Epos_i = ((Enu_i - delta) * (1 + epsilon_nu) +
-  #                     epsilon_nu * cos_theta *
-  #                     np.sqrt((Enu_i - delta)**2 + kappa * me**2)) / kappa
-  #
-  #           EPSILON = 1e-10
-  #           #Tn_i = 2 * Enu_i**2 / (mn + mp) * (1 - cos_theta)
-  #           # Exact substitution for ve (pe/Ee)
-  #           ve = np.sqrt(max(0, Epos_i**2 - me**2)) / Epos_i if Epos_i > me else EPSILON
-  #
-  #           # Adjust Jacobian to handle ve -> 0 safely
-  #           if abs(ve) < EPSILON:
-  #               jacobian = 1.0  # Default value when ve is negligible
-  #           else:
-  #               jacobian = ((1 + Enu_i / mp * (1 - 1 / ve * cos_theta)) /
-  #                         (1 - Epos_i / mp * (1 - ve * cos_theta)))
-  #
-  #
-  #           #print(Epos_i, jacobian)
-  #           Epos_temp += (jacobian) * Epos_i
-  #       Epos.append((Epos_temp / len(cos_theta_vals)))  # Averaging
-  #
-  #   Epos = np.array(Epos)
-  #   Evis = Epos + me  # Add 0.511 meV for visible energy
-  #   return Spectrum(self.bin_cont, bins=Evis).Rebin(self.bins)
-  #
-  #
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins
@@ -1043,14 +948,32 @@ class CovMatrix:
 
   def __init__(self, data, bins=[], axis_label=""):
     self.data = np.array(data)
-    if self.IsInvertible():    # keep pre-calculated inverted matrix too
-      self.data_inv = np.linalg.inv(self.data)
-    else:
-      self.data_inv = None
-    if len(bins)==0: bins = np.linspace(0, data.shape[0]+1, data.shape[0])
+    self._data_inv     = None      # lazy
+    self._invertibility = None     # lazy
+    if len(bins) == 0:
+        bins = np.linspace(0, data.shape[0]+1, data.shape[0])
     self.bins = bins
     self.axis_label = axis_label
 
+  @property
+  def data_inv(self):
+    if self._data_inv is None and self.IsInvertible():
+        self._data_inv = np.linalg.inv(self.data)
+    return self._data_inv
+
+  def IsInvertible(self):
+    # was: matrix_rank == size (does a full SVD — O(n^3), very slow).
+    # Try-inv is also O(n^3) but with a much smaller constant; for our
+    # well-conditioned bin-scale covariances it succeeds in microseconds.
+    # Memoised so we only pay this once per matrix.
+    if self._invertibility is None:
+        try:
+            self._data_inv = np.linalg.inv(self.data)
+            self._invertibility = True
+        except np.linalg.LinAlgError:
+            self._invertibility = False
+    return self._invertibility
+      
   def __add__(self, o):
     return CovMatrix(self.data + o.data, bins=self.bins, axis_label=self.axis_label)
 
@@ -1083,6 +1006,7 @@ class CovMatrix:
     rebinned_data = 0.5 * (rebinned_data + rebinned_data.T)
 
     return CovMatrix(rebinned_data, bins=new_bins, axis_label=self.axis_label)
+      
   def Extend(self, other):
     A = self.data.shape[0]
     B = other.data.shape[0]
@@ -1091,25 +1015,17 @@ class CovMatrix:
     extended_data[A:, A:] = other.data
     new_bins = np.concatenate([self.bins, other.bins])
     return CovMatrix(data=extended_data, bins=new_bins)
-
+  
   def Scale(self, scale_factor):
-    sf2 = scale_factor*scale_factor
-    sf2_inv = 1./sf2
+    sf2 = scale_factor * scale_factor
     self.data *= sf2
-    if self.IsInvertible():
-      self.data_inv *= sf2_inv
+    # invalidate the cached inverse — recompute on next access
+    self._data_inv = None
+    self._invertibility = None
 
   def GetScaled(self, scale_factor):
-    sf2 = scale_factor*scale_factor
-    sf2_inv = 1./sf2
-    self.data *= sf2
-    if self.IsInvertible():
-      return CovMatrix(data=self.data_inv * sf2_inv, bins=self.bins)
-        
-  def IsInvertible(self):
-    rank = np.linalg.matrix_rank(self.data)
-    size = self.data.shape[0]
-    return rank == size
+    sf2 = scale_factor * scale_factor
+    return CovMatrix(data=self.data * sf2, bins=self.bins)
 
   def SetXlabel(self, label):
     self.xlabel = label

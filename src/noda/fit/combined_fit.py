@@ -728,7 +728,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         if not m.fixed[p]:
             continue
         m.fixed[p] = False
-        
+
     m.migrad()
     migrad_time = datetime.now()
     if args_juno.run_hesse: m.hesse()
@@ -1003,7 +1003,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
  
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt,
                                    NO=bool(args_juno.NMO_opt))
- 
+
+    fit_type  = args_juno.fit_type
     fit_mode       = getattr(args_juno, 'fit_mode', 'combined')
     is_prefit_mode = (args_juno.fit_type == 'PMOP_combined'
                       and fit_mode.startswith('prefit'))
@@ -1024,138 +1025,140 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     C_reco    = None
     m_pre     = None                          # captured for TAO printout
  
-    if is_prefit_mode:
-        if prefit_cache is not None:
-            nuis_best = np.asarray(prefit_cache['nuis_best'])
-            nuis_cov  = np.asarray(prefit_cache['nuis_cov'])
-            cr = prefit_cache.get('C_reco')
-            if cr is not None:
-                cr = np.asarray(cr)
-                if cr.size > 0:
-                    C_reco = cr
-            if not args_juno.silent_print:
-                print(f"[bundled] using cached prefit "
-                      f"({'C_reco present' if C_reco is not None else 'no C_reco'})")
-        else:
-            if tao_bundle is None and dyb_bundle is None:
+    if fit_type == "PMOP_combined":
+        if is_prefit_mode:
+            if prefit_cache is not None:
+                nuis_best = np.asarray(prefit_cache['nuis_best'])
+                nuis_cov  = np.asarray(prefit_cache['nuis_cov'])
+                cr = prefit_cache.get('C_reco')
+                if cr is not None:
+                    cr = np.asarray(cr)
+                    if cr.size > 0:
+                        C_reco = cr
+                if not args_juno.silent_print:
+                    print(f"[bundled] using cached prefit "
+                          f"({'C_reco present' if C_reco is not None else 'no C_reco'})")
+            else:
+                if tao_bundle is None and dyb_bundle is None:
+                    raise ValueError(
+                        f"fit_mode={fit_mode!r}: no prefit cache AND no TAO/DYB "
+                        "bundles available — cannot compute the prefit.")
+                if not args_juno.silent_print:
+                    print("[bundled] no cache — running DYB+TAO prefit on the fly")
+                m_pre, nuis_best, nuis_cov = run_dyb_tao_prefit(
+                    dyb_det=dyb_bundle.detector if dyb_bundle else None,
+                    tao_det=tao_bundle.detector if tao_bundle else None,
+                    E_segments=E_segments,
+                    unc_dyb=(dyb_bundle.unc_key if dyb_bundle else 'all'),
+                    unc_tao=(tao_bundle.unc_key if tao_bundle else 'all'),
+                    args_juno=args_juno,
+                    args_tao=(tao_bundle.args if tao_bundle else None))
+     
+        # ── 3. prefit_wosegs: compute C_reco if missing from cache ───────────
+        if fit_mode == 'prefit_wosegs' and C_reco is None:
+            if not juno_bundles_all:
                 raise ValueError(
-                    f"fit_mode={fit_mode!r}: no prefit cache AND no TAO/DYB "
-                    "bundles available — cannot compute the prefit.")
+                    "prefit_wosegs requires at least one JUNO bundle to "
+                    "compute C_reco via propagate_nuis_to_reco.")
+            b0        = juno_bundles_all[0]
+            juno_det0 = b0.detector
+            args0     = b0.args
+            unc_juno0 = b0.unc_key
+            juno_param_names0 = juno_det0.get_param_names()
+            n_NL_0   = sum(1 for p in juno_param_names0 if p.startswith("NL"))
+            n_rea_0  = sum(1 for p in juno_param_names0 if p.startswith("snf_noneq_norm"))
+            n_core_0 = sum(1 for p in juno_param_names0 if p.startswith("core_power"))
+            bckgs_for_jp = {}
+            for key, info in b0.backgrounds["JUNO"].items():
+                bckgs_for_jp[key] = {"pull": 0.0,
+                                      "sigma": info["rate_unc"],
+                                      "b2b":   info["b2b_unc"],
+                                      "name":  info["name"],
+                                      "b2b_scale": info["b2b_scale"]}
+            jp_fixed = dict(
+                Nrea=0.0,
+                NL=([args0.kB, args0.fC, args0.kI, args0.LY_shared]
+                    if args0.NL != "pull" else [0.0] * n_NL_0),
+                abc=[args0.a, args0.b, args0.c],
+                bckgs=bckgs_for_jp,
+                snf_noneq_norm=[0.0] * n_rea_0,
+                eff_nuis=0.0,
+                ThU_ratio=args0.Th_U_ratio,
+                core_powers_delta=[0.0] * n_core_0,
+                efission=list(args0.efission))
             if not args_juno.silent_print:
-                print("[bundled] no cache — running DYB+TAO prefit on the fly")
-            m_pre, nuis_best, nuis_cov = run_dyb_tao_prefit(
-                dyb_det=dyb_bundle.detector if dyb_bundle else None,
-                tao_det=tao_bundle.detector if tao_bundle else None,
-                E_segments=E_segments,
-                unc_dyb=(dyb_bundle.unc_key if dyb_bundle else 'all'),
-                unc_tao=(tao_bundle.unc_key if tao_bundle else 'all'),
-                args_juno=args_juno,
-                args_tao=(tao_bundle.args if tao_bundle else None))
- 
-    # ── 3. prefit_wosegs: compute C_reco if missing from cache ───────────
-    if fit_mode == 'prefit_wosegs' and C_reco is None:
-        if not juno_bundles_all:
-            raise ValueError(
-                "prefit_wosegs requires at least one JUNO bundle to "
-                "compute C_reco via propagate_nuis_to_reco.")
-        b0        = juno_bundles_all[0]
-        juno_det0 = b0.detector
-        args0     = b0.args
-        unc_juno0 = b0.unc_key
-        juno_param_names0 = juno_det0.get_param_names()
-        n_NL_0   = sum(1 for p in juno_param_names0 if p.startswith("NL"))
-        n_rea_0  = sum(1 for p in juno_param_names0 if p.startswith("snf_noneq_norm"))
-        n_core_0 = sum(1 for p in juno_param_names0 if p.startswith("core_power"))
-        bckgs_for_jp = {}
-        for key, info in b0.backgrounds["JUNO"].items():
-            bckgs_for_jp[key] = {"pull": 0.0,
-                                  "sigma": info["rate_unc"],
-                                  "b2b":   info["b2b_unc"],
-                                  "name":  info["name"],
-                                  "b2b_scale": info["b2b_scale"]}
-        jp_fixed = dict(
-            Nrea=0.0,
-            NL=([args0.kB, args0.fC, args0.kI, args0.LY_shared]
-                if args0.NL != "pull" else [0.0] * n_NL_0),
-            abc=[args0.a, args0.b, args0.c],
-            bckgs=bckgs_for_jp,
-            snf_noneq_norm=[0.0] * n_rea_0,
-            eff_nuis=0.0,
-            ThU_ratio=args0.Th_U_ratio,
-            core_powers_delta=[0.0] * n_core_0,
-            efission=list(args0.efission))
-        if not args_juno.silent_print:
-            print("[bundled] computing C_reco via propagate_nuis_to_reco "
-                  f"(using JUNO bundle {b0.phase}/{b0.shell})")
-        C_reco = propagate_nuis_to_reco(
-            juno_det=juno_det0,
-            nuis_best=nuis_best, nuis_cov=nuis_cov,
-            sin2_12=nuosc.op_nom["sin2_th12"],
-            sin2_13=nuosc.op_nom["sin2_th13"],
-            dm2_21=nuosc.op_nom["dm2_21"],
-            dm2_31=nuosc.op_nom["dm2_31"],
-            me_rho=args_juno.me_rho,
-            fixed_juno_params=jp_fixed,
-            args_juno=args_juno, unc_juno=unc_juno0)
- 
-    # ── 4. Save freshly-computed prefit to disk if requested ─────────────
-    if (is_prefit_mode and prefit_cache is None
-            and getattr(args_juno, 'save_prefit', False)):
-        out_path = args_juno.prefit_path
-        out_dir  = os.path.dirname(out_path)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-        np.savez_compressed(
-            out_path,
-            nuis_best=nuis_best,
-            nuis_cov=nuis_cov,
-            C_reco=C_reco if C_reco is not None else np.array([]))
-        if not args_juno.silent_print:
-            print(f"[bundled] saved prefit cache → {out_path}")
- 
-    # ── 5. FC early return ───────────────────────────────────────────────
-    if prefit_only:
-        return {'nuis_best': nuis_best,
-                'nuis_cov':  nuis_cov,
-                'C_reco':    C_reco}
- 
-    # ── 6. Drop TAO/DYB from the JUNO fit in any prefit mode ─────────────
-    if fit_mode != 'combined':
-        n_pre = len(bundles)
-        bundles = juno_bundles_all
-        if not args_juno.silent_print and len(bundles) != n_pre:
-            print(f"[bundled] fit_mode={fit_mode}: dropped "
-                  f"{n_pre - len(bundles)} non-JUNO bundle(s) — they're "
-                  "absorbed into the prefit cache")
- 
-    # ── 7. prefit_wosegs: stamp C_reco onto every JUNO detector ──────────
-    if fit_mode == 'prefit_wosegs':
-        for b in bundles:
-            if b.kind == 'juno':
-                b.detector.set_external_cov(C_reco)
- 
+                print("[bundled] computing C_reco via propagate_nuis_to_reco "
+                      f"(using JUNO bundle {b0.phase}/{b0.shell})")
+            C_reco = propagate_nuis_to_reco(
+                juno_det=juno_det0,
+                nuis_best=nuis_best, nuis_cov=nuis_cov,
+                sin2_12=nuosc.op_nom["sin2_th12"],
+                sin2_13=nuosc.op_nom["sin2_th13"],
+                dm2_21=nuosc.op_nom["dm2_21"],
+                dm2_31=nuosc.op_nom["dm2_31"],
+                me_rho=args_juno.me_rho,
+                fixed_juno_params=jp_fixed,
+                args_juno=args_juno, unc_juno=unc_juno0)
+     
+        # ── 4. Save freshly-computed prefit to disk if requested ─────────────
+        if (is_prefit_mode and prefit_cache is None
+                and getattr(args_juno, 'save_prefit', False)):
+            out_path = args_juno.prefit_path
+            out_dir  = os.path.dirname(out_path)
+            if out_dir:
+                os.makedirs(out_dir, exist_ok=True)
+            np.savez_compressed(
+                out_path,
+                nuis_best=nuis_best,
+                nuis_cov=nuis_cov,
+                C_reco=C_reco if C_reco is not None else np.array([]))
+            if not args_juno.silent_print:
+                print(f"[bundled] saved prefit cache → {out_path}")
+     
+        # ── 5. FC early return ───────────────────────────────────────────────
+        if prefit_only:
+            return {'nuis_best': nuis_best,
+                    'nuis_cov':  nuis_cov,
+                    'C_reco':    C_reco}
+     
+        # ── 6. Drop TAO/DYB from the JUNO fit in any prefit mode ─────────────
+        if fit_mode != 'combined':
+            n_pre = len(bundles)
+            bundles = juno_bundles_all
+            if not args_juno.silent_print and len(bundles) != n_pre:
+                print(f"[bundled] fit_mode={fit_mode}: dropped "
+                      f"{n_pre - len(bundles)} non-JUNO bundle(s) — they're "
+                      "absorbed into the prefit cache")
+     
+        # ── 7. prefit_wosegs: stamp C_reco onto every JUNO detector ──────────
+        if fit_mode == 'prefit_wosegs':
+            for b in bundles:
+                if b.kind == 'juno':
+                    b.detector.set_external_cov(C_reco)
+     
     # ── 8. Build chi² closure ────────────────────────────────────────────
     chi2_func, names, starts, routing = build_chi2(bundles, policy, args_juno)
- 
-    # ── 9. prefit_wsegs: add (Δ @ nuis_cov_inv @ Δ) penalty to closure ───
-    if fit_mode == 'prefit_wsegs':
-        nuis_cov_inv  = np.linalg.inv(nuis_cov)
-        nuis_best_arr = np.asarray(nuis_best[:n_shape], dtype=float)
-        shape_idx     = [names.index(f'nuis{i}') for i in range(n_shape)]
-        _orig_chi2 = chi2_func
-        _orig_sig  = chi2_func.__signature__
-        def _chi2_with_penalty(*flat):
-            v = _orig_chi2(*flat)
-            d = np.array([flat[i] for i in shape_idx]) - nuis_best_arr
-            return v + float(d @ nuis_cov_inv @ d)
-        _chi2_with_penalty.__signature__ = _orig_sig
-        chi2_func = _chi2_with_penalty
- 
-    # ── 10. Seed shape-nuisance starts from prefit (both prefit modes) ───
-    if is_prefit_mode and nuis_best is not None:
-        for i in range(min(n_shape, len(nuis_best))):
-            starts[names.index(f'nuis{i}')] = float(nuis_best[i])
- 
+    #chi2_func = time_chi2(chi2_func, label='chi2')
+    if fit_type == "PMOP_combined":
+        # ── 9. prefit_wsegs: add (Δ @ nuis_cov_inv @ Δ) penalty to closure ───
+        if fit_mode == 'prefit_wsegs':
+            nuis_cov_inv  = np.linalg.inv(nuis_cov)
+            nuis_best_arr = np.asarray(nuis_best[:n_shape], dtype=float)
+            shape_idx     = [names.index(f'nuis{i}') for i in range(n_shape)]
+            _orig_chi2 = chi2_func
+            _orig_sig  = chi2_func.__signature__
+            def _chi2_with_penalty(*flat):
+                v = _orig_chi2(*flat)
+                d = np.array([flat[i] for i in shape_idx]) - nuis_best_arr
+                return v + float(d @ nuis_cov_inv @ d)
+            _chi2_with_penalty.__signature__ = _orig_sig
+            chi2_func = _chi2_with_penalty
+     
+        # ── 10. Seed shape-nuisance starts from prefit (both prefit modes) ───
+        if is_prefit_mode and nuis_best is not None:
+            for i in range(min(n_shape, len(nuis_best))):
+                starts[names.index(f'nuis{i}')] = float(nuis_best[i])
+     
     # ── 11. Optional FC dm²₃₁ seed ───────────────────────────────────────
     if true_dm2_31 is not None:
         starts[names.index('dm2_31')] = true_dm2_31 * 1e3
@@ -1201,6 +1204,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     for p in first_fix:
         if m.fixed[p]:
             m.fixed[p] = False
+    
+    m.fixed['ThU_ratio'] = True
     m.migrad()
     migrad_time = datetime.now()
  

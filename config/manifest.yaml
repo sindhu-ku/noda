@@ -16,10 +16,20 @@
 # When you mix (some phases have shells, some don't) the no-shell ones
 # get shell='ALL'. The single-config legacy run also keeps working.
 
-#P25C: config/P25C_prl2025.yaml
+P25C: config/P25C_prl2025.yaml
 #P25D: config/P25D.yaml
-phase1: config/240-day/phase1.yaml
-phase4: config/240-day/phase4.yaml
+# phase1: 
+#     FV1: config/240-day/phase1.yaml
+#     FV2: config/240-day/phase1.yaml
+# phase2: 
+#     FV1: config/240-day/phase1.yaml
+#     FV2: config/240-day/phase1.yaml
+# phase3:
+#     FV1: config/240-day/phase1.yaml
+#     FV2: config/240-day/phase1.yaml
+# phase4:
+#     FV1: config/240-day/phase4.yaml
+#     FV2: config/240-day/phase4.yaml
 # ─── Optional override of systematic-correlation policy ────────────────────
 # Each base name (or family — 'NL' matches NL0..NL4) maps to
 # {correlate_phase, correlate_shell}. Omitted families fall back to the

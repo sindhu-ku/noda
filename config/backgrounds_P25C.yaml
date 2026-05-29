@@ -16,7 +16,7 @@ JUNO:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/geo" #GeoNuHistogramAD"
     rate: 1.2554280 #1.239 #1.147
-    rate_unc: 0.0
+    rate_unc: 0.4
     b2b_unc: 0.05
     b2b_scale: 0.0
     name: "Geoneutrinos"

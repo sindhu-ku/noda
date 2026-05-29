@@ -28,6 +28,7 @@ from .shared_nuisances import (SHARED_PARAM_NAMES, get_shared_start_values,
                                apply_shared_limits)
 
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # DetectorBundle — one dataset
 # ─────────────────────────────────────────────────────────────────────────────
