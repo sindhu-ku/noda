@@ -180,9 +180,9 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
     # If the phase config sets `er_cov_file`, load it; otherwise the
     # JUNODetector falls back to the module-global covariance_er.
     covariance_er = None
-    er_cov_file = getattr(args_juno, 'er_cov_file', None)
+    er_cov_file = getattr(args_juno, 'det_resp_file', None)
     if er_cov_file:
-        if er_cov_file.endswith('.npy'):
+        if er_cov_file.endswith('.npz'):
             covariance_er = np.load(er_cov_file)
         else:
             covariance_er = np.loadtxt(er_cov_file)
@@ -271,18 +271,13 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
         dyb_V = np.loadtxt(args_dyb.dyb_cm)
         if args_dyb.model == "PRL":
             cov_75 = dyb_V.reshape(75, 75)
-            dyb_V = cov_75[50:75, 50:75] * 1e-86
+            dyb_V = cov_75[50:75, 50:75] * 1e-86 * compute_extrafactors(args_dyb)* compute_extrafactors(args_dyb) * ndays_dyb * ndays_dyb
         DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_dyb['rdet'].bins)
-        if args_dyb.model == "CPC":
-            DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep=r'\s+',
-                                       names=["Bin_Center", "Sigma", "Rel_Unc"])
+        DYB_CM.ScaleByBinWidth()
+        if args_dyb.is_data:
+            cm_dyb = {'all':  GetRelCM(DYB_CM, ensp_nom_dyb['data'])}
         else:
-            DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep=r'\s+',
-                                       names=["Bin_lowE", "Bin_highE",
-                                              "Sigma", "Rel_Unc"])
-        DYB_sp = Spectrum(bins=ensp_nom_dyb['rdet'].bins,
-                          bin_cont=DYB_spectrum["Sigma"].to_numpy())
-        cm_dyb = {'all': GetRelCM(DYB_CM, DYB_sp)}
+            cm_dyb = {'all':  GetRelCM(DYB_CM, ensp_nom_dyb['rtot'])}
 
     return {
         'phase':            phase_label,
@@ -317,8 +312,13 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
 def _build_juno_bundle(setup):
     s = setup
     args_juno = s['args_juno']
-    core_names, core_powers_std, core_fractions, core_baselines = \
-        load_reactor_summary(args_juno.reactor_summary_yaml)
+    if args_juno.CI_powers:
+        core_baselines = args_juno.core_baselines
+        core_powers_std    = args_juno.core_powers
+        core_fractions = None
+    else:
+        core_names, core_powers_std, core_fractions, core_baselines = \
+            load_reactor_summary(args_juno.reactor_summary_yaml)
     det = JUNODetector(
         ndays=s['ndays'],
         ensp_nom=s['ensp_nom_juno'],
@@ -364,6 +364,7 @@ def _build_dyb_bundle(setup, dyb_model=None):
     s = setup
     det = DYBDetector(
         ensp_nom_dyb=s['ensp_nom_dyb'],
+        ndays=s['ndays_dyb'],
         args_dyb=s['args_dyb'],
         args_juno=s['args_juno'],
         cm_dyb=s['cm_dyb'],

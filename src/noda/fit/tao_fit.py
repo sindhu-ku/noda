@@ -284,7 +284,7 @@ class TAODetector:
 
         #print(s_tot_tao.GetIntegral())
 
-        return s_tao, s_tot_tao, pulls, pull_unc, rfis_param_post
+        return s_tao, s_tot_tao, pulls, pull_unc, rfis_param_post, bckg
 
     # ════════════════════════════════════════════════════════════════════════
     #  chi2 contribution
@@ -300,7 +300,7 @@ class TAODetector:
         args = self.args
 
         (s_tao, s_tot_tao, pulls, pull_unc,
-         rfis_param_post) = self.build_spectrum(
+         rfis_param_post, bckg) = self.build_spectrum(
             Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao, 
             core_power_tao, eff_nuis_tao,bckg_rate, nuisance)
 
@@ -320,12 +320,13 @@ class TAODetector:
             'all', args.stat_method_opt,
             pulls=pulls, pull_unc=pull_unc, include_logV=False)
 
-        return chi2_tao, chi2_nolog, s_tao, s_tot_tao
+        return chi2_tao, chi2_nolog, sp_obs, s_tot_tao, bckg, cm_t
 
     def _get_obs_spectrum(self):
         ensp = self.ensp_nom
         args = self.args
         if args.is_data:
             return ensp['data']
+
         else:
             return ensp["rtot"]

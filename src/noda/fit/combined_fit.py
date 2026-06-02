@@ -60,8 +60,215 @@ FULL_CHI2  = 0
 DYB_BINS   = 0
 FREE_PARAM = 0
 
+def _plot_relative_uncertainty(obs_vals, obs_err, bins, detector_label, args,
+                               tag=None, output_name=""):
+    """
+    Standalone √Var/N vs energy plot, one per detector call.
+    Uses whatever obs_err was already computed by the caller.
+    """
+    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+    rel_unc = obs_err / np.maximum(np.abs(obs_vals), 1e-12)
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    ax.plot(bin_centers, rel_unc, 'o-', color='black', markersize=3)
+    ax.set_xlabel("Reconstructed Energy [MeV]")
+    ax.set_ylabel(r"Relative Uncertainty ($\sqrt{\mathrm{Var}}/N$)")
+    ax.set_title(f"{detector_label} Relative Uncertainty")
+    ax.grid(True, alpha=0.3)
+
+    os.makedirs("Plots", exist_ok=True)
+    if output_name:
+        figname = f"Plots/{output_name}_relunc.png"
+    else:
+        suffix  = f"_{tag}" if tag else ""
+        figname = (f"Plots/rel_unc_{args.file_prefix}"
+                   f"_{detector_label}{suffix}.png")
+    plt.tight_layout()
+    plt.savefig(figname, dpi=200)
+    plt.close(fig)
+    print(f"[plot] saved {figname}")
+    
+def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
+                       *,
+                       detector_label="JUNO",
+                       signal_label=None,
+                       tag=None,
+                       chi2_value=None,
+                       ndf=None,
+                       write_output=False, output_name="", cm=None):
+    """
+    Plot observed vs fitted spectra with residuals and chi²/ndf.
+
+    detector_label : "JUNO" | "TAO" | "DYB" | other — used in legend/title
+    signal_label   : label for the s_signal curve (default depends on detector)
+    tag            : unique string appended to filename (e.g. "phase1_ALL");
+                     when None, falls back to args.file_prefix alone
+    chi2_value     : chi² shown in the textbox; falls back to FULL_CHI2 global
+    ndf            : ndf used in chi²/ndf; falls back to (n_bins - FREE_PARAM)
+    """
+    if chi2_value is None:
+        chi2_value = FULL_CHI2
+    default_sig_label = {
+        "JUNO": r"Reactor $\bar{\nu}_e$ expectation",
+        "TAO":  r"TAO reactor $\bar{\nu}_e$",
+        "DYB":  r"Daya Bay reactor $\bar{\nu}_e$",
+    }
+    if signal_label is None:
+        signal_label = default_sig_label.get(detector_label, f"{detector_label} signal")
+
+    if write_output:
+        output_file = (f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}"
+                       f"_dm2_31_pull_{args.pull_dm2_31}.root")
+        s_signal.WritetoROOT(f"reactor_{detector_label.lower()}",
+                             f"{output_file}",
+                             directory="postfit")
+
+    os.makedirs("Plots", exist_ok=True)
+    bin_centers  = s_tot.bins
+    bin_centers2 = 0.5 * (s_tot.bins[:-1] + s_tot.bins[1:])
+
+    obs_vals = s_obs.bin_cont
+    obs_err = np.sqrt(np.diag(cm.data))
+    obs_err += np.sqrt(np.maximum(obs_vals, 1e-12))
+    
+    fit_vals = s_tot.bin_cont
+    fit_err  = np.sqrt(np.maximum(fit_vals, 1e-12))
+
+    residuals = (obs_vals - fit_vals) / np.maximum(obs_err, 1e-12)
+    chi2_bin  = (obs_vals - fit_vals) ** 2 / np.maximum(obs_err, 1e-12) ** 2
+
+    total_chi2 = float(np.sum(chi2_bin))
+    if ndf is None:
+        ndf = max(1, len(chi2_bin) - FREE_PARAM)
+    chi2_ndf = float(chi2_value) / ndf
+
+    # cumulative chi²/ndf, high-energy → low-energy
+    chi2_bin_rev          = chi2_bin[::-1]
+    cum_chi2_rev          = np.cumsum(chi2_bin_rev)
+    ndf_bins              = np.arange(1, len(cum_chi2_rev) + 1)
+    cum_chi2_ndf          = (cum_chi2_rev / ndf_bins)[::-1]
+
+    fig, (ax1, ax2, ax3) = plt.subplots(
+        3, 1, sharex=True, figsize=(8, 8),
+        gridspec_kw={'height_ratios': [3, 1, 1]})
+
+
+    # ── top panel: data + fit + signal + backgrounds ────────────────────
+    ax1.errorbar(bin_centers2, obs_vals, yerr=obs_err, fmt='o', color='black',
+                 markersize=3, label=f'{detector_label} data')
+    ax1.step(bin_centers, np.append(fit_vals, fit_vals[-1]),
+             where='post', color='blue', lw=1.5, label='Total Fit')
+    if s_signal is not None:
+        sig_cpd = s_signal.GetIntegral() / ndays if ndays else 0.0
+        ax1.step(bin_centers, np.append(s_signal.bin_cont, s_signal.bin_cont[-1]),
+                 where='post', color='red', lw=1.2, linestyle='-',
+                 label=f'{signal_label}: {sig_cpd:.2f} cpd')
+
+    colors = plt.cm.tab10.colors
+    name_to_key = {
+        "Accidentals": "acc", "Geoneutrinos": "geo",
+        r"$^{9}$Li / $^{8}$He": "lihe", "Fast neutrons": "fastn",
+        "Double neutrons": "doublen",
+        r"$^{13}$C ($\alpha$, n) $^{16}$O": "alphan",
+        "Atmospheric neutrinos": "atm", "World reactor neutrinos": "wr",
+        r"$^{214}$Bi": "bipo",
+    }
+    if bckgs:
+        if detector_label == "JUNO":
+            for i, (key, spec) in enumerate(bckgs.items()):
+                cpd = spec.GetIntegral() / ndays if ndays else 0.0
+                ax1.step(bin_centers, np.append(spec.bin_cont, spec.bin_cont[-1]),
+                         where='post', color=colors[i % len(colors)], lw=1,
+                         label=f'{key}: {cpd:.2f} cpd')
+                if write_output and name_to_key.get(key):
+                    spec.WritetoROOT(f"{name_to_key.get(key)}_{detector_label.lower()}",
+                                     f"{output_file}", "postfit")
+        if detector_label == "TAO":
+                cpd = bckgs.GetIntegral() / ndays if ndays else 0.0
+                ax1.step(bin_centers, np.append(bckgs.bin_cont, bckgs.bin_cont[-1]),
+                         where='post', color=colors[0], lw=1,
+                         label=f'bckg: {cpd:.2f} cpd')
+    ax1.set_ylabel("Events")
+    title_tag = f" [{tag}]" if tag else ""
+    ax1.set_title(f"{detector_label}{title_tag}", fontsize=10)
+    leg = ax1.legend(fontsize=9, loc="upper right", frameon=True, edgecolor="black")
+    leg.get_frame().set_linewidth(1.0)
+    ax1.grid(True, alpha=0.3)
+    ax1.set_xlim(bin_centers[0], bin_centers[-1])
+
+    # ── residuals panel ─────────────────────────────────────────────────
+    ax2.errorbar(bin_centers2, residuals, yerr=np.ones_like(residuals),
+                 fmt='o', color='blue', markersize=3)
+    ax2.step(bin_centers, np.append(residuals, residuals[-1]), where='post', color='blue', lw=1)
+    ax2.axhline(0, color='k', lw=1)
+    for nsigma, alpha in zip([1, 2, 3], [0.25, 0.15, 0.1]):
+        ax2.fill_between(bin_centers, -nsigma, nsigma, color='blue', alpha=alpha)
+    ax2.set_ylabel("Residuals [σ]")
+    ax2.set_ylim(-5.0, 5.0)
+    ax2.grid(True, alpha=0.3)
+
+    # ── chi² panel ──────────────────────────────────────────────────────
+    ax3.step(bin_centers, np.append(chi2_bin, chi2_bin[-1]),
+             where='post', color='steelblue', lw=1.5, label='Local χ²')
+    ax3.axhline(1.0, color='gray', ls='--', lw=1)
+    ax3.set_ylabel("Local χ²", color='steelblue')
+    ax3.tick_params(axis='y', colors='steelblue')
+    ax3.grid(True, alpha=0.3)
+
+    ax3b = ax3.twinx()
+    ax3b.step(bin_centers, np.append(cum_chi2_ndf, cum_chi2_ndf[-1]),
+              where='post', color='brown', lw=1.5,
+              label='Cumulative χ²/ndf (high→low)')
+    ax3b.axhline(chi2_ndf, color='darkred', ls='--', lw=1)
+    ax3b.set_ylabel("Cumulative χ²/ndf", color='brown')
+    ax3b.tick_params(axis='y', colors='brown')
+    ax3.set_ylim(0, 5)
+    ax3b.set_ylim(0, 5)
+
+    # ── toy goodness-of-fit ─────────────────────────────────────────────
+    n_toys = 1000
+    rng = np.random.default_rng(12345)
+    toy_data  = rng.poisson(np.maximum(fit_vals, 1e-12), size=(n_toys, len(fit_vals)))
+    chi2_toys = np.sum((toy_data - fit_vals[None, :]) ** 2
+                       / np.maximum(obs_err, 1e-12) ** 2, axis=1)
+    p_val = float(np.sum(chi2_toys > total_chi2)) / n_toys
+    print(f"\n--- {detector_label}{title_tag} goodness-of-fit ---")
+    print(f"Observed χ² = {total_chi2:.2f} for {ndf} dof → χ²/ndf = {chi2_ndf:.3f}")
+    print(f"Toy mean χ² = {chi2_toys.mean():.2f} ± {chi2_toys.std():.2f}")
+    print(f"p-value = {p_val:.3f}")
+
+    textstr = (f"{detector_label}{title_tag}\n"
+               f"Livetime = {ndays:.2f} days\n"
+               f"χ²/ndf = {chi2_value:.2f}/{ndf} = {chi2_ndf:.2f}")
+    ax1.text(0.02, 0.9, textstr, transform=ax1.transAxes, fontsize=9,
+             va='center', ha='left',
+             bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+
+    ax3.set_xlabel("Reconstructed Energy [MeV]")
+    plt.tight_layout()
+
+    # ── unique filename ─────────────────────────────────────────────────
+    if output_name:
+        figname = f"Plots/{output_name}.png"
+    else:
+        suffix = f"_{tag}" if tag else ""
+        figname = f"Plots/fit_residuals_{args.file_prefix}_{detector_label}{suffix}.png"
+    plt.savefig(figname, dpi=200)
+    plt.close(fig)
+    print(f"[plot] saved {figname}")
+
+    _plot_relative_uncertainty(
+        obs_vals=obs_vals,
+        obs_err=obs_err,          # already correct for every detector
+        bins=s_tot.bins,
+        detector_label=detector_label,
+        args=args,
+        tag=tag,
+        output_name=output_name,
+    )
+
 def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
-                       args_juno, args_tao):
+                       args_juno, args_dyb, args_tao, ndays_dyb, ndays_tao, dyb_exp, tao_exp):
     """
     Fit DYB+TAO with oscillation params fixed to nominal.
     Returns: (nuis_best, nuis_cov)
@@ -77,7 +284,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
 
     all_names  = nuis_names  + tao_param_names  + dyb_param_names
     all_starts = nuis_starts + tao_start_values + dyb_start_values
-
+                
     def prefit_chi2(*params):
         nuisance_vals   = list(params[:n_nuis])
         tao_vals        = list(params[n_nuis : n_nuis + len(tao_param_names)])
@@ -89,7 +296,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         chi2_dyb = 0.0
 
         if tao_det is not None:
-            (chi2_tao, _, _s, _st) = tao_det.chi2_contribution(
+            (chi2_tao, _, _s, _st, _, _) = tao_det.chi2_contribution(
                 Nrea_tao=tao_params_dict['Nrea_tao'],
                 NL_tao=[tao_params_dict[f'NL_tao{i}'] for i in range(5)],
                 snf_noneq_norm_tao=[tao_params_dict[f'snf_noneq_norm_tao{i}']
@@ -101,12 +308,13 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 eff_nuis_tao=tao_params_dict['eff_nuis_tao'],
                 bckg_rate=tao_params_dict['bckg_rate'],
                 unc=unc_tao, nuisance=nuisance_vals)
+            
 
         if dyb_det is not None:
             noneq=0.0
             if len(dyb_vals):
                 noneq = dyb_params_dict['snf_noneq_norm_dyb']
-            chi2_dyb, s, st = dyb_det.chi2_contribution(
+            chi2_dyb, s_obs_dyb, s_tot_dyb, _ = dyb_det.chi2_contribution(
                 nuisance_coarse=np.array(nuisance_vals),                
                 snf_noneq_norm_dyb=noneq,
                 E_segments=E_segments)
@@ -145,6 +353,57 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         print("DYB+TAO pre-fit complete.")
         print("  nuis_best:", nuis_best)
         print("  nuis_cov diag:", np.diag(nuis_cov))
+
+    if dyb_det is not None:
+        noneq=0.0
+        if len(dyb_start_values):
+            noneq = m_pre.values['snf_noneq_norm_dyb']
+        chi2_dyb, s_obs_dyb, s_tot_dyb, cm_dyb = dyb_det.chi2_contribution(
+            nuisance_coarse=nuis_best,                
+            snf_noneq_norm_dyb=noneq,
+            E_segments=E_segments) 
+
+
+    if tao_det is not None:
+        (chi2_tao, _, s_obs_tao, s_tot_tao, bckg, cm_tao) = tao_det.chi2_contribution(
+            Nrea_tao=m_pre.values['Nrea_tao'],
+            NL_tao=[m_pre.values[f'NL_tao{i}'] for i in range(5)],
+            snf_noneq_norm_tao=[m_pre.values[f'snf_noneq_norm_tao{i}']
+                                for i in range(2)],
+            abc_tao=[m_pre.values['abc_tao0'],
+                     m_pre.values['abc_tao1'],
+                     m_pre.values['abc_tao2']],
+            core_power_tao=m_pre.values['core_power_tao'],
+            eff_nuis_tao=m_pre.values['eff_nuis_tao'],
+            bckg_rate=m_pre.values['bckg_rate'],
+            unc=unc_tao, nuisance=nuis_best)
+    if tao_det is not None and dyb_det is not None:
+        plot_fit_residuals_all(
+                s_tot=s_tot_dyb,
+                s_obs=s_obs_dyb,
+                s_signal=dyb_exp,
+                bckgs=None,
+                ndays=ndays_dyb,
+                args=args_dyb,
+                detector_label="DYB",
+                tag="best-fit",
+                chi2_value=m_pre.fval,
+                cm=cm_dyb,
+                ndf=len(s_obs_dyb.bins) + len(s_obs_tao.bins) -len(E_segments)
+            )
+        plot_fit_residuals_all(
+                s_tot=s_tot_tao,
+                s_obs=s_obs_tao,
+                s_signal=tao_exp,
+                bckgs=bckg,
+                ndays=ndays_tao,
+                args=args_tao,
+                detector_label="TAO",
+                tag="best-fit",
+                chi2_value=chi2_tao, 
+                cm=cm_tao,
+                ndf=len(s_obs_tao.bins) + len(s_obs_dyb.bins)  - len(E_segments)
+            )
     return m_pre, nuis_best, nuis_cov
 
 def propagate_nuis_to_reco(juno_det, nuis_best, nuis_cov,
@@ -537,7 +796,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         if plot_fit:
             global FULL_CHI2
             FULL_CHI2 = chi2_nolog + chi2_dyb + chi2_tao + chi2_penalty_er
-            plot_fit_residuals(s_tot_juno, sp_obs_tot, s_juno,
+            plot_fit_residuals_all(s_tot_juno, sp_obs_tot, s_juno,
                                fit_bckgs_spectra, ndays, args_juno,
                                write_output=args_juno.write_output)
             ensp_nom_juno['ribd'].Plot(
@@ -752,7 +1011,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         if args_juno.fit_type == "PMOP_combined":
             nbins += DYB_BINS
         global FREE_PARAM
-        FREE_PARAM = 3 + n_nuis
+        FREE_PARAM = 3 #+ n_nuis
         ndf        = nbins - FREE_PARAM
         print("Free parameters", FREE_PARAM)
         print("Nbins",           nbins)
@@ -1045,6 +1304,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         "bundles available — cannot compute the prefit.")
                 if not args_juno.silent_print:
                     print("[bundled] no cache — running DYB+TAO prefit on the fly")
+     
                 m_pre, nuis_best, nuis_cov = run_dyb_tao_prefit(
                     dyb_det=dyb_bundle.detector if dyb_bundle else None,
                     tao_det=tao_bundle.detector if tao_bundle else None,
@@ -1052,7 +1312,12 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     unc_dyb=(dyb_bundle.unc_key if dyb_bundle else 'all'),
                     unc_tao=(tao_bundle.unc_key if tao_bundle else 'all'),
                     args_juno=args_juno,
-                    args_tao=(tao_bundle.args if tao_bundle else None))
+                    args_tao=(tao_bundle.args if tao_bundle else None),
+                    args_dyb=(dyb_bundle.args if dyb_bundle else None),
+                    ndays_dyb=dyb_bundle.detector.ndays if dyb_bundle else 0.0,
+                    ndays_tao=tao_bundle.detector.ndays if tao_bundle else 0.0,
+                    dyb_exp=dyb_bundle.detector.ensp_nom['rtot'] if dyb_bundle else None,
+                    tao_exp=tao_bundle.detector.ensp_nom['rtot'] if tao_bundle else None)
      
         # ── 3. prefit_wosegs: compute C_reco if missing from cache ───────────
         if fit_mode == 'prefit_wosegs' and C_reco is None:
@@ -1205,7 +1470,6 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         if m.fixed[p]:
             m.fixed[p] = False
     
-    m.fixed['ThU_ratio'] = True
     m.migrad()
     migrad_time = datetime.now()
  
@@ -1443,7 +1707,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     'b2b_scale': raw['b2b_scale'],
                 }
             (_chi2j, _nolog, _erpen, s_juno, s_tot_juno,
-             fit_bckgs, _rfis) = b.detector.chi2_contribution(
+             fit_bckgs, _rfis, cm_juno) = b.detector.chi2_contribution(
                 sin2_12=values_best['sin2_th12'],
                 sin2_13=values_best['sin2_th13'],
                 dm2_21 =values_best['dm2_21'] * 1e-5,
@@ -1465,12 +1729,14 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 unc=b.unc_key)
             sp_obs = b.detector._get_obs_spectrum()
             
-            global FULL_CHI2
-            FULL_CHI2 = float(_nolog) + float(_erpen)
-            plot_fit_residuals(s_tot_juno, sp_obs, s_juno,
-                               fit_bckgs, b.detector.ndays, b.args,
-                               write_output=args_juno.write_output)
- 
+            plot_fit_residuals_all(
+                s_tot_juno, sp_obs, s_juno, fit_bckgs,
+                b.detector.ndays, b.args,
+                detector_label="JUNO",
+                tag=f"{b.phase}_{b.shell}" if len(juno_bundles_all) > 1 else None,
+                chi2_value=m.fval,
+                ndf = len(sp_obs.bins)-3,
+                write_output=args_juno.write_output, cm=cm_juno)
     # ── 25. Solar contour ────────────────────────────────────────────────
     if args_juno.solar_contour:
         try:

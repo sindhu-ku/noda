@@ -1026,7 +1026,22 @@ class CovMatrix:
   def GetScaled(self, scale_factor):
     sf2 = scale_factor * scale_factor
     return CovMatrix(data=self.data * sf2, bins=self.bins)
+      
+  def ScaleByBinWidth(self):
+    """Scale in-place by bin widths (outer product), mirroring Spectrum.ScaleByBinWidth."""
+    widths = np.diff(self.bins)          # bin edges → widths, shape (n,)
+    self.data = self.data * np.outer(widths, widths)
+    self._data_inv = None                # invalidate cached inverse
+    self._invertibility = None
 
+  def GetScaledByBinWidth(self):
+    """Return a new CovMatrix scaled by bin widths, mirroring Spectrum.GetScaled."""
+    widths = np.diff(self.bins)
+    return CovMatrix(
+        self.data * np.outer(widths, widths),
+        bins=self.bins,
+        axis_label=self.axis_label
+    )
   def SetXlabel(self, label):
     self.xlabel = label
 

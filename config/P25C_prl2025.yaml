@@ -61,7 +61,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: False
-  file_prefix: 'Apr13_P25C_JUNO_DYB'
+  file_prefix: 'P25C_Jun1-26'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -165,6 +165,7 @@ juno_inputs:
   NL: real
   NL_data_file:  /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   data_spectrum: /junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root
+  det_resp_file: /junofs/users/sindhu/NODA/noda/data/P25C_cov_er.txt
   data_hist_name: data
   rebin_nonuniform: true
   bins_nonuniform: 
@@ -340,11 +341,10 @@ tao_inputs:
   rebin_nonuniform:  True
   bins_nonuniform:
     - [0.8, 0.94, 1]
-    - [0.94, 7.94, 70]
-    #- [7.44, 7.8, 9]
-    - [7.94, 8.2, 2]
+    - [0.94, 7.44, 65]
+    - [7.44, 7.8, 3]
+    - [7.8, 8.2, 4]
     - [8.2, 12, 1]
-  
   U235_scale: 0.561
   U238_scale: 0.077
   Pu239_scale: 0.318

@@ -28,8 +28,8 @@ class JUNODetector:
     """
 
     def __init__(self, ndays, ensp_nom, rm, cm, args, backgrounds,
-                 core_baselines, core_powers_std, core_fractions,
-                 E_segments, s_ibd, s_bump_lin, covariance_er=None):
+                 core_baselines, core_powers_std,
+                 E_segments, s_ibd, s_bump_lin, core_fractions=None, covariance_er=None):
         self.ndays          = ndays
         self.ensp_nom       = ensp_nom
         self.rm             = rm
@@ -38,7 +38,7 @@ class JUNODetector:
         self.backgrounds    = backgrounds
         self.core_baselines = core_baselines
         self.core_powers_std = core_powers_std
-        self.core_fractions = core_fractions
+        self.core_fractions = core_fractions    
         self.fine_bins      = ensp_nom['ribd'].bins
         self.E_segments     = E_segments
         self.s_ibd          = s_ibd
@@ -55,11 +55,18 @@ class JUNODetector:
         self.dummy_sp = dummy_sp
 
         fission_fracs = []
-        for frac in core_fractions:
-            fission_fracs.append([frac['U235'], frac['U238'],
-                                   frac['Pu239'], frac['Pu241']])
-        self.fission_fracs = fission_fracs
-        self.fission_fracs = np.asarray(fission_fracs, dtype=float)
+        if not args.CI_powers:
+            for frac in core_fractions:
+                fission_fracs.append([frac['U235'], frac['U238'],
+                                       frac['Pu239'], frac['Pu241']])
+            self.fission_fracs = fission_fracs
+            self.fission_fracs = np.asarray(fission_fracs, dtype=float)
+        else:
+            for power in core_powers_std:
+                fission_fracs.append([self.args.U235_scale, self.args.U238_scale,
+                                   self.args.Pu239_scale, self.args.Pu241_scale])
+            self.fission_fracs = fission_fracs
+            
         fission_arrays = np.zeros((n_cores, len(dummy_sp.bin_cont)))
         for i in range(n_cores):
             if args_juno.CI_powers:
@@ -96,9 +103,7 @@ class JUNODetector:
  
         # Per-instance energy-response covariance. Falls back to the module
         # global when not supplied, so single-phase runs are unchanged.
-        if covariance_er is None:
-            from ..energy_response_cov import covariance_er as _default_er
-            covariance_er = _default_er
+
         self.covariance_er = np.asarray(covariance_er)
         self._inv_cov_er   = np.linalg.inv(self.covariance_er)
         
@@ -562,6 +567,7 @@ class JUNODetector:
             nuisance_multiplier = 1.0
 
         # ── build raw IBD spectrum ───────────────────────────────────────────
+
         core_scales = compute_extrafactors_vec(
             args, efission=efission_scaled,
             alpha=self.fission_fracs,
@@ -572,6 +578,7 @@ class JUNODetector:
         raw_ibd_tot    = raw_ibd_tot * nuisance_multiplier
         rfis_param_post = Spectrum(bins=self.dummy_sp.bins, bin_cont=raw_ibd_tot)
 
+        #print("ibd", rfis_param_post.GetIntegral())
         # ── matter density ───────────────────────────────────────────────────
         if me_rho != 0.0:
             pulls.append(me_rho - args.me_rho)
@@ -606,6 +613,7 @@ class JUNODetector:
                     del self._osc_cache[k]
             self._osc_cache[osc_key] = Spectrum(bins=s_juno.bins,
                                                 bin_cont=s_juno.bin_cont.copy())
+        #print("osc", s_juno.GetIntegral())
         # ── positron energy shift ────────────────────────────────────────────
         s_juno = s_juno.GetWithPositronEnergy(inputfile=args.input_data_file,s_ibd=self.s_ibd,
                                                tf2name=args.pos_ene_TF2)
@@ -650,7 +658,7 @@ class JUNODetector:
         else:
             resp_matrix = self.rm
             s_juno = s_juno.ApplyDetResp(self.rm, pecrop=args.ene_crop)
-
+        #print("det", s_juno.GetIntegral())
         # ── SNF + non-equilibrium ────────────────────────────────────────────
         if snf_noneq_norm:
             pulls.extend(snf_noneq_norm)
@@ -659,7 +667,7 @@ class JUNODetector:
             s_juno = s_juno + self._get_snf_noneq(snf_noneq_norm)
         else:
             s_juno = s_juno + ensp['snf_final'] + ensp['noneq_final']
-
+        #print("final", s_juno.GetIntegral())
         # ── efficiency ───────────────────────────────────────────────────────
         if eff_nuis:
             pulls.append(eff_nuis)
@@ -693,7 +701,7 @@ class JUNODetector:
                                                   NL[2] if NL else args.kI,
                                                   NL[3] if NL else args.LY_shared)
 
-            if key == "wr":
+            elif key == "wr":
                 if args.NL == "pull":
                     bckg = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
                         mode='spectrum', spectrum=new_nonl, LY_shared=NL[4])
@@ -776,7 +784,7 @@ class JUNODetector:
             pulls=pulls, pull_unc=pull_unc, include_logV=False)
 
         return (chi2_juno, chi2_nolog, chi2_penalty_er,
-                s_juno, s_tot_juno, fit_bckgs_spectra, rfis_param_post)
+                s_juno, s_tot_juno, fit_bckgs_spectra, rfis_param_post, cm_j)
 
     def _get_obs_spectrum(self):
         args = self.args

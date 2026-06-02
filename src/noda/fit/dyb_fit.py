@@ -25,9 +25,10 @@ class DYBDetector:
       2. use_dagflow=False : chi2 computed directly from PMOP spectra
     """
 
-    def __init__(self, ensp_nom_dyb, args_dyb, args_juno, cm_dyb,
+    def __init__(self, ndays, ensp_nom_dyb, args_dyb, args_juno, cm_dyb,
                  rm_dyb, s_ibd,
                  dyb_model=None):
+        self.ndays = ndays
         self.ensp_nom   = ensp_nom_dyb
         self.args_dyb    = args_dyb
         self.args_juno  = args_juno
@@ -36,6 +37,7 @@ class DYBDetector:
         self.dyb_model  = dyb_model
         self.is_cpc = (args_dyb.model == "CPC")
         self.s_ibd = s_ibd
+        self.is_data = args_dyb.is_data
 
         # ── DAGflow setup (mirrors original run_minuit logic) ───────────────
         self._chi2_dyb_func  = None
@@ -161,7 +163,7 @@ class DYBDetector:
         if args_dyb.rebin_nonuniform:
             s_tot_dyb.Rebin_nonuniform(args_dyb.bins_nonuniform)
 
-        sp_obs_dyb = self.ensp_nom["rtot"]
+        sp_obs_dyb = self._get_obs_spectrum()
 
         cm_dyb_new = CovMatrix(
             data=self.cm_dyb['all'].data * np.outer(s_tot_dyb.bin_cont, s_tot_dyb.bin_cont),
@@ -170,4 +172,13 @@ class DYBDetector:
         _, chi2_dyb = Chi2(cm_dyb_new, sp_obs_dyb, s_tot_dyb, sp_obs_dyb, s_tot_dyb,
                            'all', args_juno.stat_method_opt,
                            pulls=[snf_noneq_norm_dyb], pull_unc=[args_dyb.noneq_unc])
-        return chi2_dyb, sp_obs_dyb, s_tot_dyb
+        return chi2_dyb, sp_obs_dyb, s_tot_dyb, cm_dyb_new
+
+    def _get_obs_spectrum(self):
+        ensp = self.ensp_nom
+        args = self.args_dyb
+        if args.is_data:
+            return ensp['data']
+
+        else:
+            return ensp["rtot"]

@@ -466,20 +466,28 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
             names=names,
         )
         
-        ensp["rtot"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
+        ensp["data"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
         #ensp["rtot"] = GetSpectrumFromROOT("data/groupA_toy/joint_toy_juno_tao_dyb_seed1203.root", "DYB_obs")
         if args.model == "PRL": 
-            ensp["rtot"].GetScaled(1e-43)
-            ensp["rtot"].GetScaled(compute_extrafactors(args,core_baselines=None))
+            ensp["data"].GetScaled(1e-43)
+            ensp["data"].GetScaled(compute_extrafactors(args,core_baselines=None))
         else:
-            ensp["rtot"].GetScaled(extrafactors)
-        ensp["rtot"].GetScaled(ndays)
-        ensp["rtot"].ScaleByBinWidth()
+            ensp["data"].GetScaled(extrafactors)
+        ensp["data"].GetScaled(ndays)
+        ensp["data"].ScaleByBinWidth()
 
 
         if args.rebin_nonuniform:
-            ensp["rtot"].Rebin_nonuniform(args.bins_nonuniform)
-        ensp["data"] = ensp["rtot"]
+            ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
+
+        return (
+                [ensp["data"]],
+                ["DYB expectation", "DYB data"],
+                ["brown", "steelblue"],
+            )
+
+    if args.rebin_nonuniform:
+        ensp["rtot"].Rebin_nonuniform(args.bins_nonuniform)
     
 
     return (
@@ -504,12 +512,14 @@ def _assemble_total_spectrum_tao(ensp, args, ndays):
         ensp["data"].ScaleByBinWidth()
         if args.rebin_nonuniform:
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
-        ensp['rtot'] = ensp['data']
+        
  
+        return  ([ensp['data'], ensp['bckg']],
+                ['TAO expectation', 'TAO data', 'TAO background'],
+                ['brown', 'steelblue', 'orange'])
     return  ([ensp['rtot'], ensp['bckg']],
-            ['TAO expectation', 'TAO data', 'TAO background'],
-            ['brown', 'steelblue', 'orange'])
-
+                ['TAO expectation', 'TAO data', 'TAO background'],
+                ['brown', 'steelblue', 'orange'])
 def _assemble_total_spectrum_juno(ensp, args):
 
     events = {
@@ -620,12 +630,14 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     print("# Building reactor flux …")
 
     if detector == "JUNO" and not args.CI_powers:
+        print("Building spectrum with unblinded powers")
         core_names, core_powers, core_fractions, core_baselines = load_reactor_summary(args.reactor_summary_yaml)
         _build_reactor_flux_per_core(
             ensp, args, ebins, s_ibd, s_bump_lin, ndays,
             core_names, core_powers, core_fractions, core_baselines,
         )
     else:
+        print("Building spectrum with powers from config")
         core_baselines = args.core_baselines
         core_powers    = args.core_powers
         _build_reactor_flux_simple(ensp, args, ebins, s_ibd, s_bump_lin, ndays)
@@ -641,7 +653,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         _build_snf_noneq_corrections_per_core(
             ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
         )
-    if detector == "TAO" or (detector == "DYB" and args.model == "CPC"):
+    else:
         _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd)
 
     # ------------------------------------------------------------------
@@ -699,7 +711,6 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         else:
             ensp["rdet"] = ensp["rdet"]
     else:
-        print("TAO w/o corrections: ", ensp["rdet"].GetIntegral())
         ensp["rdet"] = ensp["rdet"] + ensp["snf_final"] + ensp["noneq_final"]
 
     if args.rebin_nonuniform:
