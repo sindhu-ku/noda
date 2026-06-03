@@ -121,6 +121,10 @@ def write_osc_params(name, val, err):
     value.Write("", ROOT.TObject.kOverwrite)
     error.Write("", ROOT.TObject.kOverwrite)
 
+def write_param_dbl(name, val):
+    value = ROOT.TParameter("double")(f"{name}", val)
+    value.Write("", ROOT.TObject.kOverwrite)
+    
 def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
     import csv
     from scipy.interpolate import CubicSpline

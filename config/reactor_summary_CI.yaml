@@ -1,0 +1,82 @@
+TS:
+  TS1:
+    power:  3.44837 
+    baseline: 52770.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+  TS2:
+    power: 3.52934 
+    baseline: 52640.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+YJ:
+  YJ1: 
+    power: 2.60903 
+    baseline: 52740.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+  YJ2:
+    power: 2.70452
+    baseline: 52820.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+  YJ3: 
+    power: 2.45140
+    baseline: 52410.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+  YJ4:
+    power: 2.49596
+    baseline: 52490.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+  YJ5:
+    power:  2.72569 
+    baseline: 52110.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+  YJ6:
+    power: 2.55129
+    baseline: 52190.0
+    fission_fraction:
+        U235: 0.58
+        U238: 0.07
+        Pu239: 0.3
+        Pu241: 0.05
+DYB:
+  power: 17.400
+  baseline: 215000.0
+  fission_fraction:
+       U235: 0.58
+       U238: 0.07
+       Pu239: 0.3
+       Pu241: 0.05
+FC:
+  power:  12.110
+  baseline: 411000.0
+  fission_fraction:
+       U235: 0.58
+       U238: 0.07
+       Pu239: 0.3
+       Pu241: 0.05

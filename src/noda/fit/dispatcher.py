@@ -250,7 +250,7 @@ def build_chi2(bundles: List[DetectorBundle], policy: ParamPolicy,
                ) -> tuple[Callable, list[str], list[float], dict]:
     det_names, det_starts, routing = mangled_param_table(bundles, policy)
 
-    n_shape = len(args_juno.seg_bins_nonuniform)
+    n_shape = len(args_juno.seg_bins_nonuniform) -1
     E_segments = np.array(args_juno.seg_bins_nonuniform)
     shared_names  = SHARED_PARAM_NAMES + get_shape_nuis_names(n_shape)
     shared_starts = (get_shared_start_values(args_juno)

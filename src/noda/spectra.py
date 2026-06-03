@@ -205,102 +205,102 @@ def _load_nonlinearity(ensp, args, detector):
 # SNF / Non-equilibrium corrections  (JUNO per-core path)
 # ---------------------------------------------------------------------------
 
-def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix, s_ibd, dm2_31):
-    """
-    Build oscillated, smeared SNF and Non-Eq spectra for each of the 10 JUNO
-    cores and accumulate group totals.  Modifies *ensp* in-place.
-    """
-    n_cores = len(core_powers)
+# def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix, s_ibd, dm2_31):
+#     """
+#     Build oscillated, smeared SNF and Non-Eq spectra for each of the 10 JUNO
+#     cores and accumulate group totals.  Modifies *ensp* in-place.
+#     """
+#     n_cores = len(core_powers)
 
-    # --- global HM-only SNF / Noneq base ratios ---
-    for key, hist in [("snf0", "SNF_FluxRatio"), ("noneq0", "NonEq_FluxRatio")]:
-        ensp[key] = GetSpectrumFromROOT(args.input_data_file, hist)
-        ensp[key].Rebin(ebins, mode="spline-not-keep-norm")
+#     # --- global HM-only SNF / Noneq base ratios ---
+#     for key, hist in [("snf0", "SNF_FluxRatio"), ("noneq0", "NonEq_FluxRatio")]:
+#         ensp[key] = GetSpectrumFromROOT(args.input_data_file, hist)
+#         ensp[key].Rebin(ebins, mode="spline-not-keep-norm")
 
-    for suffix, fc_key, db_key in [
-        ("snf",   "snf_FC",   "snf_DB"),
-        ("noneq", "noneq_FC", "noneq_DB"),
-    ]:
-        ensp[fc_key] = interp_to_target(ensp[f"{suffix}0"], ensp["rfis_core8"]).GetWeightedWithSpectrum(ensp["rfis_core8"])
-        ensp[db_key] = interp_to_target(ensp[f"{suffix}0"], ensp["rfis_core9"]).GetWeightedWithSpectrum(ensp["rfis_core9"])
-        del ensp[f"{suffix}0"]
+#     for suffix, fc_key, db_key in [
+#         ("snf",   "snf_FC",   "snf_DB"),
+#         ("noneq", "noneq_FC", "noneq_DB"),
+#     ]:
+#         ensp[fc_key] = interp_to_target(ensp[f"{suffix}0"], ensp["rfis_core8"]).GetWeightedWithSpectrum(ensp["rfis_core8"])
+#         ensp[db_key] = interp_to_target(ensp[f"{suffix}0"], ensp["rfis_core9"]).GetWeightedWithSpectrum(ensp["rfis_core9"])
+#         del ensp[f"{suffix}0"]
 
-    # --- per-core SNF from dedicated histograms (YJ + TS only; HM uses global) ---
-    snf_core = []
-    noneq_core = []
+#     # --- per-core SNF from dedicated histograms (YJ + TS only; HM uses global) ---
+#     snf_core = []
+#     noneq_core = []
 
-    for i in range(n_cores):
-        prefix, core_idx = _CORE_GROUP[i]
-        rfis_i = ensp[f"rfis_core{i}"]
+#     for i in range(n_cores):
+#         prefix, core_idx = _CORE_GROUP[i]
+#         rfis_i = ensp[f"rfis_core{i}"]
 
-        # SNF
-        if i in IDX_HM:
-            # HM cores: use global ratio already weighted per-core
-            fc_or_db = ensp["snf_FC"] if i == 8 else ensp["snf_DB"]
-            snf_core.append(fc_or_db.Copy())
-        else:
-            spec = GetSpectrumFromROOT(args.snf_file, f"Ratio{prefix}ReactorSNF{core_idx}")
-            spec.Rebin(ebins, mode="spline-not-keep-norm")
-            snf_core.append(interp_to_target(spec, rfis_i).GetWeightedWithSpectrum(rfis_i))
+#         # SNF
+#         if i in IDX_HM:
+#             # HM cores: use global ratio already weighted per-core
+#             fc_or_db = ensp["snf_FC"] if i == 8 else ensp["snf_DB"]
+#             snf_core.append(fc_or_db.Copy())
+#         else:
+#             spec = GetSpectrumFromROOT(args.snf_file, f"Ratio{prefix}ReactorSNF{core_idx}")
+#             spec.Rebin(ebins, mode="spline-not-keep-norm")
+#             snf_core.append(interp_to_target(spec, rfis_i).GetWeightedWithSpectrum(rfis_i))
 
-        # Non-equilibrium
-        if i in IDX_HM:
-            fc_or_db = ensp["noneq_FC"] if i == 8 else ensp["noneq_DB"]
-            noneq_core.append(fc_or_db.Copy())
-        else:
-            group_noneq = None
-            for iso, frac in core_fractions[i].items():
-                if iso == "U238":
-                    continue
-                spec = GetSpectrumFromROOT(args.noneq_file, f"{prefix}{core_idx}_{iso}")
-                spec.Rebin(ebins, mode="spline-not-keep-norm")
-                weighted = interp_to_target(spec.GetScaledFit(frac * 0.01), rfis_i).GetWeightedWithSpectrum(rfis_i)
-                group_noneq = weighted.Copy() if group_noneq is None else group_noneq + weighted
-            noneq_core.append(group_noneq)
+#         # Non-equilibrium
+#         if i in IDX_HM:
+#             fc_or_db = ensp["noneq_FC"] if i == 8 else ensp["noneq_DB"]
+#             noneq_core.append(fc_or_db.Copy())
+#         else:
+#             group_noneq = None
+#             for iso, frac in core_fractions[i].items():
+#                 if iso == "U238":
+#                     continue
+#                 spec = GetSpectrumFromROOT(args.noneq_file, f"{prefix}{core_idx}_{iso}")
+#                 spec.Rebin(ebins, mode="spline-not-keep-norm")
+#                 weighted = interp_to_target(spec.GetScaledFit(frac * 0.01), rfis_i).GetWeightedWithSpectrum(rfis_i)
+#                 group_noneq = weighted.Copy() if group_noneq is None else group_noneq + weighted
+#             noneq_core.append(group_noneq)
 
-    # --- YJ shutdown contributions ---
-    def _load_shutdown(hist, core_idx):
-        spec = GetSpectrumFromROOT(args.snf_file, hist)
-        spec.Rebin(ebins, mode="spline-not-keep-norm")
-        return interp_to_target(spec, ensp[f"rfis_core{core_idx}"]).GetWeightedWithSpectrum(ensp[f"rfis_core{core_idx}"])
+#     # --- YJ shutdown contributions ---
+#     def _load_shutdown(hist, core_idx):
+#         spec = GetSpectrumFromROOT(args.snf_file, hist)
+#         spec.Rebin(ebins, mode="spline-not-keep-norm")
+#         return interp_to_target(spec, ensp[f"rfis_core{core_idx}"]).GetWeightedWithSpectrum(ensp[f"rfis_core{core_idx}"])
 
-    snf_core[0] += _load_shutdown("RatioYJReactor1Shutdown", 0)
-    snf_core[3] += _load_shutdown("RatioYJReactor4Shutdown", 3)
+#     snf_core[0] += _load_shutdown("RatioYJReactor1Shutdown", 0)
+#     snf_core[3] += _load_shutdown("RatioYJReactor4Shutdown", 3)
 
-    # --- Accumulate group totals ---
-    for grp in ("snf", "noneq"):
-        for lbl in ("YJ", "TS", "HM", "final", "osc"):
-            ensp[f"{grp}_{lbl}"] = _zero_spectrum(ebins)
+#     # --- Accumulate group totals ---
+#     for grp in ("snf", "noneq"):
+#         for lbl in ("YJ", "TS", "HM", "final", "osc"):
+#             ensp[f"{grp}_{lbl}"] = _zero_spectrum(ebins)
 
-    for i in range(n_cores):
-        s_i = snf_core[i]
-        n_i = noneq_core[i]
+#     for i in range(n_cores):
+#         s_i = snf_core[i]
+#         n_i = noneq_core[i]
 
-        s_osc = s_i.GetOscillated(
-            L=[core_baselines[i]], core_powers=[core_powers[i]],
-            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args, 
-        )
-        n_osc = n_i.GetOscillated(
-            L=[core_baselines[i]], core_powers=[core_powers[i]],
-            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
-        )
-        ensp["snf_osc"] +=  s_osc
-        ensp["noneq_osc"] += n_osc
+#         s_osc = s_i.GetOscillated(
+#             L=[core_baselines[i]], core_powers=[core_powers[i]],
+#             me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args, 
+#         )
+#         n_osc = n_i.GetOscillated(
+#             L=[core_baselines[i]], core_powers=[core_powers[i]],
+#             me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
+#         )
+#         ensp["snf_osc"] +=  s_osc
+#         ensp["noneq_osc"] += n_osc
         
-        final_snf_i   = _apply_full_energy_response(s_osc, args, ensp, resp_matrix, s_ibd)
-        final_noneq_i = _apply_full_energy_response(n_osc, args, ensp, resp_matrix, s_ibd)
+#         final_snf_i   = _apply_full_energy_response(s_osc, args, ensp, resp_matrix, s_ibd)
+#         final_noneq_i = _apply_full_energy_response(n_osc, args, ensp, resp_matrix, s_ibd)
 
-        ensp["snf_final"]   += final_snf_i
-        ensp["noneq_final"] += final_noneq_i
+#         ensp["snf_final"]   += final_snf_i
+#         ensp["noneq_final"] += final_noneq_i
 
-        group_label = _CORE_GROUP[i][0]   # "YJ", "TS", or "HM"
-        ensp[f"snf_{group_label}"]   += final_snf_i
-        ensp[f"noneq_{group_label}"] += final_noneq_i
+#         group_label = _CORE_GROUP[i][0]   # "YJ", "TS", or "HM"
+#         ensp[f"snf_{group_label}"]   += final_snf_i
+#         ensp[f"noneq_{group_label}"] += final_noneq_i
 
-        print(f"{group_label}{i}  snf={s_i.GetIntegral():.2f}  noneq={n_i.GetIntegral():.2f}")
+#         print(f"{group_label}{i}  snf={s_i.GetIntegral():.2f}  noneq={n_i.GetIntegral():.2f}")
 
-    print(f"Final SNF Integral:   {ensp['snf_final'].GetIntegral():.2f}")
-    print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral():.2f}")
+#     print(f"Final SNF Integral:   {ensp['snf_final'].GetIntegral():.2f}")
+#     print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral():.2f}")
 
 
 def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd):
@@ -329,6 +329,68 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd):
         ensp["noneq_final"] = _apply_positron_energy(ensp["noneq"], args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
 
+def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions,
+                                          core_baselines, core_powers,
+                                          resp_matrix, s_ibd, dm2_31):
+    """
+    Per-core SNF / Non-Eq corrections using the COMMON flux-ratio histograms
+    (SNF_FluxRatio / NonEq_FluxRatio from args.input_data_file) for every core.
+
+    Each core's correction is the global ratio weighted by that core's
+    IBD-folded flux (rfis_core{i}), oscillated with the core's own
+    baseline/power, then run through the full energy-response chain.
+    Group totals (YJ / TS / HM), the summed final spectra, and the
+    pre-response oscillated sums are accumulated in-place on *ensp*.
+
+    NOTE: core_fractions is accepted for call-site compatibility but no
+    longer used — all cores share the common ratio.
+    """
+    n_cores = len(core_powers)
+
+    # --- common SNF / Non-eq flux ratios (same histogram for all cores) ---
+    for key, hist in [("snf0", "SNF_FluxRatio"), ("noneq0", "NonEq_FluxRatio")]:
+        ensp[key] = GetSpectrumFromROOT(args.input_data_file, hist)
+        ensp[key].Rebin(ebins, mode="spline-not-keep-norm")
+
+    # --- per-core, weighted by each core's flux (already on ebins → no interp) ---
+    snf_core   = [ensp["snf0"].GetWeightedWithSpectrum(ensp[f"rfis_core{i}"])
+                  for i in range(n_cores)]
+    noneq_core = [ensp["noneq0"].GetWeightedWithSpectrum(ensp[f"rfis_core{i}"])
+                  for i in range(n_cores)]
+
+    del ensp["snf0"], ensp["noneq0"]
+
+    # --- zero the accumulators ---
+    for grp in ("snf", "noneq"):
+        for lbl in ("YJ", "TS", "HM", "final", "osc"):
+            ensp[f"{grp}_{lbl}"] = _zero_spectrum(ebins)
+
+    for i in range(n_cores):
+        s_osc = snf_core[i].GetOscillated(
+            L=[core_baselines[i]], core_powers=[core_powers[i]],
+            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args)
+        n_osc = noneq_core[i].GetOscillated(
+            L=[core_baselines[i]], core_powers=[core_powers[i]],
+            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args)
+
+        ensp["snf_osc"]   += s_osc
+        ensp["noneq_osc"] += n_osc
+
+        final_snf_i   = _apply_full_energy_response(s_osc, args, ensp, resp_matrix, s_ibd)
+        final_noneq_i = _apply_full_energy_response(n_osc, args, ensp, resp_matrix, s_ibd)
+
+        ensp["snf_final"]   += final_snf_i
+        ensp["noneq_final"] += final_noneq_i
+
+        grp = _CORE_GROUP[i][0]   # "YJ", "TS", or "HM"
+        ensp[f"snf_{grp}"]   += final_snf_i
+        ensp[f"noneq_{grp}"] += final_noneq_i
+
+        print(f"{grp}{i}  snf={snf_core[i].GetIntegral():.2f}  "
+              f"noneq={noneq_core[i].GetIntegral():.2f}")
+
+    print(f"Final SNF Integral:   {ensp['snf_final'].GetIntegral():.2f}")
+    print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral():.2f}")
 # ---------------------------------------------------------------------------
 # Reactor flux builders
 # ---------------------------------------------------------------------------
@@ -403,6 +465,7 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
         vis = _apply_positron_energy(spec_scaled, args, s_ibd=s_ibd)
         vis_nl = _apply_nonlinearity(vis, args, ensp)
         reco = vis_nl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        reco.GetScaled(args.detector_efficiency)
         if args.rebin_nonuniform:
             reco.Rebin_nonuniform(args.bins_nonuniform)
         return reco
@@ -431,10 +494,12 @@ def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_
         scale = float(info["rate"]) * ndays / (args.duty_cycle * ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
 
+        if key == "wr" or key == "geo" or key == "atm":
+            ensp[key].GetScaled(args.detector_efficiency)
         if args.rebin_nonuniform:
             ensp[key].Rebin_nonuniform(args.bins_nonuniform)
 
-        print(f"  {key}: {ensp[key].GetIntegral():.2f}  (rate={info['rate']})")
+        print(f"  {key}: {ensp[key].GetIntegral():.2f}  (rate={info['rate']*args.detector_efficiency})")
         bckg = ensp[key] if bckg is None else bckg + ensp[key]
 
     return bckg
@@ -579,12 +644,38 @@ def _print_juno_event_summary(ev):
 # Optional write-out
 # ---------------------------------------------------------------------------
 
-def _write_juno_output(ensp, args, backgrounds):
+def _write_juno_output(ensp,ndays, args, backgrounds):
+    from .fit.minuit import write_param_dbl
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
-    ensp["rdet"].WritetoROOT("reactor", tag, "prefit")
-    for key in backgrounds["JUNO"]:
-        ensp[key].WritetoROOT(key, tag, "prefit")
+    output_file = ROOT.TFile(tag, "update")
+   
+    juno_dir = output_file.mkdir("juno")
+    juno_dir.cd()
+    write_param_dbl("LivetimeDays", ndays)
+    
+    dir_pre = juno_dir.mkdir("prefit")
+    dir_pre.cd()
+    write_param_dbl("Efficiency", args.detector_efficiency)
+    output_file.Close()
+    
 
+    ensp["rdet"].WritetoROOT("reactor", tag, "juno/prefit")
+    ensp["rtot"].WritetoROOT("totalpred", tag, "juno/prefit")
+    for key in backgrounds["JUNO"]:
+        ensp[key].WritetoROOT(key, tag, "juno/prefit")
+    if args.is_data: ensp["data"].WritetoROOT("data", tag, "juno")
+
+
+        
+def _write_dyb_output(ensp, args, backgrounds):
+    tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
+    output_file = ROOT.TFile(tag, "update")
+   
+    output_file.mkdir("dyb")
+    output_file.Close()
+
+    ensp["rdet"].WritetoROOT("totalpred", tag, "dyb/prefit")
+    if args.is_data: ensp["data"].WritetoROOT("data", tag, "dyb")
 
 # ---------------------------------------------------------------------------
 # Main entry point
@@ -629,18 +720,22 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     # ------------------------------------------------------------------
     print("# Building reactor flux …")
 
-    if detector == "JUNO" and not args.CI_powers:
+    if detector == "JUNO": # and not args.CI_powers:
         print("Building spectrum with unblinded powers")
         core_names, core_powers, core_fractions, core_baselines = load_reactor_summary(args.reactor_summary_yaml)
         _build_reactor_flux_per_core(
             ensp, args, ebins, s_ibd, s_bump_lin, ndays,
             core_names, core_powers, core_fractions, core_baselines,
         )
+        _build_snf_noneq_corrections_per_core(
+            ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
+        )
     else:
         print("Building spectrum with powers from config")
         core_baselines = args.core_baselines
         core_powers    = args.core_powers
         _build_reactor_flux_simple(ensp, args, ebins, s_ibd, s_bump_lin, ndays)
+        _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd)
 
     print(f"  Expected IBDs (no osc):  {ensp['rfis'].GetIntegral():.2f}")
 
@@ -649,13 +744,10 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     # ------------------------------------------------------------------
     print("# Building SNF / non-eq corrections …")
 
-    if detector == "JUNO" and not args.CI_powers:
-        _build_snf_noneq_corrections_per_core(
-            ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
-        )
-    else:
-        _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd)
+    #if detector == "JUNO" and not args.CI_powers:
 
+    # else:
+    #
     # ------------------------------------------------------------------
     # 4. Oscillated spectrum
     # ------------------------------------------------------------------
@@ -751,11 +843,11 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_juno(ensp, args)
 
         if args.write_output:
-            _write_juno_output(ensp, args, backgrounds)
+            _write_juno_output(ensp, ndays, args, backgrounds)
 
     elif detector == "DYB":
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_dyb(ensp, args, ndays)
-
+        if args.write_output: _write_dyb_output(ensp, args, backgrounds)
     elif detector == "TAO":
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_tao(ensp, args, ndays)
 
@@ -766,7 +858,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             extra_spectra=extra_spectra,
             leg_labels=leg_labels,
             colors=colors,
-            xmin=0.7, xmax=12.0, ymin=1e-3, log_scale=False,
+            xmin=0.7, xmax=12.0, ymin=1e-3, log_scale=True,
         )
     # ------------------------------------------------------------------
     # 8. Diagnostics

@@ -7,7 +7,7 @@ JUNO:
     rate: 3.6017
     rate_unc: 0.835800
     b2b_unc: 0.3
-    b2b_scale: 0.1
+    b2b_scale: 0.04
     name: "$^{9}$Li / $^{8}$He"
     correlate_phase: true
     correlate_shell: true
@@ -15,8 +15,8 @@ JUNO:
   geo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June1_shell_TTree.root"
     histname: "prefit/geo" #GeoNuHistogramAD"
-    rate: 1.2209750 #1.4831250 #1.239 #1.147
-    rate_unc: 0.4
+    rate: 1.75 #1.2209750 #1.4831250 #1.239 #1.147
+    rate_unc: 0.0
     b2b_unc: 0.05
     b2b_scale: 0.0
     name: "Geoneutrinos"
@@ -26,7 +26,7 @@ JUNO:
   wr:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/WR.root" 
     histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
-    rate: 0.87910200  #886 #1.185
+    rate: 1.26 # 0.87910200  #886 #1.185
     rate_unc: 0.1
     b2b_unc: 0.05
     b2b_scale: 0.0
@@ -40,7 +40,7 @@ JUNO:
     rate: 0.4
     rate_unc: 0.5
     b2b_unc: 0.05
-    b2b_scale: 0.1
+    b2b_scale: 0.04
     name: "$^{214}$Bi"
     correlate_phase: false
     correlate_shell: false
@@ -51,7 +51,7 @@ JUNO:
     rate: 0.129400
     rate_unc: 0.005
     b2b_unc: 0.03
-    b2b_scale: 0.1
+    b2b_scale: 0.04
     name: "Accidentals"
     correlate_phase: true
     correlate_shell: true
@@ -62,7 +62,7 @@ JUNO:
     rate: 0.05
     rate_unc: 1.0
     b2b_unc: 0.15
-    b2b_scale: 0.1
+    b2b_scale: 0.04
     name: "Double neutrons"
     correlate_phase: true
     correlate_shell: false
@@ -70,7 +70,7 @@ JUNO:
   atm:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June1_shell_TTree.root"
     histname: "prefit/atm" #AtmosphericNeutrinoModelGENIE2"
-    rate:  0.10465500
+    rate:  0.15 #0.10465500
     rate_unc: 0.5
     b2b_unc: 0.5
     b2b_scale: 0.0
@@ -95,7 +95,7 @@ JUNO:
     rate: 0.12
     rate_unc: 1.0
     b2b_unc: 0.15
-    b2b_scale: 0.1
+    b2b_scale: 0.04
     name: "Fast neutrons"
     correlate_phase: true
     correlate_shell: true

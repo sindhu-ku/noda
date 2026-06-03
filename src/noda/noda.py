@@ -836,7 +836,6 @@ class Spectrum:
     bins = self.bins
     bin_cont = self.bin_cont
 
-    print("Bins", len(bins))
     # Create the histogram
     # Note: ROOT.gDirectory will now point to your target folder
     hist = ROOT.TH1D(histname, histname, len(bins) - 1, array('d', bins))
@@ -1614,18 +1613,28 @@ import numpy as np
 #     # Transform back and subtract the 1 to return to "shift" space
 #     return np.exp(interp_log) - 1.0
 
-def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
+# def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
+#     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
 
+#     expanded_nuisance = np.zeros_like(fine_centers)
+
+#     indices = np.digitize(fine_centers, coarse_edges) - 1
+
+#     valid_mask = (indices >= 0) & (indices < len(nuisance_coarse))
+
+#     expanded_nuisance[valid_mask] = np.array(nuisance_coarse)[indices[valid_mask]]
+
+#     return expanded_nuisance
+def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
-    
     expanded_nuisance = np.zeros_like(fine_centers)
-    
+
     indices = np.digitize(fine_centers, coarse_edges) - 1
-    
-    valid_mask = (indices >= 0) & (indices < len(nuisance_coarse))
-    
-    expanded_nuisance[valid_mask] = np.array(nuisance_coarse)[indices[valid_mask]]
-    
+
+    n_bins = len(coarse_edges) -1         # number of coarse segments
+    valid_mask = (indices >= 0) & (indices < n_bins)
+
+    expanded_nuisance[valid_mask] = np.asarray(nuisance_coarse)[indices[valid_mask]]
     return expanded_nuisance
     
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
@@ -1800,6 +1809,7 @@ def load_reactor_summary(yaml_path="data/reactor_data.yaml"):
             core_baselines.append(entry.get('baseline', 0.0))
 
     return core_names, np.array(core_powers), core_fractions, np.array(core_baselines)
+    
 def rebin_cov_matrix(cov, target_bins):
     def expand_edges(bins):
         bins = np.asarray(bins)

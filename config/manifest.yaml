@@ -16,8 +16,9 @@
 # When you mix (some phases have shells, some don't) the no-shell ones
 # get shell='ALL'. The single-config legacy run also keeps working.
 
-P25C: config/240-day_FV165/AllP_Jun2026.yaml #P25C_prl2025.yaml
+#P25C: config/P25C_prl2025.yaml
 #P25D: config/P25D.yaml
+AllP: config/240-day_FV165/AllP_Jun2026.yaml 
 # phase1: 
 #     FV1: config/240-day/phase1.yaml
 #     FV2: config/240-day/phase1.yaml

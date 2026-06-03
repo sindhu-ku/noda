@@ -59,14 +59,16 @@ class JUNODetector:
             for frac in core_fractions:
                 fission_fracs.append([frac['U235'], frac['U238'],
                                        frac['Pu239'], frac['Pu241']])
-            self.fission_fracs = fission_fracs
-            self.fission_fracs = np.asarray(fission_fracs, dtype=float)
+
         else:
             for power in core_powers_std:
                 fission_fracs.append([self.args.U235_scale, self.args.U238_scale,
                                    self.args.Pu239_scale, self.args.Pu241_scale])
-            self.fission_fracs = fission_fracs
-            
+
+        
+        self.fission_fracs = fission_fracs
+        self.fission_fracs = np.asarray(fission_fracs, dtype=float)
+        
         fission_arrays = np.zeros((n_cores, len(dummy_sp.bin_cont)))
         for i in range(n_cores):
             if args_juno.CI_powers:
@@ -672,7 +674,7 @@ class JUNODetector:
         if eff_nuis:
             pulls.append(eff_nuis)
             pull_unc.append(args.eff_unc)
-            s_juno.GetScaled(1 + eff_nuis)
+            s_juno = s_juno.GetScaledFit(1 + eff_nuis)
 
         # ── reactor normalisation ────────────────────────────────────────────
         if Nrea:
@@ -726,7 +728,8 @@ class JUNODetector:
                 pull_unc.append(info["sigma"])
 
             bckg = bckg.GetScaledFit(1 + info["pull"])
-
+            if bckg == "geo" or bckg == "wr" or bckg =="atm": 
+                bckg = bckg.GetScaledFit(1 + eff_nuis)
             if info["b2b"] > 0:
                 b2bunc = info["b2b"]
                 if cm_bckg is None:

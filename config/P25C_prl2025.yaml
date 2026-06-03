@@ -36,7 +36,7 @@ fit_options:
   save_prefit: True
   use_prefit: False
   prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/P25_data.npz
-  include_tao: True
+  include_tao: False
   include_dyb: True
   geo_fit: true
   apply_bump: true
@@ -184,7 +184,7 @@ juno_inputs:
     # - [9.0, 10.0, 2]
     # - [10.0, 12.0, 1]
 
-  seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
+  seg_bins_nonuniform: [1.8000, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
     
   U235_scale: 0.58
   U238_scale: 0.07

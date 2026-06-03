@@ -129,8 +129,8 @@ class DYBDetector:
         s_dyb = rfis_param_dyb
         if self.is_cpc: s_dyb = s_dyb.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=self.args_juno.input_data_file, tf2name=self.args_juno.pos_ene_TF2)
         s_dyb = s_dyb.ApplyDetResp(self.rm_dyb, pecrop=self.args_dyb.ene_crop) 
-        self._dyb_spec_cache[key] = s_dyb
-        return s_dyb
+        self._dyb_spec_cache[key] = (s_dyb, rfis_param_dyb)
+        return s_dyb, rfis_param_dyb
 
     # ════════════════════════════════════════════════════════════════════════
     #  chi2 contribution
@@ -152,7 +152,7 @@ class DYBDetector:
             return self._get_chi2_dyb_dagflow(nuisance_coarse)
 
         # ── direct PMOP path ─────────────────────────────────────────────────
-        s_dyb = self._get_dyb_spectrum(nuisance_coarse, E_segments)
+        s_dyb, ibd_postfit = self._get_dyb_spectrum(nuisance_coarse, E_segments)
 
         if self.is_cpc:
             noneq = self.ensp_nom["noneq_final"].GetScaledFit(1 + snf_noneq_norm_dyb)
@@ -172,7 +172,7 @@ class DYBDetector:
         _, chi2_dyb = Chi2(cm_dyb_new, sp_obs_dyb, s_tot_dyb, sp_obs_dyb, s_tot_dyb,
                            'all', args_juno.stat_method_opt,
                            pulls=[snf_noneq_norm_dyb], pull_unc=[args_dyb.noneq_unc])
-        return chi2_dyb, sp_obs_dyb, s_tot_dyb, cm_dyb_new
+        return chi2_dyb, sp_obs_dyb, s_tot_dyb, cm_dyb_new, ibd_postfit
 
     def _get_obs_spectrum(self):
         ensp = self.ensp_nom
