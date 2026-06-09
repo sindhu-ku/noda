@@ -406,10 +406,11 @@ class JUNODetector:
             Th = Th.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC, kI=kI, LY_shared=LY_shared)
             U = U.ApplyDetResp(self.rm, pecrop=args.ene_crop)
             Th = Th.ApplyDetResp(self.rm, pecrop=args.ene_crop)
+            geo_sp = U + Th
+            geo_sp.GetScaled(args.detector_efficiency)
             if args.rebin_nonuniform:
-                U.Rebin_nonuniform(args.bins_nonuniform)
-                Th.Rebin_nonuniform(args.bins_nonuniform)
-            self._geo_spectrum_cache[key] = Th + U
+                geo_sp.Rebin_nonuniform(args.bins_nonuniform)
+            self._geo_spectrum_cache[key] = geo_sp
         return self._geo_spectrum_cache[key]
 
     def _get_geo_spectrum_pull(self, ThU_ratio, NL, abc, new_nonl, resp_matrix):
@@ -445,10 +446,12 @@ class JUNODetector:
                                                    spectrum=new_nonl, LY_shared=NL[4])
             U_final  = U_nonl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
             Th_final = Th_nonl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-            if args.rebin_nonuniform:
-                U_final.Rebin_nonuniform(args.bins_nonuniform)
-                Th_final.Rebin_nonuniform(args.bins_nonuniform)
+
             bckg = U_final + Th_final
+            bckg.GetScaled(args.detector_efficiency)
+            if args.rebin_nonuniform:
+                bckg.Rebin_nonuniform(args.bins_nonuniform)
+            self._geo_spectrum_cache[key] = bckg
         
             # ── store (with FIFO eviction) ──────────────────────────────────────
             if len(self._geo_spectrum_cache) > 100:
@@ -471,7 +474,7 @@ class JUNODetector:
             bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
             rate  = self.backgrounds['JUNO']['wr']['rate']
             scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
-            bckg  = bckg.GetScaledFit(scale)
+            bckg  = bckg.GetScaledFit(scale*args.detector_efficiency)
             bckg.Rebin_nonuniform(args.bins_nonuniform)
             self._wr_spectrum_cache[key] = bckg
         return self._wr_spectrum_cache[key]
@@ -710,7 +713,7 @@ class JUNODetector:
                     bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
                     rate  = self.backgrounds['JUNO']['wr']['rate']
                     scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
-                    bckg  = bckg.GetScaledFit(scale)
+                    bckg  = bckg.GetScaledFit(scale*args.detector_efficiency)
                     if args.rebin_nonuniform:
                         bckg.Rebin_nonuniform(args.bins_nonuniform)
                 else:
@@ -728,8 +731,10 @@ class JUNODetector:
                 pull_unc.append(info["sigma"])
 
             bckg = bckg.GetScaledFit(1 + info["pull"])
+            
             if bckg == "geo" or bckg == "wr" or bckg =="atm": 
                 bckg = bckg.GetScaledFit(1 + eff_nuis)
+                
             if info["b2b"] > 0:
                 b2bunc = info["b2b"]
                 if cm_bckg is None:

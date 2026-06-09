@@ -2,17 +2,17 @@ config: ''
 # Fit options configuration
 
 fit_options:
-  is_data: false
+  is_data: true
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: DYB # PDG option
+  PDG_opt: DYB #PDG option
   NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
-  plot_correlation: false
+  plot_correlation: true
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
@@ -25,7 +25,7 @@ fit_options:
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
-  pull_dm2_31_lbl: true #false
+  pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.035e-03
   dm2_31_lbl: 0.0025043000
   theta23: 43.279
@@ -35,8 +35,8 @@ fit_options:
   fit_mode: prefit_wosegs
   save_prefit: True
   use_prefit: False
-  prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/phase1_data.npz
-  include_tao: True
+  prefit_path: /junofs/users/sindhu/NODA/noda/prefit_data/Phase1_data.npz
+  include_tao: False
   include_dyb: True
   geo_fit: true
   apply_bump: true
@@ -61,15 +61,17 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: False
-  file_prefix: 'phase1'
+  file_prefix: 'Inputs-C_DR-C_Enomoto'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
-  backgrounds_yaml: /junofs/users/sindhu/NODA/noda/config/240-day/backgrounds_phase1.yaml
+  backgrounds_yaml: /junofs/users/sindhu/NODA/noda/config/240-day_FV165/backgrounds_phase1.yaml
   input_data_file: /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #data file
   geo_file: /junofs/users/sindhu/NODA/noda/data/geo_raw_Nov2723.root
+  geoU_file: /junofs/users/sindhu/NODA/noda/data/U238_Enomoto.txt
+  geoTh_file: /junofs/users/sindhu/NODA/noda/data/Th232_Enomoto.txt
   geo_MC_U_file: /junofs/users/sindhu/NODA/noda/data/geo_U_promptFV.root
   geo_MC_Th_file: /junofs/users/sindhu/NODA/noda/data/geo_Th_promptFV.root
   geo_MC_file: /junofs/users/sindhu/NODA/noda/data/xc_pdfs_2023-08-25.root
@@ -122,10 +124,10 @@ common_det_inputs:
     GC: 0.259 #0.285
     CC: 0.091 #0.081
 
-  geo_tnu_rate: 1.4831250 #44.25 #40 #37.95 #40.0
+  geo_tnu_rate: 1.75 #1.2554280 #44.25 #40 #37.95 #40.0
   tnu_to_cpd: 1. #0.028010356 # 0.027773315 #0.032387707
-  geo_rate: 1.4831250 #1.2955 #1.229 # 1.239 #1.255 #1.147
-  wr_rate: 1.0678500 #0.892 #0.78 #0.903 #1.185
+  geo_rate: 1.75 #1.2554280 #1.2955 #1.229 # 1.239 #1.255 #1.147
+  wr_rate: 1.26 #0.90390814 #0.892 #0.78 #0.903 #1.185
 
   me_rho: 2.45
   me_rho_scale: 0.15
@@ -153,9 +155,9 @@ common_det_inputs:
 
 juno_inputs:
   reactor_summary_yaml:  /junofs/users/sindhu/NODA/noda/config/reactor_summary.yaml
-  stat_opt: 57.1117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
-  detector_efficiency: 0.8475 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
-  eff_unc: 0.02086471217 #rel
+  stat_opt: 57.09735092days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  detector_efficiency: 0.7046 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  eff_unc: 0.02087689979 #rel
   bins: 601
   min_ene: 0.0  # Minimum energy
   max_ene: 12
@@ -163,8 +165,12 @@ juno_inputs:
     - 0.0
     - 12.0
   NL: real
-  NL_data_file:  /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: /junofs/users/sindhu/NODA/noda/Spectra_May27/GroupC_spectra_P26B_phase_1_FV17.2_May27.root
+  NL_data_file:  /junofs/users/sindhu/NODA/noda/data/groupA_toy/joint_config_and_inputs.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
+  nl_hist_name: juno/positronNL_Reprod25C_nominal_v3
+  nl_pull_hist_name: juno/positronNL_Reprod25C_pullkey_v3
+
+  data_spectrum: /junofs/users/sindhu/NODA/noda/data/June1_2026/GroupC_spectra_P26B_phase_1_FV16.5_June4_shell_TTree.root_100keV.root
+  det_resp_file: /junofs/users/sindhu/NODA/noda/data/phase1_cov_er.txt
   data_hist_name: data
   rebin_nonuniform: true
   bins_nonuniform: 
@@ -183,7 +189,7 @@ juno_inputs:
     # - [9.0, 10.0, 2]
     # - [10.0, 12.0, 1]
 
-  seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
+  seg_bins_nonuniform: [1.8000, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
     
   U235_scale: 0.58
   U238_scale: 0.07
@@ -199,37 +205,37 @@ juno_inputs:
   Np: 1.442e+33 
 
   veto: 1.0
-  nl_hist_name: J22rc0_positronScintNL
   NL_sd: 1.0
 
-  #Padova
-  a: 3.35364040e-02 #3.36449744e-02 #0.033 #0.03364345
-  b: 1.53220897e-02 #1.52257960e-02 # 0.015229000 #0.00839  #0.009 #0.00839
-  c: 0.0 #0.000 
+  a: 3.521059025008223958e-02
+  b: 1.371078124381019253e-02
+  c: 0.0 #1.222285580508436498e-04
+  kB: 1.550084076173213928e-02
+  fC: 3.730705605582284590e-01
+  kI: 7.670292387190972422e-04
+  LY_shared: 1.007829025064929995e+00
 
-  # #Irvine
-  # a: 3.15289041e-02
-  # b: 9.39472257e-03
-  # # c: 0.0
-  # a: 0.02614
-  # b: 0.0064
-  # c: 0.012
+  # a: 3.517944461165916498e-02
+  # b: 1.372863076740267300e-02
+  # c: 6.181655904754200254e-05
+  # kB: 1.415822396083132872e-02
+  # fC: 4.877687600989261130e-01
+  # kI: 9.287726070120412352e-04
+  # LY_shared: 1.007732908570532659e+00
+  
+  # a: 0.03309584607586899 #3.35364040e-02 #3.36449744e-02 #0.033 #0.03364345
+  # b: 0.012800782361086107 #1.53220897e-02 #1.52257960e-02 # 0.015229000 #0.00839  #0.009 #0.00839
+  # c: 1.4034481351347133e-05 #0.0 #0.000 
 
-  #Irvine
-  a_err: 5.52553579e-04
-  b_err: 6.05760616e-04
-  c_err: 7.60974158e-04
+  # a_err: 0.0033095846 # 5.52553579e-04
+  # b_err: 0.00038389546 #6.05760616e-04
+  # c_err: 0.0030482893 #7.60974158e-04
 
-  #Padova
-  kB: 1.33122880e-02 #1.45305820e-02 #0.016439 #0.0162 #0.016439
-  fC: 6.58328259e-01 #4.70417566e-01 #0.22315 #0.42 #0.22315
-  kI: 2.76166818e-03 #1.36409561e-03
-  LY_shared: 1.00439834e+00 #1.00436611e+00
 
 
   param_sp: data/unoscillated_spectrum_param_v1.dat
   param_cov: data/COVARIANCE_param_v1.dat
-
+  ene_scale_unc: 0.005
 
 #  # Uncertainty list
   unc_list_juno:
@@ -261,6 +267,7 @@ dyb_inputs:
   NL: na
   NL_data_file: /junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
   iav_matrix_file: data/dyb_iav_matrix.txt
+  
   dagflow_data: ../dayabay-model/data/
   custom_bin_edges: ../dayabay-model/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
   rebin_nonuniform:  True
@@ -269,7 +276,9 @@ dyb_inputs:
     - [1.25, 7.0, 23]
     - [7.0, 8.0, 1]
 
-  
+  # bins_nonuniform:
+  #   - [0.7, 1.0, 1]
+  #   - [1.0, 8.0, 140]
   U235_scale: 0.564
   U238_scale: 0.076
   Pu239_scale: 0.304
@@ -304,6 +313,10 @@ dyb_inputs:
 
   dyb_spectrum: /junofs/users/sindhu/NODA/noda/data/dyb_spectra_prl.txt
   dyb_cm: /junofs/users/sindhu/NODA/noda/data/dyb_cov_matrix_prl.txt
+  
+  # dyb_spectrum: /junofs/users/sindhu/NODA/noda/data/dyb_spectra.txt
+  # dyb_cm: /junofs/users/sindhu/NODA/noda/data/dyb_cov_matrix.txt
+  
   dyb_resp_matrix: /junofs/users/sindhu/NODA/noda/data/dyb_resp_matrix.txt
     #   - stat+eff
     #   - stat+r2
@@ -340,11 +353,10 @@ tao_inputs:
   rebin_nonuniform:  True
   bins_nonuniform:
     - [0.8, 0.94, 1]
-    - [0.94, 7.94, 70]
-    #- [7.44, 7.8, 9]
-    - [7.94, 8.2, 2]
+    - [0.94, 7.44, 65]
+    - [7.44, 7.8, 3]
+    - [7.8, 8.2, 4]
     - [8.2, 12, 1]
-  
   U235_scale: 0.561
   U238_scale: 0.077
   Pu239_scale: 0.318

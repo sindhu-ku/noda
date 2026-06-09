@@ -12,7 +12,7 @@ fit_options:
   stat_method_opt: CNP #NorP, CNP, or bayesian
   grid_scan: false # if not grid scan, iminuit is run
   plot_minuit_matrix: false
-  plot_correlation: false
+  plot_correlation: true
   plot_minuit_profiles: false
   plot_spectra: true
   print_minuit_correlation: false
@@ -61,7 +61,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: False
-  file_prefix: 'P25C_Jun1-26'
+  file_prefix: 'Inputs-P25C_DR-P25C_Yuefeng'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -70,6 +70,8 @@ fit_options:
   backgrounds_yaml: /junofs/users/sindhu/NODA/noda/config/backgrounds_P25C.yaml
   input_data_file: /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #data file
   geo_file: /junofs/users/sindhu/NODA/noda/data/geo_raw_Nov2723.root
+  geoU_file: /junofs/users/sindhu/NODA/noda/data/U238_Enomoto.txt
+  geoTh_file: /junofs/users/sindhu/NODA/noda/data/Th232_Enomoto.txt
   geo_MC_U_file: /junofs/users/sindhu/NODA/noda/data/geo_U_promptFV.root
   geo_MC_Th_file: /junofs/users/sindhu/NODA/noda/data/geo_Th_promptFV.root
   geo_MC_file: /junofs/users/sindhu/NODA/noda/data/xc_pdfs_2023-08-25.root
@@ -122,10 +124,10 @@ common_det_inputs:
     GC: 0.259 #0.285
     CC: 0.091 #0.081
 
-  geo_tnu_rate: 1.2554280 #44.25 #40 #37.95 #40.0
+  geo_tnu_rate: 1.75 #1.2554280 #44.25 #40 #37.95 #40.0
   tnu_to_cpd: 1. #0.028010356 # 0.027773315 #0.032387707
-  geo_rate: 1.2554280 #1.2955 #1.229 # 1.239 #1.255 #1.147
-  wr_rate: 0.90390814 #0.892 #0.78 #0.903 #1.185
+  geo_rate: 1.75 #1.2554280 #1.2955 #1.229 # 1.239 #1.255 #1.147
+  wr_rate: 1.26 #0.90390814 #0.892 #0.78 #0.903 #1.185
 
   me_rho: 2.45
   me_rho_scale: 0.15
@@ -163,7 +165,10 @@ juno_inputs:
     - 0.0
     - 12.0
   NL: real
-  NL_data_file:  /junofs/users/sindhu/NODA/noda/data/JUNOInputs2022_05_08.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
+  NL_data_file:   /junofs/users/sindhu/NODA/noda/data/groupA_toy/joint_config_and_inputs.root #/junofs/users/sindhu/NODA/noda/data/Irvine_NL_inputs_nov13_2025.root
+  nl_hist_name: juno/positronNL_Reprod25C_nominal_v3
+  nl_pull_hist_name: juno/positronNL_Reprod25C_pullkey_v3
+  ene_scale_unc: 0.005
   data_spectrum: /junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root
   det_resp_file: /junofs/users/sindhu/NODA/noda/data/P25C_cov_er.txt
   data_hist_name: data
@@ -200,32 +205,25 @@ juno_inputs:
   Np: 1.442e+33 
 
   veto: 1.0
-  nl_hist_name: J22rc0_positronScintNL
   NL_sd: 1.0
 
-  #Padova
   a: 3.35364040e-02 #3.36449744e-02 #0.033 #0.03364345
   b: 1.53220897e-02 #1.52257960e-02 # 0.015229000 #0.00839  #0.009 #0.00839
   c: 0.0 #0.000 
-
-  # #Irvine
-  # a: 3.15289041e-02
-  # b: 9.39472257e-03
-  # # c: 0.0
-  # a: 0.02614
-  # b: 0.0064
-  # c: 0.012
-
-  #Irvine
-  a_err: 5.52553579e-04
-  b_err: 6.05760616e-04
-  c_err: 7.60974158e-04
-
-  #Padova
   kB: 1.33122880e-02 #1.45305820e-02 #0.016439 #0.0162 #0.016439
   fC: 6.58328259e-01 #4.70417566e-01 #0.22315 #0.42 #0.22315
   kI: 2.76166818e-03 #1.36409561e-03
   LY_shared: 1.00439834e+00 #1.00436611e+00
+
+  # a: 3.521059025008223958e-02
+  # b: 1.371078124381019253e-02
+  # c: 1.222285580508436498e-04
+  # kB: 1.550084076173213928e-02
+  # fC: 3.730705605582284590e-01
+  # kI: 7.670292387190972422e-04
+  # LY_shared: 1.007829025064929995e+00
+
+
 
 
   param_sp: data/unoscillated_spectrum_param_v1.dat

@@ -1,18 +1,5 @@
-#!/usr/bin/env python3
-import pickle
-import csv
-import sys
-from .noda import *
-from . import nuosc as nuosc
-import numpy as np
-import scipy as sp
-from scipy import interpolate
-from scipy import stats
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from datetime import datetime
-import gc
-from joblib import Parallel, delayed
+2
+
 import uproot
 import ROOT
 from scipy.integrate import quad
@@ -1335,30 +1322,50 @@ def spectrum_integral(E_j, E_j1, A, B, C):
   integral, _ = quad(integrand, E_j, E_j1)
   return integral
 
+
 def GetSpectrumFromROOT(fname, hname, scale=1., eshift=0, xlabel="Energy (meV)"):
     rf = uproot.open(fname)
     obj = rf[hname]
-    
-    # Check if the object is a Histogram (TH1 family)
+
+    classname = getattr(obj, "classname", "")
+
+    # 1. Histogram (TH1 family) -- has the high-level behavior interface
     if hasattr(obj, "axis"):
         bin_cont = obj.values() * scale
         bins = obj.axis().edges() + eshift
-        
-    # Check if the object is a TGraph
-    elif hasattr(obj, "values") and not hasattr(obj, "axis"):
-        # TGraphs have x and y arrays
-        x_pts = obj.values(axis="x") + eshift
-        y_pts = obj.values(axis="y") * scale
-        
-        # To turn a TGraph into a Spectrum (binned format), 
-        # we need to infer or create bin edges from the x-points.
-        # This assumes the points are the centers of the bins.
-        dx = np.diff(x_pts)[0] if len(x_pts) > 1 else 1.0
-        bins = np.append(x_pts - dx/2, x_pts[-1] + dx/2)
+
+    # 2. TGraph / TGraphErrors -- read raw members, do NOT rely on .values()
+    elif "TGraph" in classname:
+        n = int(obj.member("fNpoints"))
+        x_pts = np.asarray(obj.member("fX"), dtype=float)[:n] + eshift
+        y_pts = np.asarray(obj.member("fY"), dtype=float)[:n] * scale
+
+        # y-errors only exist on TGraphErrors / TGraphAsymmErrors
+        y_err = None
+        if "fEY" in obj.members:
+            y_err = np.asarray(obj.member("fEY"), dtype=float)[:n] * scale
+
+        # sort by x in case the graph points aren't monotonic
+        order = np.argsort(x_pts)
+        x_pts, y_pts = x_pts[order], y_pts[order]
+        if y_err is not None:
+            y_err = y_err[order]
+
+        # Build contiguous bin edges from discrete points via midpoints
+        if len(x_pts) > 1:
+            midpoints = (x_pts[:-1] + x_pts[1:]) / 2
+            left_edge = x_pts[0] - (midpoints[0] - x_pts[0])
+            right_edge = x_pts[-1] + (x_pts[-1] - midpoints[-1])
+            bins = np.concatenate(([left_edge], midpoints, [right_edge]))
+        else:
+            bins = np.array([x_pts[0] - 0.5, x_pts[0] + 0.5])
+
         bin_cont = y_pts
-        
+
     else:
-        raise TypeError(f"Object {hname} is neither a Histogram nor a TGraph.")
+        raise TypeError(
+            f"Object {hname} ({classname!r}) is neither a Histogram nor a TGraph/TGraphErrors."
+        )
 
     return Spectrum(bin_cont, bins, xlabel=xlabel)
 # def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, add_logdet=False):
@@ -1447,7 +1454,7 @@ def chi2_val(obs, exp, cov_matrix, penalty=0.0):
     return chi2
 
 
-def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, include_logV=False):
+def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, include_logV=False, ext_cov=False):
     penalty = 0.0
     if pulls and pull_unc:
         for p, u in zip(pulls, pull_unc):
@@ -1465,6 +1472,10 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
 
     if unc == 'stat':
         cov_matrix = stat_cov_matrix 
+    
+    elif ext_cov:
+        cov_matrix = cm.data
+
     else:
         cov_matrix = stat_cov_matrix + cm.data
 
@@ -1598,33 +1609,21 @@ import numpy as np
 #     return interp_weights
 
 # def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
-#     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
-    
-#     # Shift to multiplicative space (0 becomes 1, 0.1 becomes 1.1)
-#     multiplicative_coarse = 1.0 + nuisance_coarse
-    
-#     # Interpolate in log-space
+#     fine_centers   = 0.5 * (fine_edges[:-1]   + fine_edges[1:])
+#     coarse_centers = 0.5 * (coarse_edges[:-1] + coarse_edges[1:])  
+
+#     nuisance_coarse = np.asarray(nuisance_coarse, dtype=float)
+#     log_mult = np.log(1.0 + nuisance_coarse)                        # multiplicative → log space
+
 #     interp_log = np.interp(
-#         fine_centers, 
-#         coarse_edges, 
-#         np.log(multiplicative_coarse)
+#         fine_centers,
+#         coarse_centers,
+#         log_mult,
+#         left=0.0,    # below first segment center → no modification (mult = 1)
+#         right=0.0,   # above last  segment center → no modification
 #     )
-    
-#     # Transform back and subtract the 1 to return to "shift" space
 #     return np.exp(interp_log) - 1.0
-
-# def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
-#     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
-
-#     expanded_nuisance = np.zeros_like(fine_centers)
-
-#     indices = np.digitize(fine_centers, coarse_edges) - 1
-
-#     valid_mask = (indices >= 0) & (indices < len(nuisance_coarse))
-
-#     expanded_nuisance[valid_mask] = np.array(nuisance_coarse)[indices[valid_mask]]
-
-#     return expanded_nuisance
+    
 def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
     expanded_nuisance = np.zeros_like(fine_centers)

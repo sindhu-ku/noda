@@ -366,6 +366,8 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions,
             ensp[f"{grp}_{lbl}"] = _zero_spectrum(ebins)
 
     for i in range(n_cores):
+
+        
         s_osc = snf_core[i].GetOscillated(
             L=[core_baselines[i]], core_powers=[core_powers[i]],
             me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args)
@@ -436,6 +438,7 @@ def _build_reactor_flux_simple(ensp, args, ebins, s_ibd, s_bump_lin, ndays):
         rfis_b = rfis_b.GetWeightedWithFunction(s_bump_lin)
 
     ensp["rfis"] = rfis_b.Copy()
+    #ensp['rfis'].GetScaled(1e+43)
     ensp["rfis"].GetScaled(ndays)
     ensp["rfis_fit"] = ensp["rfis"].Copy()
 
@@ -454,7 +457,17 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
     (*name* = 'geo', 'crust', or 'mantle').  Returns the summed spectrum.
     """
     def _geo_component(hist, scale_rate, name):
-        spec = GetSpectrumFromROOT(args.geo_file, hist)
+        data = np.loadtxt(hist)
+        energies = data[:, 0]*1e-3
+        flux = data[:, 1]
+        bin_edges = np.append(energies, energies[-1] + (energies[1] - energies[0]))
+        spec = Spectrum(
+            bin_cont=flux, 
+            bins=bin_edges, 
+            xlabel="Energy [MeV]", 
+            ylabel="Flux"
+        )
+        #spec = GetSpectrumFromROOT(args.geo_file, hist)
         spec.Rebin(ebins, mode="spline-not-keep-norm")
         spec.ScaleByBinWidth()
         spec.WeightWithFunction(s_ibd)
@@ -473,8 +486,8 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
     rate_u  = rate / (1 + ratio)
     rate_th = rate * ratio / (1 + ratio)
 
-    ensp[f"{name}u"]  = _geo_component(args.geoU_hist_name,  rate_u, "u")
-    ensp[f"{name}th"] = _geo_component( args.geoTh_hist_name, rate_th, "th")
+    ensp[f"{name}u"]  = _geo_component(args.geoU_file,  rate_u, "u")
+    ensp[f"{name}th"] = _geo_component(args.geoTh_file, rate_th, "th")
     return ensp[f"{name}u"] + ensp[f"{name}th"]
 
 
@@ -532,12 +545,10 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
         )
         
         ensp["data"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
-        #ensp["rtot"] = GetSpectrumFromROOT("data/groupA_toy/joint_toy_juno_tao_dyb_seed1203.root", "DYB_obs")
         if args.model == "PRL": 
             ensp["data"].GetScaled(1e-43)
-            ensp["data"].GetScaled(compute_extrafactors(args,core_baselines=None))
-        else:
-            ensp["data"].GetScaled(extrafactors)
+
+        ensp["data"].GetScaled(extrafactors)
         ensp["data"].GetScaled(ndays)
         ensp["data"].ScaleByBinWidth()
 
@@ -579,12 +590,13 @@ def _assemble_total_spectrum_tao(ensp, args, ndays):
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
         
  
-        return  ([ensp['data'], ensp['bckg']],
-                ['TAO expectation', 'TAO data', 'TAO background'],
-                ['brown', 'steelblue', 'orange'])
+        return  ([ensp['data'], ensp['bckg'], ensp['rtot']],
+                ['TAO reactor expectation', 'TAO data', 'TAO background', 'TAO reactor+bckg expectation'], 
+                ['brown', 'steelblue', 'orange', 'black'])
     return  ([ensp['rtot'], ensp['bckg']],
                 ['TAO expectation', 'TAO data', 'TAO background'],
                 ['brown', 'steelblue', 'orange'])
+
 def _assemble_total_spectrum_juno(ensp, args):
 
     events = {
@@ -858,7 +870,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             extra_spectra=extra_spectra,
             leg_labels=leg_labels,
             colors=colors,
-            xmin=0.7, xmax=12.0, ymin=1e-3, log_scale=True,
+            xmin=0.7, xmax=12.0, ymin=1e-3, log_scale=False,
         )
     # ------------------------------------------------------------------
     # 8. Diagnostics

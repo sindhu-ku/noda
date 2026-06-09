@@ -15,8 +15,8 @@ JUNO:
   geo:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/geo" #GeoNuHistogramAD"
-    rate: 1.2554280 #1.239 #1.147
-    rate_unc: 0.4
+    rate: 1.75 #1.2554280 #1.239 #1.147
+    rate_unc: 0.0
     b2b_unc: 0.05
     b2b_scale: 0.0
     name: "Geoneutrinos"
@@ -26,7 +26,7 @@ JUNO:
   wr:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/WR.root" 
     histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
-    rate: 0.90390814  #886 #1.185
+    rate: 1.26 #0.90390814  #886 #1.185
     rate_unc: 0.1
     b2b_unc: 0.05
     b2b_scale: 0.0
@@ -70,7 +70,7 @@ JUNO:
   atm:
     rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/atm" #AtmosphericNeutrinoModelGENIE2"
-    rate: 0.10760811
+    rate: 0.15 #0.10760811
     rate_unc: 0.5
     b2b_unc: 0.5
     b2b_scale: 0.0

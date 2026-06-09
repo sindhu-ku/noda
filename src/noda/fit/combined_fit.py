@@ -95,7 +95,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
                        tag=None,
                        chi2_value=None,
                        ndf=None,
-                       write_output=False, output_name="", cm=None):
+                       write_output=False, output_name="", cm=None, eff=None):
     """
     Plot observed vs fitted spectra with residuals and chi²/ndf.
 
@@ -134,12 +134,15 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
 
     obs_vals = s_obs.bin_cont
     obs_err = np.sqrt(np.diag(cm.data))
-    obs_err += np.sqrt(np.maximum(obs_vals, 1e-12))
+
+    if detector_label != "DYB":
+        obs_err += np.sqrt(np.maximum(obs_vals, 1e-12))
     
     fit_vals = s_tot.bin_cont
     fit_err  = np.sqrt(np.maximum(fit_vals, 1e-12))
 
     residuals = (obs_vals - fit_vals) / np.maximum(obs_err, 1e-12)
+
     chi2_bin  = (obs_vals - fit_vals) ** 2 / np.maximum(obs_err, 1e-12) ** 2
 
     total_chi2 = float(np.sum(chi2_bin))
@@ -207,7 +210,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
     ax2.step(bin_centers, np.append(residuals, residuals[-1]), where='post', color='blue', lw=1)
     ax2.axhline(0, color='k', lw=1)
     for nsigma, alpha in zip([1, 2, 3], [0.25, 0.15, 0.1]):
-        ax2.fill_between(bin_centers, -nsigma, nsigma, color='blue', alpha=alpha)
+       ax2.fill_between(bin_centers, -nsigma, nsigma, color='blue', alpha=alpha)
     ax2.set_ylabel("Residuals [σ]")
     ax2.set_ylim(-5.0, 5.0)
     ax2.grid(True, alpha=0.3)
@@ -242,10 +245,17 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
     print(f"Toy mean χ² = {chi2_toys.mean():.2f} ± {chi2_toys.std():.2f}")
     print(f"p-value = {p_val:.3f}")
 
-    textstr = (f"{detector_label}{title_tag}\n"
+    if detector_label == "JUNO":
+        textstr = (f"{detector_label}{title_tag}\n"
+               f"Livetime = {ndays:.2f} days\n"
+               f"χ²/ndf = {chi2_value:.2f}/{ndf} = {chi2_ndf:.2f}\n"
+               f"Efficiency = {eff*100.:.2f}")
+    else:
+        textstr = (f"{detector_label}{title_tag}\n"
                f"Livetime = {ndays:.2f} days\n"
                f"χ²/ndf = {chi2_value:.2f}/{ndf} = {chi2_ndf:.2f}")
-    ax1.text(0.02, 0.9, textstr, transform=ax1.transAxes, fontsize=9,
+    
+    ax1.text(0.2, 0.9, textstr, transform=ax1.transAxes, fontsize=9,
              va='center', ha='left',
              bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
 
@@ -426,6 +436,8 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 ndf=nbins  - len(E_segments),
                 write_output=args_tao.write_output
             )
+
+
 
     return m_pre, nuis_best, nuis_cov
 
@@ -1011,6 +1023,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             continue
         m.fixed[p] = False
 
+
     m.migrad()
     migrad_time = datetime.now()
     if args_juno.run_hesse: m.hesse()
@@ -1070,11 +1083,13 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             nuis     = m.values[idx]
             nuis_err = m.errors[idx]
             if key == "geo":
-                start_rate = float(args_juno.geo_tnu_rate) * float(args_juno.tnu_to_cpd)
+                start_rate = float(args_juno.geo_tnu_rate) * float(args_juno.tnu_to_cpd) * args_juno.detector_efficiency
+            elif key == "wr" or key == "atm":
+                start_rate = backgrounds["JUNO"][key]["rate"]*args_juno.detector_efficiency
             else:
                 start_rate = backgrounds["JUNO"][key]["rate"]
             rate_unc        = backgrounds["JUNO"][key].get("rate_unc", None)
-            rate_fit        = start_rate * (1 + nuis)
+            rate_fit        = start_rate * (1 + nuis) * (1 +m.values['eff_nuis'])
             rate_err        = start_rate * nuis_err
             deviation_sigma = ((rate_fit - start_rate) / (start_rate * rate_unc)
                                if rate_unc else float('nan'))
@@ -1461,7 +1476,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     if fix_dm2_31_to is not None:
         m.values['dm2_31'] = fix_dm2_31_to
         m.fixed['dm2_31']  = True
- 
+
     if not args_juno.silent_print:
         print(f"[bundled] {len(bundles)} bundles, {len(names)} Minuit params")
         for b in bundles:
@@ -1487,13 +1502,17 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         if p == 'dm2_31' and fix_dm2_31_to is not None:
             continue
         m.fixed[p] = False
+
+    # m.fixed['sin2_th12'] = True
+    # m.fixed['dm2_21'] = True
+    # m.fixed['dm2_31'] = True
     m.migrad()
  
     # ── 16. Stage 3: free everything else ────────────────────────────────
     for p in first_fix:
         if m.fixed[p]:
             m.fixed[p] = False
-    
+
     m.migrad()
     migrad_time = datetime.now()
  
@@ -1553,7 +1572,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             "update")
         juno_dir = output_file.GetDirectory("juno")
         juno_dir.cd()
-        write_param_dbl("chi2/ndof", m.fval/len(b_first.detector.ensp_nom['rdet'].bins) -3)
+        write_param_dbl("chi2/ndof", m.fval/len(b_first.detector.ensp_nom['rdet'].bins) -4)
         dir_nuis = juno_dir.mkdir("nuisances")
         dir_post = juno_dir.mkdir("postfit")
     if not args_juno.silent_print:
@@ -1570,23 +1589,31 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 mangled  = routing[id(b)][f'bkg_{key}']
                 nuis     = m.values[mangled]
                 nuis_err = m.errors[mangled]
+                rate_unc        = info.get("rate_unc", None)
                 if key == "geo":
                     start_rate = (float(b.args.geo_tnu_rate)
-                                  * float(b.args.tnu_to_cpd))
+                                  * float(b.args.tnu_to_cpd)) * float(b.args.detector_efficiency)
+                    rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
+                elif key == "wr" or key == "atm":
+                    start_rate = info["rate"]*float(b.args.detector_efficiency)
+                    rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
                 else:
                     start_rate = info["rate"]
-                rate_unc        = info.get("rate_unc", None)
-                rate_fit        = start_rate * (1 + nuis)
+                    rate_fit  = start_rate * (1 + nuis)
+            
                 rate_err        = start_rate * nuis_err
                 deviation_sigma = ((rate_fit - start_rate)
                                    / (start_rate * rate_unc)
                                    if rate_unc else float('nan'))
                 print(f"{tag_pre}{key}: {rate_fit:.4f} ± {rate_err:.4f} cpd "
-                      f"(rel unc: {nuis_err:.3%}; "
+                      f"(rel unc: {rate_err/rate_fit:.3%}; "
                       f"deviation: {deviation_sigma:.2f} σ)")
                 if args_juno.write_output:
                     dir_nuis.cd()
-                    write_parameter(f"{tag_pre}{key}", rate_fit, rate_err)
+                    if rate_unc != 0.0: 
+                        write_parameter(f"{tag_pre}{key}", nuis/rate_unc, nuis_err/rate_unc)
+                    else:
+                        write_parameter(f"{tag_pre}{key}", nuis, nuis_err)
  
         # ── Normalization parameters per JUNO bundle ─────────────────────
         print("************Normalization parameters************")
@@ -1601,11 +1628,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                   f"+/- {b.args.detector_efficiency * m.errors[e_name]}")
             if args_juno.write_output:
                 dir_nuis.cd()
-                write_parameter(f"{tag_pre}Rflux",
-                                1.0 + m.values[n_name], m.errors[n_name])
-                write_parameter(f"{tag_pre}Eff",
-                                b.args.detector_efficiency * (1 + m.values[e_name]),
-                                b.args.detector_efficiency * m.errors[e_name])
+                write_parameter(f"{tag_pre}Rflux", m.values[n_name]/b.detector.args.r2_unc, m.errors[n_name]/b.detector.args.r2_unc)
+                write_parameter(f"{tag_pre}eff_pull", m.values[e_name]/b.detector.args.eff_unc, m.errors[e_name]/b.detector.args.eff_unc)
  
         # ── Shared (osc + me_rho) ────────────────────────────────────────
         print("************Shared parameters************")
@@ -1650,30 +1674,69 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         # ── ROOT writes for JUNO response ────────────────────────────────
         if args_juno.write_output and b_first is not None:
             dir_nuis.cd()
-            for tag, base in [("a","abc0"), ("b","abc1"), ("c","abc2"),
-                              ("kB","NL0"), ("fC","NL1"),
-                              ("kI","NL2"), ("LY","NL3")]:
-                name = juno_param(base)
-                write_parameter(tag, m.values[name], m.errors[name])
-            write_parameter("me_rho", m.values['me_rho'], m.errors['me_rho'])
+            sigma_prior = np.sqrt(np.diag(b_first.detector.covariance_er))
+            
+            det_params = [("a","abc0"), ("b","abc1"), ("c","abc2"),
+                          ("kB","NL0"), ("fC","NL1"), ("kI","NL2"), ("LY","NL3")]
+            
+            for i, (tag, base) in enumerate(det_params):
+                name    = juno_param(base)
+                nominal = m.init_params[name].value
+                dev     = (m.values[name] - nominal) / sigma_prior[i]   # element0 (pull)
+                rel_unc =  m.errors[name]            / sigma_prior[i]   # element1 (err in σ units)
+                write_parameter(tag, dev, rel_unc)
 
+            write_parameter('me_rho', (m.values['me_rho'] - b_first.detector.args.me_rho) / b_first.detector.args.me_rho_scale, m.errors['me_rho']/b_first.detector.args.me_rho_scale)
+            write_parameter('ratio', (m.values['ThU_ratio'] - b_first.detector.args.Th_U_ratio) / b_first.detector.args.Th_U_ratio_err, m.errors['ThU_ratio']/b_first.detector.args.Th_U_ratio_err)
+            for i, (tag, base) in enumerate([("YJ-C1","core_power0"), ("YJ-C2","core_power1"), ("YJ-C3","core_power2"),
+                              ("YJ-C4","core_power3"), ("YJ-C5","core_power4"), ("YJ-C6", "core_power5"),
+                              ("TS-C1","core_power6"), ("TS-C2","core_power7"), ("FCG-C1-4", "core_power8"), ("DYB-C", "core_power9")]):
+                name = juno_param(base)
+                write_parameter(tag, m.values[name]/b_first.detector.args.core_flux_unc, m.errors[name]/b_first.detector.args.core_flux_unc)
 
     
     if args_juno.write_output and output_file is not None:
         dir_post.cd()
         write_param_dbl("Efficiency", args_juno.detector_efficiency*(1+m.values["eff_nuis"]))
-        output_file.Close()
+        
+    if args_juno.write_output:
+        dyb_dir = output_file.GetDirectory("dyb")
+        dyb_dir.cd()
+        dir_nuis_dyb = dyb_dir.mkdir("nuisances")
+        dir_nuis_dyb.cd()
+        for i in range(n_nuis):
+            if fit_mode == 'prefit_wosegs':
+                write_parameter(f"rea_shape_f{i}", m_pre.values[f"nuis{i}"], m_pre.errors[f"nuis{i}"])
+            else:
+                write_parameter(f"rea_shape_f{i}", m.values[f"nuis{i}"], m.errors[f"nuis{i}"])
+
  
     # ── 20. Correlation heat-map ─────────────────────────────────────────
     if args_juno.plot_correlation:
-        corr = m.covariance.correlation()
+        import re
+        corr = np.array(m.covariance.correlation())
+    
+        def _drop(p):
+            return (re.fullmatch(r"nuis\d+", p)          # shape nuisances
+                    or p.startswith("core_power")        # power corrections (+_tao)
+                    or p.startswith("snf_noneq_norm")   # SNF / non-eq (+_tao/_dyb)
+                    or p.startswith("efission"))
+    
+        keep   = [i for i, p in enumerate(m.parameters) if not _drop(p)]
+        corr   = corr[np.ix_(keep, keep)]
+        labels = [m.parameters[i] for i in keep]
+        
         import seaborn as sns
-        plt.figure(figsize=(30, 30))
-        sns.heatmap(corr, annot=True, fmt=".2f",
-                    xticklabels=m.parameters, yticklabels=m.parameters,
-                    cmap="coolwarm", vmin=-1, vmax=1, cbar=False)
+        plt.figure(figsize=(12, 12))          # smaller figure → smaller squares
+        ax = sns.heatmap(corr,
+                         annot=False,          # remove the numbers
+                         xticklabels=labels, yticklabels=labels,
+                         cmap="coolwarm", vmin=-1, vmax=1, cbar=False,
+                         square=True)          # force cells to be actual squares
+        ax.tick_params(labelsize=16)           # bigger axis labels
         plt.tight_layout()
-        plt.savefig("Plots/corr.pdf")
+
+        plt.savefig(f"Plots/corr_{args_juno.file_prefix}", dpi=200)
  
     # ── 21. dm²₃₁ profile ────────────────────────────────────────────────
     if args_juno.profile_dm2_31:
@@ -1700,7 +1763,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     #     dir_osc = output_file.mkdir("oscillation_parameters")
     #     dir_osc.cd()
  
-    if not args_juno.silent_print and not args_juno.is_data:
+    if not args_juno.silent_print: # and not args_juno.is_data:
         print("************Oscillation parameter fit results************")
         for i in range(4):
             err = (max(abs(m.merrors[i].upper), abs(m.merrors[i].lower))
@@ -1711,8 +1774,10 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             deviation_sigma = (val - exp_val) / err if err != 0 else float('nan')
             print(f"{m.parameters[i]}: {val:.6g} +/- {err:.6g}; "
                   f"rel unc: {rel_unc:.3%}; deviation: {deviation_sigma:.2f} σ")
-            if args_juno.write_output:
-                write_osc_params(str(m.parameters[i]), val, err)
+            # if args_juno.write_output:
+            #     write_osc_params(str(m.parameters[i]), val, err)
+
+
     if args_juno.write_output:
         output_file.Close()
  
@@ -1765,8 +1830,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 detector_label="JUNO",
                 tag=f"{b.phase}_{b.shell}" if len(juno_bundles_all) > 1 else None,
                 chi2_value=m.fval,
-                ndf = len(sp_obs.bins)-3,
-                write_output=args_juno.write_output, cm=cm_juno)
+                ndf = len(sp_obs.bins)-4,
+                write_output=args_juno.write_output, cm=cm_juno, eff=b.detector.args.detector_efficiency*(1+m.values['eff_nuis']))
     # ── 25. Solar contour ────────────────────────────────────────────────
     if args_juno.solar_contour:
         try:

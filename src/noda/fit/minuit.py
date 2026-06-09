@@ -185,7 +185,7 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
     m.values["dm2_31"] = best_dm2_from_scan
     print(m.values["dm2_31"])
     m.migrad()
-    
+
 def get_toy_results(m, extra, merrors):
     params = []
     for i in range(len(m.values)):

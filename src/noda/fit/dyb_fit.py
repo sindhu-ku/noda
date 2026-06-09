@@ -171,7 +171,7 @@ class DYBDetector:
 
         _, chi2_dyb = Chi2(cm_dyb_new, sp_obs_dyb, s_tot_dyb, sp_obs_dyb, s_tot_dyb,
                            'all', args_juno.stat_method_opt,
-                           pulls=[snf_noneq_norm_dyb], pull_unc=[args_dyb.noneq_unc])
+                           pulls=[snf_noneq_norm_dyb], pull_unc=[args_dyb.noneq_unc], ext_cov=True)
         return chi2_dyb, sp_obs_dyb, s_tot_dyb, cm_dyb_new, ibd_postfit
 
     def _get_obs_spectrum(self):

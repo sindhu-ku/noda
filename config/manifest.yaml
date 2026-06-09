@@ -17,9 +17,10 @@
 # get shell='ALL'. The single-config legacy run also keeps working.
 
 #P25C: config/P25C_prl2025.yaml
-#P25D: config/P25D.yaml
+#P2#5D: config/P25D.yaml
 AllP: config/240-day_FV165/AllP_Jun2026.yaml 
-# phase1: 
+#groupA: config/240-day_FV165/groupA.yaml
+#phase1: config/240-day_FV165/phase1.yaml
 #     FV1: config/240-day/phase1.yaml
 #     FV2: config/240-day/phase1.yaml
 # phase2: 

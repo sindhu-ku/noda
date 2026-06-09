@@ -186,8 +186,10 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
             covariance_er = np.load(er_cov_file)
         else:
             covariance_er = np.loadtxt(er_cov_file)
+        
         if not args_juno.silent_print:
             print(f"  loaded per-phase ER covariance: {er_cov_file}")
+            print(covariance_er)
 
     # ── backgrounds ─────────────────────────────────────────────────────
     with open(args_juno.backgrounds_yaml, 'r') as f:
