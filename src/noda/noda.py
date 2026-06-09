@@ -116,7 +116,11 @@ class Spectrum:
     return Spectrum(bin_cont=bin_cont, bins=self.bins, xlabel=self.xlabel, ylabel=self.ylabel)
 
   def GetAtEnergy(self, ene):
-    return self.bin_cont[self.FindBin(ene)]
+    # FindBin returns -1 below range, which would wrap to the LAST bin
+    # (e.g. NL(12 MeV) instead of NL(threshold) for the TAO leakage tail)
+    i = self.FindBin(ene)
+    if i < 0: i = 0
+    return self.bin_cont[i]
 
   def GetNBins(self):
     return len(self.bin_cont)

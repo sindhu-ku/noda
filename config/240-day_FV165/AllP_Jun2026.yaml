@@ -36,7 +36,7 @@ fit_options:
   save_prefit: True
   use_prefit: False
   prefit_path: /home/sindhu/Documents/JUNO/Fitter/noda/noda/prefit_data/240_allP_data.npz
-  include_tao: False
+  include_tao: True
   include_dyb: True
   geo_fit: true
   apply_bump: true
@@ -61,7 +61,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'June9-2026_dyb-only'
+  file_prefix: 'June9-2026'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -211,13 +211,13 @@ juno_inputs:
   # LY_shared: 1.004921799448283970e+00
 
 
-  a: 3.398184726929922433e-02
-  b: 1.433884083853694674e-02
-  c: 6.794058490830218872e-05
-  kB: 1.467083502234249083e-02
-  fC: 4.044679010111922879e-01
-  kI: 1.278812026959230035e-03
-  LY_shared: 1.005056683660399575e+00
+  a: 3.400387897964902983e-02
+  b: 1.431137786506316012e-02
+  c: 3.185943181480816160e-05
+  kB: 1.481962132555763971e-02
+  fC: 3.805439130810873150e-01
+  kI: 5.002944650268346168e-04
+  LY_shared: 1.005161587767617215e+00
   # a: 3.521059025008223958e-02
   # b: 1.371078124381019253e-02
   # c: 1.222285580508436498e-04
