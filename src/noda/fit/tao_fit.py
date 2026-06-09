@@ -30,7 +30,7 @@ class TAODetector:
     """
 
     def __init__(self, ndays, ensp_nom, rm, cm, args,
-                 core_baselines, core_powers_std, 
+                 core_baselines, core_powers_std,
                  s_ibd, ene_leak_tao, E_segments):
         self.ndays           = ndays
         self.ensp_nom        = ensp_nom
@@ -74,18 +74,17 @@ class TAODetector:
         if self._linearize_resp:
             a0, b0, c0 = args.a, args.b, args.c
             eps_a, eps_b, eps_c = args.a_err, args.b_err, args.c_err
-            EL = self.ene_leak.data   # constant
-        
+
             def _M(a, b, c):
                 R = CalcRespMatrix_abc(a, b, c, escale=1,
                                        ebins=self.fine_bins, pebins=self.fine_bins)
-                return EL @ R.data
-        
+                return R.data
+
             M0  = _M(a0, b0, c0)
             Map = _M(a0 + eps_a, b0, c0); Mam = _M(a0 - eps_a, b0, c0)
             Mbp = _M(a0, b0 + eps_b, c0); Mbm = _M(a0, b0 - eps_b, c0)
             Mcp = _M(a0, b0, c0 + eps_c); Mcm = _M(a0, b0, c0 - eps_c)
-        
+
             self._M0   = M0
             self._dMda = (Map - Mam) / (2.0 * eps_a)
             self._dMdb = (Mbp - Mbm) / (2.0 * eps_b)
@@ -109,7 +108,7 @@ class TAODetector:
             + ["core_power_tao"]
             + ["eff_nuis_tao"]
             + ["bckg_rate"]
-        
+
         )
 
     def get_start_values(self):
@@ -167,7 +166,7 @@ class TAODetector:
             resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1,
                                              ebins=self.fine_bins, pebins=self.fine_bins)
             self._resp_matrix_cache[key] = RespMatrix(
-                data=self.ene_leak.data @ resp_matrix.data,
+                data=resp_matrix.data,
                 ebins=self.fine_bins, pebins=self.fine_bins)
         return self._resp_matrix_cache[key]
 
@@ -182,7 +181,7 @@ class TAODetector:
     # ════════════════════════════════════════════════════════════════════════
 
     def build_spectrum(self,
-                       Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao, 
+                       Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao,
                        core_power_tao, eff_nuis_tao, bckg_rate, nuisance):
         """
         Builds the TAO predicted spectrum.
@@ -224,7 +223,7 @@ class TAODetector:
 
         # ── positron energy shift ────────────────────────────────────────────
         s_tao = s_tao.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=args.input_data_file,
-                                             tf2name=args.pos_ene_TF2)
+                                             tf2name=args.pos_ene_TF2).ApplyDetResp(self.ene_leak, pecrop=args.ene_crop)
 
         # ── NL: always pull mode ─────────────────────────────────────────────
         # NL_tao = [pull0, pull1, pull2, pull3, LY_pull]  (5 params)
@@ -290,8 +289,8 @@ class TAODetector:
     #  chi2 contribution
     # ════════════════════════════════════════════════════════════════════════
 
-    def chi2_contribution(self, 
-                          Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao, 
+    def chi2_contribution(self,
+                          Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao,
                           core_power_tao, eff_nuis_tao,bckg_rate,
                           unc, nuisance):
         """
@@ -301,7 +300,7 @@ class TAODetector:
 
         (s_tao, s_tot_tao, pulls, pull_unc,
          rfis_param_post, bckg) = self.build_spectrum(
-            Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao, 
+            Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao,
             core_power_tao, eff_nuis_tao,bckg_rate, nuisance)
 
         sp_obs = self._get_obs_spectrum()
@@ -314,7 +313,7 @@ class TAODetector:
             ebins = self.ensp_nom['rdet'].bins
             nbins = len(ebins)
             cm_t  = CovMatrix(data=np.zeros((nbins - 1, nbins - 1)), bins=ebins)
-            
+
         chi2_nolog, chi2_tao = Chi2(
             cm_t, sp_obs, s_tot_tao, sp_obs, s_tot_tao,
             'all', args.stat_method_opt,

@@ -110,7 +110,7 @@ def _load_or_build_resp_matrix(args, detector, ebins):
     if os.path.isfile(cache_path) and not bool(args.FORCE_CALC_RM):
         return LoadRespMatrix(cache_path)
     resp_matrix = CalcRespMatrix_abc(args.a, args.b, args.c, escale=1, ebins=ebins, pebins=ebins)
-    if detector != "JUNO":
+    if detector == "DYB":
         ene_leak_nd = _build_energy_leak(args, detector, ebins)
         resp_matrix = RespMatrix(data=ene_leak_nd.data @ resp_matrix.data, ebins=ebins, pebins=ebins)
     resp_matrix.Save(cache_path)
@@ -132,6 +132,7 @@ def _build_energy_leak(args, detector, ebins):
             histname=args.IAV_hist,
             ebins=ebins,
             pebins=ebins,
+            ecrop=0.8
         )
     if detector == "DYB":
         iav_data = np.loadtxt(args.iav_matrix_file)
@@ -278,7 +279,7 @@ def _load_nonlinearity(ensp, args, detector):
 
 #         s_osc = s_i.GetOscillated(
 #             L=[core_baselines[i]], core_powers=[core_powers[i]],
-#             me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args, 
+#             me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
 #         )
 #         n_osc = n_i.GetOscillated(
 #             L=[core_baselines[i]], core_powers=[core_powers[i]],
@@ -286,7 +287,7 @@ def _load_nonlinearity(ensp, args, detector):
 #         )
 #         ensp["snf_osc"] +=  s_osc
 #         ensp["noneq_osc"] += n_osc
-        
+
 #         final_snf_i   = _apply_full_energy_response(s_osc, args, ensp, resp_matrix, s_ibd)
 #         final_noneq_i = _apply_full_energy_response(n_osc, args, ensp, resp_matrix, s_ibd)
 
@@ -303,7 +304,7 @@ def _load_nonlinearity(ensp, args, detector):
 #     print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral():.2f}")
 
 
-def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd):
+def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd, ene_leak=None):
     """
     SNF / Non-Eq for the single-baseline path (TAO, DYB, CI-powers JUNO).
     Modifies *ensp* in-place.
@@ -320,14 +321,19 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd):
 
     del ensp["snf0"], ensp["noneq0"]
 
-    if detector != "DYB":
+    if detector == "JUNO":
         ensp["snf_final"]   = _apply_full_energy_response(ensp["snf"],   args, ensp, resp_matrix, s_ibd)
         ensp["noneq_final"] = _apply_full_energy_response(ensp["noneq"], args, ensp, resp_matrix, s_ibd)
-    else:
+    elif detector == "DYB":
         # DYB: positron shift only, no NL
         ensp["snf_final"]   = _apply_positron_energy(ensp["snf"],   args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         ensp["noneq_final"] = _apply_positron_energy(ensp["noneq"], args, s_ibd=s_ibd).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+    else:
+        ensp["snf_final_temp"]   = _apply_positron_energy(ensp["snf"],   args, s_ibd=s_ibd).ApplyDetResp(ene_leak, pecrop=args.ene_crop)
+        ensp["noneq_final_temp"] = _apply_positron_energy(ensp["noneq"], args, s_ibd=s_ibd).ApplyDetResp(ene_leak, pecrop=args.ene_crop)
 
+        ensp["snf_final"] = _apply_nonlinearity(ensp["snf_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["noneq_final"] =  _apply_nonlinearity(ensp["noneq_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
 def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions,
                                           core_baselines, core_powers,
@@ -367,7 +373,7 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions,
 
     for i in range(n_cores):
 
-        
+
         s_osc = snf_core[i].GetOscillated(
             L=[core_baselines[i]], core_powers=[core_powers[i]],
             me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args)
@@ -462,9 +468,9 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
         flux = data[:, 1]
         bin_edges = np.append(energies, energies[-1] + (energies[1] - energies[0]))
         spec = Spectrum(
-            bin_cont=flux, 
-            bins=bin_edges, 
-            xlabel="Energy [MeV]", 
+            bin_cont=flux,
+            bins=bin_edges,
+            xlabel="Energy [MeV]",
             ylabel="Flux"
         )
         #spec = GetSpectrumFromROOT(args.geo_file, hist)
@@ -543,9 +549,9 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
             args.dyb_spectrum, sep='\s+',
             names=names,
         )
-        
+
         ensp["data"] = Spectrum(bins=ensp["rdet"].bins, bin_cont=dyb["Sigma"].to_numpy())
-        if args.model == "PRL": 
+        if args.model == "PRL":
             ensp["data"].GetScaled(1e-43)
 
         ensp["data"].GetScaled(extrafactors)
@@ -564,7 +570,7 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
 
     if args.rebin_nonuniform:
         ensp["rtot"].Rebin_nonuniform(args.bins_nonuniform)
-    
+
 
     return (
         [ensp["rtot"]],
@@ -588,10 +594,10 @@ def _assemble_total_spectrum_tao(ensp, args, ndays):
         ensp["data"].ScaleByBinWidth()
         if args.rebin_nonuniform:
             ensp["data"].Rebin_nonuniform(args.bins_nonuniform)
-        
- 
+
+
         return  ([ensp['data'], ensp['bckg'], ensp['rtot']],
-                ['TAO reactor expectation', 'TAO data', 'TAO background', 'TAO reactor+bckg expectation'], 
+                ['TAO reactor expectation', 'TAO data', 'TAO background', 'TAO reactor+bckg expectation'],
                 ['brown', 'steelblue', 'orange', 'black'])
     return  ([ensp['rtot'], ensp['bckg']],
                 ['TAO expectation', 'TAO data', 'TAO background'],
@@ -660,16 +666,16 @@ def _write_juno_output(ensp,ndays, args, backgrounds):
     from .fit.minuit import write_param_dbl
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
     output_file = ROOT.TFile(tag, "update")
-   
+
     juno_dir = output_file.mkdir("juno")
     juno_dir.cd()
     write_param_dbl("LivetimeDays", ndays)
-    
+
     dir_pre = juno_dir.mkdir("prefit")
     dir_pre.cd()
     write_param_dbl("Efficiency", args.detector_efficiency)
     output_file.Close()
-    
+
 
     ensp["rdet"].WritetoROOT("reactor", tag, "juno/prefit")
     ensp["rtot"].WritetoROOT("totalpred", tag, "juno/prefit")
@@ -678,17 +684,29 @@ def _write_juno_output(ensp,ndays, args, backgrounds):
     if args.is_data: ensp["data"].WritetoROOT("data", tag, "juno")
 
 
-        
+
 def _write_dyb_output(ensp, args, backgrounds):
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
     output_file = ROOT.TFile(tag, "update")
-   
+
     output_file.mkdir("dyb")
     output_file.Close()
 
     ensp["rdet"].WritetoROOT("totalpred", tag, "dyb/prefit")
     if args.is_data: ensp["data"].WritetoROOT("data", tag, "dyb")
 
+
+def _write_tao_output(ensp, args, backgrounds):
+    tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
+    output_file = ROOT.TFile(tag, "update")
+
+    output_file.mkdir("tao")
+    output_file.Close()
+
+    ensp["rtot"].WritetoROOT("totalpred", tag, "tao/prefit")
+    ensp["bckg"].WritetoROOT("bckg", tag, "tao/prefit")
+    ensp["rdet"].WritetoROOT("reactor", tag, "tao/prefit")
+    if args.is_data: ensp["data"].WritetoROOT("data", tag, "tao")
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -719,9 +737,10 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     print(f"  Building spectra  |  detector={detector}  ndays={ndays}")
     print(f"{'='*50}\n")
 
-   
+
     resp_matrix = _load_or_build_resp_matrix(args, detector, ebins)
     # Keep ene_leak_nd for TAO return value
+    ene_leak_nd=None
     if detector == "TAO":
         ene_leak_nd = _build_energy_leak(args, detector, ebins)
 
@@ -747,7 +766,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         core_baselines = args.core_baselines
         core_powers    = args.core_powers
         _build_reactor_flux_simple(ensp, args, ebins, s_ibd, s_bump_lin, ndays)
-        _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd)
+        _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd, ene_leak=ene_leak_nd)
 
     print(f"  Expected IBDs (no osc):  {ensp['rfis'].GetIntegral():.2f}")
 
@@ -794,16 +813,23 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         ensp["rvis_nonl"]      = _apply_positron_energy(ensp["rosc"], args,s_ibd=s_ibd)
         ensp["rvis_nonl_temp"] = _apply_positron_energy(ensp["ribd"], args, s_ibd=s_ibd)
         #ensp["rvis_nonl_temp_wcorr"] = _apply_positron_energy((ensp["rosc"]+ensp['snf_osc']+ensp['noneq_osc']), args, s_ibd=s_ibd)
-        
+        if detector == "TAO":
+            ensp["rvis_nonl_leak"] = ensp["rvis_nonl"].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
+            ensp["rvis_nonl_temp_leak"] = ensp["rvis_nonl_temp"].ApplyDetResp(ene_leak_nd, pecrop=args.ene_crop)
+
+        else:
+            ensp["rvis_nonl_leak"] = ensp["rvis_nonl"]
+            ensp["rvis_nonl_temp_leak"] = ensp["rvis_nonl_temp"]
+
         if detector != "DYB":
-            ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl"],      args, ensp)
-            ensp["rvis_temp"] = _apply_nonlinearity(ensp["rvis_nonl_temp"], args, ensp)
+            ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl_leak"],      args, ensp)
+            ensp["rvis_temp"] = _apply_nonlinearity(ensp["rvis_nonl_temp_leak"], args, ensp)
             #ensp["rvis_temp_wcorr"] = _apply_nonlinearity(ensp["rvis_nonl_temp_wcorr"], args, ensp)
         else:
             ensp["rvis"]      = ensp["rvis_nonl"]
             ensp["rvis_temp"] = ensp["rvis_nonl_temp"]
             #ensp["rvis_temp_wcorr"] = ensp["rvis_nonl_temp_wcorr"]
-    
+
         ensp["rdet"] = ensp["rvis"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         ensp["rdet_temp"] = ensp["rvis_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         #ensp["rdet_temp_wcorr"] = ensp["rvis_temp_wcorr"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
@@ -862,7 +888,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         if args.write_output: _write_dyb_output(ensp, args, backgrounds)
     elif detector == "TAO":
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_tao(ensp, args, ndays)
-
+        if args.write_output: _write_tao_output(ensp, args, backgrounds)
     ensp["rdet"].Plot(
             f"{args.plots_folder}/det_spectra_{detector}.png",
             xlabel="Reconstructed energy (MeV)",
@@ -872,6 +898,11 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             colors=colors,
             xmin=0.7, xmax=12.0, ymin=1e-3, log_scale=False,
         )
+
+    if detector != "DYB":
+        ensp['rvis_nonl'].Plot(f"{args.plots_folder}/stages_{detector}.png", \
+        extra_spectra = [ensp['rvis_nonl_leak'],ensp['rvis']], colors=['black', 'blue', 'orange'],\
+        leg_labels = ['rvis_nonl', 'rvis_nonl_leak', 'rvis'], xmin=0.7, xmax=2.0)
     # ------------------------------------------------------------------
     # 8. Diagnostics
     # ------------------------------------------------------------------

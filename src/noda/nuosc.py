@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import numpy as np
-
 from .constants import G_F, N_A, hbarc, prob_factor
 
 phase_factor = 1e-3 * prob_factor / 4  # ≈ 1.2669e-3  [1/(m/MeV * eV^2)]
@@ -106,7 +105,7 @@ def SetOscillationParameters(opt, NO, silent=True):
   elif opt == 'PDG2025': # https://pdg.lbl.gov/2025/tables/contents_tables.html
     op_nom['sin2_th12'] = 0.307
     op_nom['sin2_th13'] = 0.02169
-    op_nom['sin2_th13_err'] = 0.00058 
+    op_nom['sin2_th13_err'] = 0.00058
     op_nom['dm2_21'] = 7.50e-5
     if NO:
       op_nom['sin2_th23'] = 0.534
@@ -118,8 +117,8 @@ def SetOscillationParameters(opt, NO, silent=True):
 
   elif opt == 'xchecks': # https://pdg.lbl.gov/2025/tables/contents_tables.html
     op_nom['sin2_th12'] = 0.307
-    op_nom['sin2_th13'] = 0.02160 
-    op_nom['sin2_th13_err'] = 0.00058 
+    op_nom['sin2_th13'] = 0.02160
+    op_nom['sin2_th13_err'] = 0.00058
     op_nom['dm2_21'] = 7.50e-5
     if NO:
       op_nom['sin2_th23'] = 0.534
@@ -129,20 +128,20 @@ def SetOscillationParameters(opt, NO, silent=True):
       op_nom['dm2_32'] = -2.527e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
 
-  elif opt == 'DYB': 
+  elif opt == 'DYB':
     op_nom['sin2_th12'] = 0.307
     op_nom['sin2_th13'] = 0.02175
     op_nom['sin2_th13_err'] = 0.063e-2
     op_nom['dm2_21'] = 7.50e-5
     if NO:
       op_nom['sin2_th23'] = 0.534
-      op_nom['dm2_32'] = 2.466e-3 
+      op_nom['dm2_32'] = 2.466e-3
     else:
       op_nom['sin2_th23'] = 0.537
       op_nom['dm2_32'] = -2.571e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
     op_nom['dm2_31_err'] = 0.06e-3
-  elif opt == 'NT2K': 
+  elif opt == 'NT2K':
     op_nom['sin2_th12'] = 0.307
     op_nom['sin2_th13'] = 0.02175
     op_nom['sin2_th13_err'] = 0.063e-2
@@ -329,5 +328,3 @@ def AntiNueSurvProbYB(E, L,
 #   t2 = sin2_2th13 * cos2_th12 * np.sin(1.267 * dm2_31 * L / E)**2
 #   t3 = sin2_2th13 * sin2_th12 * np.sin(1.267 * dm2_32 * L / E)**2
 #   return 1. - t1 - t2 - t3
-
-

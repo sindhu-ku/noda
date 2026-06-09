@@ -1,18 +1,29 @@
-2
-
+import pickle
+import csv
+import sys
+from .noda import *
+from . import nuosc as nuosc
+import numpy as np
+import scipy as sp
+from scipy import interpolate
+from scipy import stats
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from datetime import datetime
+import gc
+from joblib import Parallel, delayed
 import uproot
 import ROOT
 from scipy.integrate import quad
 from numpy.linalg import solve, slogdet
 from array import array
 from scipy.linalg import cho_solve, cho_factor
-# from numba import njit4 
+# from numba import njit4
 from .nl_geant4 import Geant4Model
 import yaml
 import hashlib
 from .constants import *
-#np.set_printoptions(threshold=sys.maxsize)
-#global settings:
+
 
 G4model = Geant4Model(particle="e+")
 G4model_gamma = Geant4Model(particle="gamma")
@@ -74,7 +85,7 @@ def _build_nonuniform_bins(bins_nonuniform):
         arr = np.asarray(pieces, dtype=float)
         _NONUNIFORM_BINS_CACHE[spec_key] = arr
     return arr
-    
+
 class Spectrum:
 
   def __init__(self, bin_cont=[0]*100, bins=np.linspace(0,10,101), xlabel="", ylabel=""):
@@ -115,11 +126,11 @@ class Spectrum:
       return (self.bins[-1]-self.bins[0])/self.GetNBins()
     else:
       return (self.bins[i+1]-self.bins[i])
-        
+
   def ScaleByBinWidth(self):
     widths = np.array([self.GetBinWidth(i) for i in range(self.GetNBins())])
     self.bin_cont = np.array(self.bin_cont, dtype=float) * widths
-  
+
   def GetBinCenters(self):
     return 0.5*(self.bins[:-1]+self.bins[1:])
 
@@ -276,15 +287,15 @@ class Spectrum:
       core_shares = core_shares / np.sum(core_shares)
 
     eshift = 0
-    if ene_mode == 'vis': 
+    if ene_mode == 'vis':
       eshift = -0.511+1.293
 
     # --- VECTORIZED MATH STARTS HERE ---
-    
+
     # 1. Prepare bin arrays
     b1 = self.bins[:-1]
     b2 = self.bins[1:]
-    
+
     # 2. Setup the evaluation energies depending on points_per_bin
     if points_per_bin == 1:
         evis_array = 0.5 * (b1 + b2) + eshift
@@ -309,7 +320,7 @@ class Spectrum:
                               sin2_th12=sin2_th12, sin2_th13=sin2_th13,
                               dm2_21=dm2_21, dm2_ee=dm2_ee,
                               me_rho=me_rho)
-      
+
       # If using multiple points per bin, average the probabilities across axis 1
       if points_per_bin > 1:
           P_array = np.mean(P_array, axis=1)
@@ -320,7 +331,7 @@ class Spectrum:
 
     # 5. Return exactly ONE Spectrum object at the very end
     return self.Copy(0.) + Spectrum(total_val, bins=self.bins, xlabel=self.xlabel)
-      
+
   def ApplyDetResp(self, respMat, pecrop=None, norm=False):
     # DITCH THE .copy() - just reference the data
     data = respMat.data
@@ -331,13 +342,12 @@ class Spectrum:
         col_sums = data.sum(axis=0, keepdims=True)
         col_sums[col_sums == 0] = 1.0
         data /= col_sums
-
     if pecrop is None:
-        return Spectrum(data.dot(self.bin_cont), bins=respMat.pebins, xlabel=r"$E_{\rm vis}$ (meV)")
-
+        return Spectrum(self.bin_cont.dot(data), bins=respMat.pebins,
+                    xlabel=r"$E_{\rm vis}$ (meV)")
     pebins_full = respMat.pebins
     pebw = (pebins_full[-1]-pebins_full[0])/(len(pebins_full)-1)
-    
+
     # Calculate indices
     peb1 = int(np.around((pecrop[0]-pebins_full[0])/pebw))
     peb2 = int(np.around((pecrop[1]-pebins_full[0])/pebw))
@@ -455,7 +465,7 @@ class Spectrum:
             M_nuc    = 0.5 * (mn + mp)
             y2       = 0.5 * (Delta**2 - me**2)
             fsq, gsq = f*f, g*g
-    
+
             def _dsig_dct(Enu, ct):
                 Enu = np.asarray(Enu, dtype=float); ct = np.asarray(ct, dtype=float)
                 Ee0  = Enu - Delta
@@ -482,7 +492,7 @@ class Spectrum:
                           (phase_space * (fsq + 3.0*gsq) * (me**5) * n_lifetime / hbar_meV))
                 return np.where(ok0 & ok1,
                                 (sigma1a + sigma1b) * sigma0 * meV_to_cm, 0.0)
-    
+
             E_nu  = 0.5 * (self.bins[:-1] + self.bins[1:])
             dE_in = E_nu[1] - E_nu[0]
             sig_in = np.asarray(s_ibd(E_nu), dtype=float)
@@ -491,7 +501,7 @@ class Spectrum:
             Evis_half = 0.5*(Evis_hi - Evis_lo)
             ct_nodes,    ct_w     = np.polynomial.legendre.leggauss(n_cos_theta)
             Ee_sub_nodes, Ee_sub_w = np.polynomial.legendre.leggauss(n_Ee_per_bin)
-    
+
             Ee_2d = (Evis_mid[:, None] + Evis_half[:, None] * Ee_sub_nodes[None, :]) - me
             Ee_3d = Ee_2d[:, :, None]
             ct_3d = ct_nodes[None, None, :]
@@ -516,7 +526,7 @@ class Spectrum:
                 'Ee_sub_w': Ee_sub_w, 'Evis_half': Evis_half, 'dE_in': dE_in,
             }
             _PE_2D_CACHE[cache_key] = cached
-    
+
         # ── per-call: only the flux-dependent work ──────────────────────────
         E_nu   = cached['E_nu']
         sig_in = cached['sig_in']
@@ -533,7 +543,7 @@ class Spectrum:
         return Spectrum(new_counts, bins=self.bins)
     else:
         raise ValueError(f"Unknown type for positron energy shift: {type!r}")
-    
+
 
   def ShiftEnergy(self, eshift):
     old_bins = self.bins
@@ -556,7 +566,7 @@ class Spectrum:
         bins_new.append(e)
     elif mode == "spectrum":
       bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])*(1+LY_shared)
-    elif mode == "G4":  
+    elif mode == "G4":
       bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC, kI=kI)*LY_shared/G4model_gamma.eval(2.22, kB, fC=fC, kI=kI)
     elif mode == "fit":
       bins_new = self.bins*fit_bins
@@ -731,7 +741,7 @@ class Spectrum:
 
     # rescaling factor: s = w_source / w_target
     #s = 1.0
-    if w_source != 0: 
+    if w_source != 0:
         s = w_source / w_target
     else:
         s = 1.0
@@ -748,7 +758,7 @@ class Spectrum:
     np.fill_diagonal(data, var)
 
     return CovMatrix(data, bins=self.bins, axis_label=self.xlabel)
-      
+
   def GetVariedB2BCovMatrix(self, sigmas):
     nb = len(self.bin_cont)
     data = np.zeros(shape=(nb,nb))
@@ -809,17 +819,17 @@ class Spectrum:
 
     sigmas = 1. / np.sqrt(sigmas_inv_var)
     return self.GetVariedB2BCovMatrix(sigmas)
-  
+
   def WritetoROOT(self, histname, outfile, directory=None):
     # Open the file in update mode
     output_file = ROOT.TFile(outfile, "UPDATE")
-    
+
     # If a directory is specified, navigate into it or create it
     if directory:
         if not output_file.GetDirectory(directory):
             output_file.mkdir(directory)
         output_file.cd(directory)
-    
+
     bins = self.bins
     bin_cont = self.bin_cont
 
@@ -827,13 +837,13 @@ class Spectrum:
     # Note: ROOT.gDirectory will now point to your target folder
     hist = ROOT.TH1D(histname, histname, len(bins) - 1, array('d', bins))
     hist.Sumw2()
-    
+
     for i in range(len(bin_cont)):
         hist.SetBinContent(i + 1, bin_cont[i])
-    
+
     # Write the histogram to the current directory (the one we cd'd into)
     hist.Write("", ROOT.TObject.kOverwrite)
-    
+
     output_file.Close()
   def SetXlabel(self, label):
     self.xlabel = label
@@ -865,7 +875,7 @@ class Spectrum:
     for i,s in enumerate(extra_spectra):
       weights_extra = s.bin_cont #/ np.sum(s.bins)
       plt.hist(s.bins[:-1], bins=s.bins, weights=weights_extra, fill=False, histtype='step', linewidth=2, color=colors[i+1], label=leg_labels[i+1], log=log_scale)
-  
+
     if xmin is not None: plt.xlim(left=xmin)
     if xmax is not None: plt.xlim(right=xmax)
     if ymin is not None: plt.ylim(bottom=ymin)
@@ -959,13 +969,13 @@ class CovMatrix:
         except np.linalg.LinAlgError:
             self._invertibility = False
     return self._invertibility
-      
+
   def __add__(self, o):
     return CovMatrix(self.data + o.data, bins=self.bins, axis_label=self.axis_label)
 
   def Add(self, cm):  # to be removed
     return CovMatrix(self.data + cm.data, bins=self.bins, axis_label=self.axis_label)
-  
+
   def Rebin(self, new_bins):
     fine_bins = np.asarray(self.bins)
     new_bins  = np.asarray(new_bins)
@@ -992,7 +1002,7 @@ class CovMatrix:
     rebinned_data = 0.5 * (rebinned_data + rebinned_data.T)
 
     return CovMatrix(rebinned_data, bins=new_bins, axis_label=self.axis_label)
-      
+
   def Extend(self, other):
     A = self.data.shape[0]
     B = other.data.shape[0]
@@ -1001,7 +1011,7 @@ class CovMatrix:
     extended_data[A:, A:] = other.data
     new_bins = np.concatenate([self.bins, other.bins])
     return CovMatrix(data=extended_data, bins=new_bins)
-  
+
   def Scale(self, scale_factor):
     sf2 = scale_factor * scale_factor
     self.data *= sf2
@@ -1012,7 +1022,7 @@ class CovMatrix:
   def GetScaled(self, scale_factor):
     sf2 = scale_factor * scale_factor
     return CovMatrix(data=self.data * sf2, bins=self.bins)
-      
+
   def ScaleByBinWidth(self):
     """Scale in-place by bin widths (outer product), mirroring Spectrum.ScaleByBinWidth."""
     widths = np.diff(self.bins)          # bin edges → widths, shape (n,)
@@ -1148,14 +1158,14 @@ def LoadRespMatrix(fname):
   m = pickle.load(f)
   f.close()
   return m
-    
+
 def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_meV", verbose=True):
     evis = 0.5*(ebins[1:] + ebins[:-1]) + eshift
     rel_res = np.sqrt(a**2 / evis + b**2 + c**2 / evis**2)  # in fraction
 
     loc = escale * evis                     # shape (N_e,)
     scale = escale * rel_res * evis         # shape (N_e,)
-    
+
     pe = 0.5*(pebins[1:] + pebins[:-1])    # shape (N_pe,)
     pe_bin_width = pebins[1] - pebins[0]
 
@@ -1167,7 +1177,7 @@ def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="
 
     rm_data = (1 / (np.sqrt(2*np.pi) * scale_grid)) * \
               np.exp(-0.5 * ((pe_grid - loc_grid)/scale_grid)**2)
-    
+
     # multiply by bin width
     rm_data *= pe_bin_width
 
@@ -1204,7 +1214,7 @@ def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="
 #                        norm_mode="per_meV", verbose=True, method="cdf"):
 #     """
 #     Construct detector response matrix with Gaussian energy resolution.
-    
+
 #     Parameters
 #     ----------
 #     a, b, c : floats
@@ -1275,36 +1285,45 @@ def CalcRespMatrix_abc_flu(a, b, c, unc, ebins, pebins, escale=1., eshift=0., no
   gc.collect()
   return spectra
 
+def _overlap_matrix(old_edges, new_edges):
+    """W[i,k] = fraction of old bin k falling into new bin i (counts-conserving)."""
+    old_edges = np.asarray(old_edges, float)
+    new_edges = np.asarray(new_edges, float)
+    lo = np.maximum(new_edges[:-1, None], old_edges[None, :-1])
+    hi = np.minimum(new_edges[1:,  None], old_edges[None, 1:])
+    overlap = np.clip(hi - lo, 0.0, None)
+    old_w = np.diff(old_edges)[None, :]
+    return overlap / old_w
+
 def Rebin2D(data, xedges, yedges, new_xedges, new_yedges):
-  rebinned_data = np.zeros((len(new_xedges) - 1, len(new_yedges) - 1))
-  for i in range(len(new_xedges) - 1):
-    for j in range(len(new_yedges) - 1):
-      mask_x = (xedges[:-1] >= new_xedges[i]) & (xedges[:-1] < new_xedges[i + 1])
-      mask_y = (yedges[:-1] >= new_yedges[j]) & (yedges[:-1] < new_yedges[j + 1])
-      rebinned_data[i, j] = data[mask_x][:, mask_y].sum()
-  return rebinned_data
+    Wx = _overlap_matrix(xedges, new_xedges)   # (nx_new, nx_old)
+    Wy = _overlap_matrix(yedges, new_yedges)   # (ny_new, ny_old)
+    return Wx @ np.asarray(data, float) @ Wy.T
 
-def CalcEnergyLeak(rootfile, histname, ebins, pebins):
-  with uproot.open(rootfile) as file:
-    hist = file[histname].to_numpy()
-  data, ebins_ori, pebins_ori = hist
+def CalcEnergyLeak(rootfile, histname, ebins, pebins, ecrop=None):
+    with uproot.open(rootfile) as file:
+        hist = file[histname].to_numpy()
+    data, ebins_ori, pebins_ori = hist
+    ebin_width_ori = np.diff(ebins_ori)
+    pebin_width_ori = np.diff(pebins_ori)
+    ebin_width = np.diff(ebins)
+    pebin_width = np.diff(pebins)
+    if (ebin_width_ori[0] < ebin_width[0]) or (pebin_width_ori[0] < pebin_width[0]):
+        data = Rebin2D(data, ebins_ori, pebins_ori, ebins, pebins)
 
-  ebin_width_ori = np.diff(ebins_ori)
-  pebin_width_ori = np.diff(pebins_ori)
-  ebin_width = np.diff(ebins)
-  pebin_width = np.diff(pebins)
+    data = np.array(data, dtype=float)  # ensure writable
 
-  if (ebin_width_ori[0] < ebin_width[0]) or (pebin_width_ori[0] < pebin_width[0]):
-    data = Rebin2D(data, ebins_ori, pebins_ori, ebins, pebins)
+    # Zero observed-energy (pebins / column) bins below Ecrop
+    if ecrop is not None:
+        pe_centers = 0.5 * (pebins[:-1] + pebins[1:])
+        data[:, pe_centers < ecrop] = 0.0
 
-  respMat = RespMatrix(data, ebins, pebins)
-  row_sums = respMat.data.sum(axis=1, keepdims=True)
-  row_sums[row_sums == 0] = 1
-
-  respMat.data = respMat.data / row_sums  # Normalize to probabilities
-  respMat.data = np.nan_to_num(respMat.data, nan=0.0)
-
-  return respMat
+    respMat = RespMatrix(data, ebins, pebins)
+    row_sums = respMat.data.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1
+    respMat.data = respMat.data / row_sums
+    respMat.data = np.nan_to_num(respMat.data, nan=0.0)
+    return respMat
 
 def MakeTAOFastNSpectrum(bins, A, B, C):
   bin_cont = np.zeros(len(bins) - 1)
@@ -1386,18 +1405,18 @@ def GetSpectrumFromROOT(fname, hname, scale=1., eshift=0, xlabel="Energy (meV)")
 #     else:
 #         cov_matrix = stat_cov_matrix + cm.data
 #     obs = tot_obs.bin_cont
-#     exp = tot_exp.bin_cont 
-    
+#     exp = tot_exp.bin_cont
+
 #     alpha = np.zeros_like(exp)  # pull values (could later be fit params)
 #     exp = exp * (1 + alpha)     # distorted spectrum
 #     penalty += np.sum((alpha)**2)
-    
+
 
 #     valid = (obs > 0) & (exp > 0)
 #     diff = obs - exp
 #     cov_matrix = cov_matrix[np.ix_(valid, valid)]
 #     diff = diff[valid]
-   
+
 
 #     # --- quadratic form
 #     chi2_term = diff.T @ np.linalg.solve(cov_matrix, diff)
@@ -1436,11 +1455,11 @@ def GetSpectrumFromROOT(fname, hname, scale=1., eshift=0, xlabel="Energy (meV)")
 #       cov_matrix = cm.data
 #   else:
 #       cov_matrix = stat_cov_matrix + cm.data
-  
+
 #   obs = tot_obs.bin_cont
 #   exp = tot_exp.bin_cont
 #   valid = (obs > 0) &(exp > 0)
-  
+
 #   cov_matrix = cov_matrix[np.ix_(valid, valid)]
 #   #chi2 = diff.T @ np.linalg.solve(cov_matrix, diff) + penalty
 
@@ -1471,8 +1490,8 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
         stat_cov_matrix = rea_obs.GetCNPStatCovMatrix(rea_exp).data
 
     if unc == 'stat':
-        cov_matrix = stat_cov_matrix 
-    
+        cov_matrix = stat_cov_matrix
+
     elif ext_cov:
         cov_matrix = cm.data
 
@@ -1483,7 +1502,7 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
     exp = tot_exp.bin_cont
     valid = (obs > 0) & (exp > 0)
     cov_matrix = cov_matrix[np.ix_(valid, valid)]
-    
+
     obs = obs[valid]
     exp = exp[valid]
 
@@ -1494,10 +1513,10 @@ def Chi2(cm, tot_obs, tot_exp, rea_obs, rea_exp, unc=' ', stat_meth=' ', pulls=N
         if sign <= 0:
             raise np.linalg.LinAlgError("Covariance matrix not positive definite")
 
-    chi2 = chi2_val(obs, exp, cov_matrix, penalty) 
+    chi2 = chi2_val(obs, exp, cov_matrix, penalty)
 
     return chi2, chi2 + logdet
-    
+
 def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea_obs1, rea_exp1, rea_obs2, rea_exp2, unc=' ', stat_meth=' ', pulls=None, pull_unc=None, nd="TAO"):
   penalty = 0.0
   if pulls and pull_unc:
@@ -1524,11 +1543,11 @@ def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea
 
   else:
       total_cov_matrix = stat_cm1_mod.data +  stat_cm2_mod.data + cm1_mod.data + cm2_mod.data + corr_cm.data
-  
+
 
   diff1 = tot_obs1.bin_cont - tot_exp1.bin_cont
   diff2 = tot_obs2.bin_cont - tot_exp2.bin_cont
-  
+
   obs_total = np.concatenate((tot_obs1.bin_cont, tot_obs2.bin_cont))
   exp_total = np.concatenate((tot_exp1.bin_cont, tot_exp2.bin_cont))
 
@@ -1538,9 +1557,9 @@ def Combined_Chi2(cm1, cm2, corr_cm, tot_obs1, tot_exp1, tot_obs2, tot_exp2, rea
   total_cov_matrix = total_cov_matrix[np.ix_(valid, valid)]
   #c_factor = cho_factor(cov_matrix)
   #chi2_term = cho_solve(c_factor, diff[valid])
-  #chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty 
+  #chi2 = np.einsum('i,i->', diff[valid], chi2_term) + penalty
   chi2 = diff_total[valid].T @ np.linalg.solve(total_cov_matrix, diff_total[valid]) + penalty
-    
+
   return chi2
 
 def Chi2DYB(rel_cm, obs_sp, exp_sp):
@@ -1558,7 +1577,7 @@ def GetRelCM(V, d, bins=None, axis_label=""):
     obs = d.bin_cont
     denom = np.outer(obs, obs)
     Q = V.data/denom
-    
+
     return CovMatrix(Q, bins=d.bins, axis_label=axis_label)
 # def GetFluctuatedSpectraNL(ensp_nonl, ensp_nl_nom, ensp_nl_pull_curve, sample_size=10000):
 #   nc = sp.interpolate.interp1d(ensp_nl_nom.GetBinCenters(), ensp_nl_nom.bin_cont,
@@ -1599,8 +1618,8 @@ import numpy as np
 # def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
 #     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
 #     interp_weights = np.interp(
-#         fine_centers, 
-#         coarse_edges, 
+#         fine_centers,
+#         coarse_edges,
 #         nuisance_coarse,
 #         left=0.0,
 #         right=0.0
@@ -1610,7 +1629,7 @@ import numpy as np
 
 # def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
 #     fine_centers   = 0.5 * (fine_edges[:-1]   + fine_edges[1:])
-#     coarse_centers = 0.5 * (coarse_edges[:-1] + coarse_edges[1:])  
+#     coarse_centers = 0.5 * (coarse_edges[:-1] + coarse_edges[1:])
 
 #     nuisance_coarse = np.asarray(nuisance_coarse, dtype=float)
 #     log_mult = np.log(1.0 + nuisance_coarse)                        # multiplicative → log space
@@ -1623,7 +1642,7 @@ import numpy as np
 #         right=0.0,   # above last  segment center → no modification
 #     )
 #     return np.exp(interp_log) - 1.0
-    
+
 def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
     fine_centers = 0.5 * (fine_edges[:-1] + fine_edges[1:])
     expanded_nuisance = np.zeros_like(fine_centers)
@@ -1635,7 +1654,7 @@ def expand_nuisances_to_fine(coarse_edges, fine_edges, nuisance_coarse):
 
     expanded_nuisance[valid_mask] = np.asarray(nuisance_coarse)[indices[valid_mask]]
     return expanded_nuisance
-    
+
 def GetSpectrumFromDAT(filename, scale_U235=1.0, scale_U238=1.0, scale_Pu239=1.0, scale_Pu241=1.0):
     """
     Read neutrino flux data from a .dat file with columns:
@@ -1673,7 +1692,7 @@ def centers_to_edges(centers):
 def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=None, alpha=None, eff=0.0):
     """
     Compute normalization scaling factor for reactor flux at given baselines.
-    
+
     Handles 0 m baseline by removing 1/L^2 dependence (useful for near/fake detectors).
     """
 
@@ -1682,12 +1701,12 @@ def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=N
         alpha_arr = np.array(args.alpha)
     else:
         alpha_arr = alpha
-        
+
     if efission is None:
         efission_arr = np.array(args.efission)
     else:
         efission_arr = np.array(efission)
-        
+
     if core_powers is None:
         Pth_arr = np.array(args.core_powers)*power_conv
     else:
@@ -1715,7 +1734,7 @@ def compute_extrafactors(args, efission=None, core_baselines=None, core_powers=N
 
     extrafactor = prefactor * geo_term / norm
     return extrafactor
-    
+
 def compute_extrafactors_vec(args, efission=None, core_baselines=None,
                               core_powers=None, alpha=None, eff=0.0):
     """
@@ -1760,7 +1779,7 @@ def compute_extrafactors_vec(args, efission=None, core_baselines=None,
                        Pth_arr / (L_arr * L_arr))
 
     return prefactor * geo / norm                 # (n_cores,)
-    
+
 def compute_extrafactors_per_core(args, core_powers, core_baselines, fission_fracs, eff=0.0):
     """
     Compute normalization extrafactor for each core separately,
@@ -1785,7 +1804,7 @@ def compute_extrafactors_per_core(args, core_powers, core_baselines, fission_fra
         )
         extrafactors.append(ef)
     return np.array(extrafactors)
-    
+
 def load_reactor_summary(yaml_path="data/reactor_data.yaml"):
     with open(yaml_path, 'r') as f:
         summary = yaml.safe_load(f)
@@ -1808,7 +1827,7 @@ def load_reactor_summary(yaml_path="data/reactor_data.yaml"):
             core_baselines.append(entry.get('baseline', 0.0))
 
     return core_names, np.array(core_powers), core_fractions, np.array(core_baselines)
-    
+
 def rebin_cov_matrix(cov, target_bins):
     def expand_edges(bins):
         bins = np.asarray(bins)
@@ -1844,11 +1863,11 @@ def rebin_cov_matrix(cov, target_bins):
 
     new_data = T @ cov.data @ T.T
     return CovMatrix(new_data, bins=target_bins, axis_label=cov.axis_label)
-    
+
 def calculate_ndays(args_obj):
     opt = args_obj.stat_opt
     duty_cycle = args_obj.duty_cycle
-    
+
     if opt.endswith("days"):
         val = float(opt[:-4])
         return val * duty_cycle
@@ -1863,7 +1882,7 @@ def calculate_ndays(args_obj):
         return 30.436875 * val * duty_cycle
     else:
         raise ValueError(f"Unsupported time format in '{opt}'. Use days, months, or years.")
-        
+
 def GetCovMatrixFromROOT(file_path, hist_name):
 
     with uproot.open(file_path) as f:
@@ -1871,10 +1890,10 @@ def GetCovMatrixFromROOT(file_path, hist_name):
         hist = f[hist_name]
         data = hist.values()
         bins = hist.axes[0].edges()
-        
+
         # Get the title or axis label
         label = hist.title if hist.title else axis_label
-        
+
     return CovMatrix(data=data, bins=bins, axis_label=label)
 
 
@@ -1900,7 +1919,7 @@ def GetPee(Enu_array, L, core_powers=None,
     # 2. Handle Baselines and Core Shares
     if not isinstance(L, list):
         L = [L]
-    
+
     if core_powers is None:
         core_shares = np.full(len(L), 1.0 / len(L))
     else:
@@ -1923,7 +1942,7 @@ def GetPee(Enu_array, L, core_powers=None,
                                  sin2_th12=sin2_th12, sin2_th13=sin2_th13,
                                  dm2_21=dm2_21, dm2_ee=dm2_ee,
                                  me_rho=me_rho)
-        
+
         total_P += P_core * share
 
     return total_P

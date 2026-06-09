@@ -1,6 +1,6 @@
 YJ:
-  YJ1: 
-    power: 2.60903 
+  YJ1:
+    power: 2.62801
     baseline: 52740.0
     fission_fraction:
         U235: 0.58
@@ -8,15 +8,15 @@ YJ:
         Pu239: 0.3
         Pu241: 0.05
   YJ2:
-    power: 2.70452
+    power: 2.70124
     baseline: 52820.0
     fission_fraction:
         U235: 0.58
         U238: 0.07
         Pu239: 0.3
         Pu241: 0.05
-  YJ3: 
-    power: 2.45140
+  YJ3:
+    power: 2.48027
     baseline: 52410.0
     fission_fraction:
         U235: 0.58
@@ -24,7 +24,7 @@ YJ:
         Pu239: 0.3
         Pu241: 0.05
   YJ4:
-    power: 2.49596
+    power: 2.52268
     baseline: 52490.0
     fission_fraction:
         U235: 0.58
@@ -32,7 +32,7 @@ YJ:
         Pu239: 0.3
         Pu241: 0.05
   YJ5:
-    power:  2.72569 
+    power: 2.73624
     baseline: 52110.0
     fission_fraction:
         U235: 0.58
@@ -40,7 +40,7 @@ YJ:
         Pu239: 0.3
         Pu241: 0.05
   YJ6:
-    power: 2.55129
+    power: 2.56008
     baseline: 52190.0
     fission_fraction:
         U235: 0.58
@@ -49,7 +49,7 @@ YJ:
         Pu241: 0.05
 TS:
   TS1:
-    power:  3.44837 
+    power:  3.20993
     baseline: 52770.0
     fission_fraction:
         U235: 0.58
@@ -57,7 +57,7 @@ TS:
         Pu239: 0.3
         Pu241: 0.05
   TS2:
-    power: 1.79360
+    power: 1.73637
     baseline: 52640.0
     fission_fraction:
         U235: 0.58
