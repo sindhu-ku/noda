@@ -21,7 +21,7 @@ fit_options:
   CI_powers: False
   calc_minuit_errors: false
   profile_dm2_31: false
-  profile_points: 30
+  profile_points: 100
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: false
@@ -36,7 +36,7 @@ fit_options:
   save_prefit: True
   use_prefit: False
   prefit_path: /home/sindhu/Documents/JUNO/Fitter/noda/noda/prefit_data/240_allP_data.npz
-  include_tao: True
+  include_tao: False
   include_dyb: True
   geo_fit: true
   apply_bump: true
@@ -61,7 +61,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'June9-2026'
+  file_prefix: 'June10-2026_P14_noprof'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -155,8 +155,8 @@ common_det_inputs:
 
 juno_inputs:
   reactor_summary_yaml:  /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/reactor_summary_CI.yaml
-  stat_opt: 224.52days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
-  detector_efficiency: 0.697682 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  stat_opt: 215.68699days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  detector_efficiency: 0.7054 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   eff_unc: 0.02098609788 #rel
   bins: 601
   min_ene: 0.0  # Minimum energy
@@ -166,7 +166,7 @@ juno_inputs:
     - 12.0
   NL: real
   NL_data_file:  /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/JUNOInputs2022_05_08.root #/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June4_shell_TTree.root
+  data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June9_shell_TTree.root
   det_resp_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/Jun2026_cov_er.txt
   data_hist_name: data
   rebin_nonuniform: true

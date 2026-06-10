@@ -1,0 +1,65 @@
+# manifest_phases.yaml — multi-phase fit from ONE common config.
+#
+# `common:` points at a single full config (fit options, oscillation
+# settings, binning, files, …) shared by every phase. Each entry under
+# `phases:` lists ONLY the keys that change between phases:
+#   livetime (stat_opt), detector_efficiency, eff_unc, backgrounds_yaml,
+#   reactor power (core_powers / reactor_summary_yaml), detector response
+#   matrix (det_resp_file) and values (a,b,c,kB,fC,kI,LY_shared),
+#   data_spectrum / data_hist_name.
+#
+# Flat keys are looked up in juno_inputs, then fit_options, then
+# common_det_inputs of the common config and replaced there. To override
+# a key in another section (or add a new key), nest it explicitly:
+#   phase1:
+#     tao_inputs:
+#       stat_opt: 8.587days
+#
+# A shell can be encoded in the phase name as "phase/shell", e.g.
+#   "P25C/FV1": {...}
+# The optional top-level `systematics:` block works exactly as in the
+# path-per-phase manifest shape.
+
+common: config/240-day_FV165/AllP_Jun2026.yaml
+
+phases:
+  phase1:
+    stat_opt: 57.09735092days
+    detector_efficiency: 0.7046
+    eff_unc: 0.02087689979
+    backgrounds_yaml: /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/240-day_FV165/backgrounds_phase1.yaml
+    reactor_summary_yaml: /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/reactor_summary.yaml
+    core_powers: [1.92635615, 2.73654672, 2.86288168, 1.54130401, 2.47091164, 2.86591997, 4.09121128, 4.14699872, 15.89570359, 9.24866519]
+    data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_phase_1_FV16.5_June4_shell_TTree.root_100keV.root
+    data_hist_name: data
+    det_resp_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/phase1_cov_er.txt
+    a: 3.521059025008223958e-02
+    b: 1.371078124381019253e-02
+    c: 0.0
+    kB: 1.550084076173213928e-02
+    fC: 3.730705605582284590e-01
+    kI: 7.670292387190972422e-04
+    LY_shared: 1.007829025064929995e+00
+
+  phase4:
+    stat_opt: 72.3398days
+    detector_efficiency: 0.8665
+    eff_unc: 0.02086471217
+    backgrounds_yaml: /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/240-day_FV165/backgrounds_phase4.yaml
+    reactor_summary_yaml: /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/reactor_summary.yaml
+    core_powers: [1.92635615, 2.73654672, 2.86288168, 1.54130401, 2.47091164, 2.86591997, 4.09121128, 4.14699872, 15.89570359, 9.24866519]
+    data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_phase_4_FV16.5_June1_shell_TTree.root
+    data_hist_name: data
+    det_resp_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/phase1_cov_er.txt  # TODO: per-phase ER cov when available
+    a: 3.35364040e-02
+    b: 1.53220897e-02
+    c: 0.0
+    kB: 1.33122880e-02
+    fC: 6.58328259e-01
+    kI: 2.76166818e-03
+    LY_shared: 1.00439834e+00
+
+# ─── Optional override of systematic-correlation policy ────────────────────
+# systematics:
+#   eff_nuis:   {correlate_phase: false, correlate_shell: true}
+#   core_power: {correlate_phase: true,  correlate_shell: true}

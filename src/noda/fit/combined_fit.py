@@ -87,7 +87,7 @@ def _plot_relative_uncertainty(obs_vals, obs_err, bins, detector_label, args,
     plt.savefig(figname, dpi=200)
     plt.close(fig)
     print(f"[plot] saved {figname}")
-    
+
 def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
                        *,
                        detector_label="JUNO",
@@ -123,7 +123,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
             s_signal.WritetoROOT(f"reactor",
                              f"{output_file}",
                              directory="juno/postfit")
- 
+
         s_tot.WritetoROOT(f"totalpred",
                              f"{output_file}",
                              directory=f"{detector_label.lower()}/postfit")
@@ -137,7 +137,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
 
     if detector_label != "DYB":
         obs_err += np.sqrt(np.maximum(obs_vals, 1e-12))
-    
+
     fit_vals = s_tot.bin_cont
     fit_err  = np.sqrt(np.maximum(fit_vals, 1e-12))
 
@@ -254,7 +254,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
         textstr = (f"{detector_label}{title_tag}\n"
                f"Livetime = {ndays:.2f} days\n"
                f"χ²/ndf = {chi2_value:.2f}/{ndf} = {chi2_ndf:.2f}")
-    
+
     ax1.text(0.2, 0.9, textstr, transform=ax1.transAxes, fontsize=9,
              va='center', ha='left',
              bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
@@ -299,7 +299,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
 
     all_names  = nuis_names  + tao_param_names  + dyb_param_names
     all_starts = nuis_starts + tao_start_values + dyb_start_values
-                
+
     def prefit_chi2(*params):
         nuisance_vals   = list(params[:n_nuis])
         tao_vals        = list(params[n_nuis : n_nuis + len(tao_param_names)])
@@ -323,14 +323,14 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 eff_nuis_tao=tao_params_dict['eff_nuis_tao'],
                 bckg_rate=tao_params_dict['bckg_rate'],
                 unc=unc_tao, nuisance=nuisance_vals)
-            
+
 
         if dyb_det is not None:
             noneq=0.0
             if len(dyb_vals):
                 noneq = dyb_params_dict['snf_noneq_norm_dyb']
             chi2_dyb, s_obs_dyb, s_tot_dyb, _, _ = dyb_det.chi2_contribution(
-                nuisance_coarse=np.array(nuisance_vals),                
+                nuisance_coarse=np.array(nuisance_vals),
                 snf_noneq_norm_dyb=noneq,
                 E_segments=E_segments)
 
@@ -353,7 +353,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
     for n in nuis_names:
         m_pre.fixed[n] = True
     m_pre.migrad()
-    
+
     # Stage B: free shape nuisances, refit
     for n in nuis_names:
         m_pre.fixed[n] = False
@@ -369,15 +369,15 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         print("  nuis_best:", nuis_best)
         print("  nuis_cov diag:", np.diag(nuis_cov))
 
-    nbins  =0 
+    nbins  =0
     if dyb_det is not None:
         noneq=0.0
         if len(dyb_start_values):
             noneq = m_pre.values['snf_noneq_norm_dyb']
         chi2_dyb, s_obs_dyb, s_tot_dyb, cm_dyb, ibd_postfit = dyb_det.chi2_contribution(
-            nuisance_coarse=nuis_best,                
+            nuisance_coarse=nuis_best,
             snf_noneq_norm_dyb=noneq,
-            E_segments=E_segments) 
+            E_segments=E_segments)
         nbins += len(s_obs_dyb.bins)
 
     if tao_det is not None:
@@ -394,7 +394,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
             bckg_rate=m_pre.values['bckg_rate'],
             unc=unc_tao, nuisance=nuis_best)
         nbins += len(s_obs_tao.bins)
-    
+
     if dyb_det is not None:
         plot_fit_residuals_all(
                 s_tot=s_tot_dyb,
@@ -431,7 +431,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 args=args_tao,
                 detector_label="TAO",
                 tag="best-fit",
-                chi2_value=chi2_tao, 
+                chi2_value=chi2_tao,
                 cm=cm_tao,
                 ndf=nbins  - len(E_segments),
                 write_output=args_tao.write_output
@@ -496,8 +496,8 @@ def propagate_nuis_to_reco(juno_det, nuis_best, nuis_cov,
 
         J[:, i] = col
 
-    return J @ nuis_cov @ J.T    
-    
+    return J @ nuis_cov @ J.T
+
 def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
                ensp_nom_juno={}, ensp_nom_dyb={}, ensp_nom_tao={},
                unc_juno='', unc_dyb='', unc_tao='', unc_corr='',
@@ -539,7 +539,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         args_juno.plot_minuit_profiles     = False
         args_juno.plot_minuit_matrix       = False
         args_juno.print_minuit_correlation = False
-    
+
     # ── load reactor summary ─────────────────────────────────────────────────
     core_names, core_powers_std, core_fractions, core_baselines = \
         load_reactor_summary(args_juno.reactor_summary_yaml)
@@ -550,7 +550,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
 
     # ── decide which near detector is active ─────────────────────────────────
     use_tao = args_juno.include_tao and args_juno.fit_type == "PMOP_combined"
-    use_dyb = args_juno.include_dyb and args_juno.fit_type == "PMOP_combined" 
+    use_dyb = args_juno.include_dyb and args_juno.fit_type == "PMOP_combined"
 
     if not args_juno.silent_print:
         if use_tao: print("Using TAO")
@@ -589,7 +589,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             args=args_tao,
             core_baselines=args_tao.core_baselines,
             core_powers_std=args_tao.core_powers,
-            s_ibd=s_ibd, ene_leak_tao=ene_leak_tao, 
+            s_ibd=s_ibd, ene_leak_tao=ene_leak_tao,
             E_segments=E_segments)
 
     global DYB_BINS
@@ -616,7 +616,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=bool(args_juno.NMO_opt))
     fit_mode = getattr(args_juno, 'fit_mode', 'combined')  # 'combined' | 'prefit_wsegs' | 'prefit_wosegs'
 
- 
+
     # ════════════════════════════════════════════════════════════════════════
     #  Parameter bookkeeping
     # ════════════════════════════════════════════════════════════════════════
@@ -627,7 +627,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     juno_start_values = juno_det.get_start_values()
     n_juno = len(juno_param_names)
     n_nuis = len(E_segments) -1
-    
+
     bckgs = {}
     for key, info in backgrounds["JUNO"].items():
         bckgs[key] = {"pull": 0.0, "sigma": info["rate_unc"],
@@ -640,7 +640,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     n_rea   = sum(1 for p in juno_param_names if p.startswith("snf_noneq_norm"))
     n_core  = sum(1 for p in juno_param_names if p.startswith("core_power"))
     n_efis  = sum(1 for p in juno_param_names if p.startswith("efission"))
-    
+
     # ── TAO-specific (only populated when use_tao) ────────────────────────────
     if use_tao:
         tao_param_names  = tao_det.get_param_names()
@@ -695,7 +695,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     nuis_cov     = None
     nuis_cov_inv = None
     C_reco       = None
-    
+
     if args_juno.fit_type == "PMOP_combined" and fit_mode.startswith('prefit'):
         if prefit_cache is None:
             m_pre, nuis_best, nuis_cov = run_dyb_tao_prefit(
@@ -709,14 +709,14 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             m_pre     = None
             if not args_juno.silent_print:
                 print("Using CACHED DYB+TAO prefit.")
-    
+
         # seed start values from pre-fit
         for i, n in enumerate(get_shape_nuis_names(n_nuis)):
             start_values[param_names.index(n)] = nuis_best[i]
-    
+
         if fit_mode == 'prefit_wsegs':
             nuis_cov_inv = np.linalg.inv(nuis_cov)
-    
+
         elif fit_mode == 'prefit_wosegs':
             if prefit_cache is not None and prefit_cache.get('C_reco') is not None:
                 C_reco = np.asarray(prefit_cache['C_reco'])
@@ -732,7 +732,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
                     eff_nuis=0.0,
                     ThU_ratio=args_juno.Th_U_ratio,
                     core_powers_delta=[0.0] * n_core,
-                    efission=list(args_juno.efission))   
+                    efission=list(args_juno.efission))
                 C_reco = propagate_nuis_to_reco(
                     juno_det=juno_det,
                     nuis_best=nuis_best, nuis_cov=nuis_cov,
@@ -749,7 +749,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             #           save_path=f"cov_propagation.png")
 
         # ── FC: persist freshly-computed prefit if config asks for it ────────
-        
+
         if args_juno.save_prefit and prefit_cache is None:
             os.makedirs("prefit_data", exist_ok=True)
             np.savez_compressed(
@@ -772,7 +772,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
              core_powers_delta=[], efission=[],
              Ngeo=0.0, NU=0.0, NTh=0.0, Nmantle=0.0,
              opp=False, plot_fit=False,
-             ThU_ratio=args_juno.Th_U_ratio,nuisance=None, 
+             ThU_ratio=args_juno.Th_U_ratio,nuisance=None,
              tao_params=None, dyb_params=None):
 
         chi2_dyb        = 0.0
@@ -782,7 +782,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         dm2_31_phys = dm2_31 * 1e-3
         dm2_21_phys = dm2_21 * 1e-5
 
-        
+
         # ── JUNO ─────────────────────────────────────────────────────────────
         (chi2_juno, chi2_nolog, chi2_penalty_er,
          s_juno, s_tot_juno,
@@ -792,7 +792,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             Nrea=Nrea, NL=NL, abc=abc,
             bckgs_for_chi2=bckgs,
             snf_noneq_norm=snf_noneq_norm,
-            eff_nuis=eff_nuis, 
+            eff_nuis=eff_nuis,
             ThU_ratio=ThU_ratio,
             core_powers_delta=core_powers_delta,
             efission=efission,
@@ -869,39 +869,39 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     def chi2_wrapper(sin2_12, sin2_13, dm2_21, dm2_31, me_rho,
                      *all_nuisance_params, opp=False, plot_fit=False):
         offset = 0
- 
+
         # ── JUNO block: slice n_juno values, map by name ──────────────────────
         juno_vals = all_nuisance_params[offset : offset + n_juno]; offset += n_juno
         jp = dict(zip(juno_param_names, juno_vals))
- 
+
         # ── shape nuisances ───────────────────────────────────────────────────
         nuisance_vals = all_nuisance_params[offset : offset + n_nuis]; offset += n_nuis
- 
+
         # ── TAO block ─────────────────────────────────────────────────────────
         tao_params_dict = None
         if use_tao:
             tao_vals = all_nuisance_params[offset : offset + n_tao]; offset += n_tao
             tao_params_dict = dict(zip(tao_param_names, tao_vals))
- 
+
         # ── DYB block ─────────────────────────────────────────────────────────
         dyb_params_dict = None
         if use_dyb:
             dyb_vals = all_nuisance_params[offset : offset + n_dyb]; offset += n_dyb
             dyb_params_dict = dict(zip(dyb_param_names, dyb_vals))
- 
+
         # ── unpack JUNO params by name ────────────────────────────────────────
         NL_vals   = [jp[p] for p in juno_param_names if p.startswith("NL")]
         abc_vals  = [jp[p] for p in juno_param_names if p.startswith("abc")]
         rea_vals  = [jp[p] for p in juno_param_names if p.startswith("snf_noneq_norm")]
         core_vals = [jp[p] for p in juno_param_names if p.startswith("core_power")]
         efis_vals = [jp[p] for p in juno_param_names if p.startswith("efission")]
- 
+
         bckgs_for_chi2 = {}
         for key in bckgs_keys:
             info = dict(bckgs[key])
             info["pull"] = jp[f"bkg_{key}"]
             bckgs_for_chi2[key] = info
- 
+
         return chi2(
             sin2_12=sin2_12, sin2_13=sin2_13,
             dm2_21=dm2_21, dm2_31=dm2_31, me_rho=me_rho,
@@ -931,7 +931,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
             ])
         return f
 
-    
+
 
 
     if fit_mode != "combined":
@@ -940,7 +940,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
 
     if not args_juno.silent_print: print(start_values)
     if not args_juno.silent_print: print(param_names)
-        
+
     chi2_func = make_chi2_func(n_fixed=5, n_total=len(start_values))
     # inside run_minuit, just after chi2_func = make_chi2_func(...)
     # import time
@@ -974,12 +974,12 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     if fit_mode == "combined":
         if use_tao:
             tao_det.apply_limits(m)
-    
+
         # DYB
         if use_dyb:
             dyb_det.apply_limits(m)
 
- 
+
 
     if not args_juno.silent_print:
         print("-----Parameter init values and limits-----")
@@ -1004,7 +1004,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         m.fixed[p] = True
     for p in first_fix:
         m.fixed[p] = True
- 
+
     if not (args_juno.fit_type == 'PMOP_combined' and fit_mode == 'prefit_wosegs'):
         m.migrad()
     # ── stage 2: free osc + me_rho ───────────────────────────────────────────
@@ -1119,7 +1119,7 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         if use_tao and not prefit_cache:
             print("************TAO Detector response************")
             for pname in tao_param_names:
-                if fit_mode == "combined": 
+                if fit_mode == "combined":
                     print(f"{pname}: {m.values[pname]} +/- {m.errors[pname]}")
                 else:
                     print(f"{pname}: {m_pre.values[pname]} +/- {m_pre.errors[pname]}")
@@ -1223,30 +1223,30 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
         if fit_mode == "combined":
             if use_tao: tao_det.apply_limits(m_opp)
             if use_dyb: dyb_det.apply_limits(m_opp)
-    
+
         if args_juno.fit_type != 'PMOP_combined' or fit_mode == 'prefit_wosegs':
             for i in range(n_nuis):
                 m_opp.fixed[f'nuis{i}'] = True
-    
-        for p in SHARED_PARAM_NAMES: 
+
+        for p in SHARED_PARAM_NAMES:
             m_opp.fixed[p] = True
         for p in first_fix:
             m_opp.fixed[p] = True
-        
+
         if not (args_juno.fit_type == 'PMOP_combined' and fit_mode == 'prefit_wosegs'):
             m_opp.migrad()
-    
-        for p in SHARED_PARAM_NAMES: 
+
+        for p in SHARED_PARAM_NAMES:
             m_opp.fixed[p] = False
         m_opp.migrad()
         m_opp.strategy = 2
-    
+
         for p in first_fix:
             if m_opp.fixed[p]: m_opp.fixed[p] = False
         m_opp.migrad()
-    
+
         if not args_juno.silent_print: print(m_opp)
-  
+
         chi2_opp = m_opp.fval
 
         if not args_juno.silent_print: print("NMO significance: ",chi2_true, chi2_opp)
@@ -1279,8 +1279,8 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
 from .dispatcher import (DetectorBundle, build_chi2,
                          apply_all_limits, collect_first_fix)
 from .param_policy import ParamPolicy
- 
- 
+
+
 def run_minuit_bundled(bundles, policy, args_juno, *,
                        prefit_cache=None, prefit_only=False,
                        return_cost_fn=False,
@@ -1292,12 +1292,12 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     cache is provided, and full post-fit reporting.
     """
 
- 
+
     if toy_quiet:
         args_juno.silent_print = True
         args_juno.run_hesse    = False
         args_juno.write_output = False
- 
+
     nuosc.SetOscillationParameters(opt=args_juno.PDG_opt,
                                    NO=bool(args_juno.NMO_opt))
 
@@ -1308,20 +1308,20 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     n_shape        = len(args_juno.seg_bins_nonuniform) -1
     n_nuis         = n_shape                                  # legacy alias
     E_segments     = np.array(args_juno.seg_bins_nonuniform)
- 
+
     # ── 1. Find TAO/DYB bundles BEFORE we filter them out ────────────────
     tao_bundle       = next((b for b in bundles if b.kind == 'tao'), None)
     dyb_bundle       = next((b for b in bundles if b.kind == 'dyb'), None)
     juno_bundles_all = [b for b in bundles if b.kind == 'juno']
     use_tao = tao_bundle is not None
     use_dyb = dyb_bundle is not None
- 
+
     # ── 2. Resolve prefit data — cache, or compute on the fly ────────────
     nuis_best = None
     nuis_cov  = None
     C_reco    = None
     m_pre     = None                          # captured for TAO printout
- 
+
     if fit_type == "PMOP_combined":
         if is_prefit_mode:
             if prefit_cache is not None:
@@ -1342,7 +1342,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         "bundles available — cannot compute the prefit.")
                 if not args_juno.silent_print:
                     print("[bundled] no cache — running DYB+TAO prefit on the fly")
-     
+
                 m_pre, nuis_best, nuis_cov = run_dyb_tao_prefit(
                     dyb_det=dyb_bundle.detector if dyb_bundle else None,
                     tao_det=tao_bundle.detector if tao_bundle else None,
@@ -1357,7 +1357,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     dyb_exp=dyb_bundle.detector.ensp_nom['rtot'] if dyb_bundle else None,
                     tao_exp=tao_bundle.detector.ensp_nom['rtot'] if tao_bundle else None,
                     ibd_prefit=dyb_bundle.detector.ensp_nom['ribd'])
-     
+
         # ── 3. prefit_wosegs: compute C_reco if missing from cache ───────────
         if fit_mode == 'prefit_wosegs' and C_reco is None:
             if not juno_bundles_all:
@@ -1403,7 +1403,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 me_rho=args_juno.me_rho,
                 fixed_juno_params=jp_fixed,
                 args_juno=args_juno, unc_juno=unc_juno0)
-     
+
         # ── 4. Save freshly-computed prefit to disk if requested ─────────────
         if (is_prefit_mode and prefit_cache is None
                 and getattr(args_juno, 'save_prefit', False)):
@@ -1418,13 +1418,13 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 C_reco=C_reco if C_reco is not None else np.array([]))
             if not args_juno.silent_print:
                 print(f"[bundled] saved prefit cache → {out_path}")
-     
+
         # ── 5. FC early return ───────────────────────────────────────────────
         if prefit_only:
             return {'nuis_best': nuis_best,
                     'nuis_cov':  nuis_cov,
                     'C_reco':    C_reco}
-     
+
         # ── 6. Drop TAO/DYB from the JUNO fit in any prefit mode ─────────────
         if fit_mode != 'combined':
             n_pre = len(bundles)
@@ -1433,13 +1433,13 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 print(f"[bundled] fit_mode={fit_mode}: dropped "
                       f"{n_pre - len(bundles)} non-JUNO bundle(s) — they're "
                       "absorbed into the prefit cache")
-     
+
         # ── 7. prefit_wosegs: stamp C_reco onto every JUNO detector ──────────
         if fit_mode == 'prefit_wosegs':
             for b in bundles:
                 if b.kind == 'juno':
                     b.detector.set_external_cov(C_reco)
-     
+
     # ── 8. Build chi² closure ────────────────────────────────────────────
     chi2_func, names, starts, routing = build_chi2(bundles, policy, args_juno)
     #chi2_func = time_chi2(chi2_func, label='chi2')
@@ -1457,22 +1457,22 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 return v + float(d @ nuis_cov_inv @ d)
             _chi2_with_penalty.__signature__ = _orig_sig
             chi2_func = _chi2_with_penalty
-     
+
         # ── 10. Seed shape-nuisance starts from prefit (both prefit modes) ───
         if is_prefit_mode and nuis_best is not None:
             for i in range(min(n_shape, len(nuis_best))):
                 starts[names.index(f'nuis{i}')] = float(nuis_best[i])
-     
+
     # ── 11. Optional FC dm²₃₁ seed ───────────────────────────────────────
     if true_dm2_31 is not None:
         starts[names.index('dm2_31')] = true_dm2_31 * 1e3
- 
+
     # ── 12. Build Minuit ─────────────────────────────────────────────────
     m = Minuit(chi2_func, *starts, name=names)
     final_fit_start = datetime.now()
     apply_shared_limits(m, args_juno, n_shape_bins=n_shape)
     apply_all_limits(m, bundles, routing)
- 
+
     if fix_dm2_31_to is not None:
         m.values['dm2_31'] = fix_dm2_31_to
         m.fixed['dm2_31']  = True
@@ -1481,14 +1481,14 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         print(f"[bundled] {len(bundles)} bundles, {len(names)} Minuit params")
         for b in bundles:
             print(f"   bundle: {b.kind:5s} phase={b.phase} shell={b.shell}")
- 
+
     # ── 13. Shape-nuisance fixing rule (matches original run_minuit) ─────
     if args_juno.fit_type != 'PMOP_combined' or fit_mode == 'prefit_wosegs':
         for i in range(n_shape):
             m.fixed[f'nuis{i}'] = True
- 
+
     first_fix = collect_first_fix(bundles, routing)
- 
+
     # ── 14. Stage 1: fix shared + first_fix nuisances; Migrad ────────────
     for p in SHARED_PARAM_NAMES:
         m.fixed[p] = True
@@ -1496,7 +1496,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         m.fixed[p] = True
     if not (args_juno.fit_type == 'PMOP_combined' and fit_mode == 'prefit_wosegs'):
         m.migrad()
- 
+
     # ── 15. Stage 2: free osc + me_rho ───────────────────────────────────
     for p in SHARED_PARAM_NAMES:
         if p == 'dm2_31' and fix_dm2_31_to is not None:
@@ -1507,7 +1507,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     # m.fixed['dm2_21'] = True
     # m.fixed['dm2_31'] = True
     m.migrad()
- 
+
     # ── 16. Stage 3: free everything else ────────────────────────────────
     for p in first_fix:
         if m.fixed[p]:
@@ -1515,21 +1515,21 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
 
     m.migrad()
     migrad_time = datetime.now()
- 
+
     if args_juno.run_hesse and not toy_quiet:
         m.hesse()
     hesse_time = datetime.now()
- 
+
     # ── 17. FC short-circuit ─────────────────────────────────────────────
     if toy_quiet:
         if return_cost_fn:
             return m, chi2_func
         return m
- 
+
     # ═══════════════════════════════════════════════════════════════════════
     #  POST-FIT REPORTING
     # ═══════════════════════════════════════════════════════════════════════
- 
+
     # First JUNO bundle is used for header info / counts
     b_first = juno_bundles_all[0] if juno_bundles_all else None
     bckgs_keys = (list(b_first.backgrounds['JUNO'].keys())
@@ -1538,14 +1538,14 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         if b_first is not None else [])
     n_NL  = sum(1 for p in juno_param_names if p.startswith("NL"))
     n_abc = sum(1 for p in juno_param_names if p.startswith("abc"))
- 
+
     # Convenience: route a JUNO base name through the first JUNO bundle's
     # mapping (gives plain name when global, mangled otherwise)
     def juno_param(base):
         return routing[id(b_first)][base] if b_first is not None else base
- 
+
     unc_juno_first = b_first.unc_key if b_first is not None else 'stat'
- 
+
     # ── 18. Diagnostics block ────────────────────────────────────────────
     if not args_juno.silent_print:
         print("Function minimum value: ", m.fval)
@@ -1561,7 +1561,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         print("Above EDM threshold?    ", m.fmin.is_above_max_edm)
         print("Has reached call limit? ", m.fmin.has_reached_call_limit)
         print("Hesse failed?           ", m.fmin.hesse_failed)
- 
+
     # ── 19. ROOT output (postfit) ────────────────────────────────────────
     output_file = None
     dir_nuis = dir_post = dir_post_dyb = None
@@ -1579,7 +1579,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         print("************Other parameter fit results************")
         for i in range(len(SHARED_PARAM_NAMES), len(m.values)):
             print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
- 
+
         # ── Background rates per JUNO bundle ─────────────────────────────
         print("************Background rates************")
         for b in juno_bundles_all:
@@ -1600,7 +1600,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 else:
                     start_rate = info["rate"]
                     rate_fit  = start_rate * (1 + nuis)
-            
+
                 rate_err        = start_rate * nuis_err
                 deviation_sigma = ((rate_fit - start_rate)
                                    / (start_rate * rate_unc)
@@ -1610,11 +1610,11 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                       f"deviation: {deviation_sigma:.2f} σ)")
                 if args_juno.write_output:
                     dir_nuis.cd()
-                    if rate_unc != 0.0: 
+                    if rate_unc != 0.0:
                         write_parameter(f"{tag_pre}{key}", nuis/rate_unc, nuis_err/rate_unc)
                     else:
                         write_parameter(f"{tag_pre}{key}", nuis, nuis_err)
- 
+
         # ── Normalization parameters per JUNO bundle ─────────────────────
         print("************Normalization parameters************")
         for b in juno_bundles_all:
@@ -1630,11 +1630,11 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 dir_nuis.cd()
                 write_parameter(f"{tag_pre}Rflux", m.values[n_name]/b.detector.args.r2_unc, m.errors[n_name]/b.detector.args.r2_unc)
                 write_parameter(f"{tag_pre}eff_pull", m.values[e_name]/b.detector.args.eff_unc, m.errors[e_name]/b.detector.args.eff_unc)
- 
+
         # ── Shared (osc + me_rho) ────────────────────────────────────────
         print("************Shared parameters************")
         print(f"me_rho: {m.values['me_rho']} +/- {m.errors['me_rho']}")
- 
+
         # ── JUNO detector response (NL + abc) — usually global ───────────
         if b_first is not None:
             print("************JUNO Detector response************")
@@ -1652,7 +1652,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                   f"+/- {m.errors[juno_param('NL2')]}")
             print(f"LY: {m.values[juno_param('NL3')]}  "
                   f"+/- {m.errors[juno_param('NL3')]}")
- 
+
         # ── TAO detector response ────────────────────────────────────────
         if use_tao and tao_bundle is not None:
             print("************TAO Detector response************")
@@ -1670,15 +1670,15 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                           f"+/- {m_pre.errors[pname]}  (from prefit)")
                 else:
                     pass    # cached prefit — m_pre unavailable; skip
- 
+
         # ── ROOT writes for JUNO response ────────────────────────────────
         if args_juno.write_output and b_first is not None:
             dir_nuis.cd()
             sigma_prior = np.sqrt(np.diag(b_first.detector.covariance_er))
-            
+
             det_params = [("a","abc0"), ("b","abc1"), ("c","abc2"),
                           ("kB","NL0"), ("fC","NL1"), ("kI","NL2"), ("LY","NL3")]
-            
+
             for i, (tag, base) in enumerate(det_params):
                 name    = juno_param(base)
                 nominal = m.init_params[name].value
@@ -1694,11 +1694,11 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 name = juno_param(base)
                 write_parameter(tag, m.values[name]/b_first.detector.args.core_flux_unc, m.errors[name]/b_first.detector.args.core_flux_unc)
 
-    
+
     if args_juno.write_output and output_file is not None:
         dir_post.cd()
         write_param_dbl("Efficiency", args_juno.detector_efficiency*(1+m.values["eff_nuis"]))
-        
+
     if args_juno.write_output:
         dyb_dir = output_file.GetDirectory("dyb")
         dyb_dir.cd()
@@ -1710,22 +1710,22 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             else:
                 write_parameter(f"rea_shape_f{i}", m.values[f"nuis{i}"], m.errors[f"nuis{i}"])
 
- 
+        output_file.Close()
     # ── 20. Correlation heat-map ─────────────────────────────────────────
     if args_juno.plot_correlation:
         import re
         corr = np.array(m.covariance.correlation())
-    
+
         def _drop(p):
             return (re.fullmatch(r"nuis\d+", p)          # shape nuisances
                     or p.startswith("core_power")        # power corrections (+_tao)
                     or p.startswith("snf_noneq_norm")   # SNF / non-eq (+_tao/_dyb)
                     or p.startswith("efission"))
-    
+
         keep   = [i for i, p in enumerate(m.parameters) if not _drop(p)]
         corr   = corr[np.ix_(keep, keep)]
         labels = [m.parameters[i] for i in keep]
-        
+
         import seaborn as sns
         plt.figure(figsize=(12, 12))          # smaller figure → smaller squares
         ax = sns.heatmap(corr,
@@ -1737,17 +1737,17 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         plt.tight_layout()
 
         plt.savefig(f"Plots/corr_{args_juno.file_prefix}", dpi=200)
- 
+
     # ── 21. dm²₃₁ profile ────────────────────────────────────────────────
     if args_juno.profile_dm2_31:
         profile_dm2_31(m, args_juno, NMO_opt=bool(args_juno.NMO_opt),
                        write=args_juno.write_output)
- 
+
     # ── 22. MINOS errors ─────────────────────────────────────────────────
     merrors = bool(args_juno.calc_minuit_errors)
     if merrors:
         m.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31")
- 
+
     # ── 23. Oscillation parameter results ────────────────────────────────
     osc_params_nom = [
         nuosc.op_nom["sin2_th12"],
@@ -1755,15 +1755,17 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         nuosc.op_nom["dm2_21"] * 1e5,
         nuosc.op_nom["dm2_31"] * 1e3,
     ]
-    # if args_juno.write_output:
-    #     output_file = ROOT.TFile(
-    #         f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
-    #         f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root",
-    #         "update")
-    #     dir_osc = output_file.mkdir("oscillation_parameters")
-    #     dir_osc.cd()
- 
+
+
     if not args_juno.silent_print: # and not args_juno.is_data:
+        if args_juno.write_output:
+                output_file = ROOT.TFile(
+                            f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
+                            f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root",
+                            "update")
+
+                dir_osc = output_file.mkdir("oscillation_parameters")
+                dir_osc.cd()
         print("************Oscillation parameter fit results************")
         for i in range(4):
             err = (max(abs(m.merrors[i].upper), abs(m.merrors[i].lower))
@@ -1774,13 +1776,13 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             deviation_sigma = (val - exp_val) / err if err != 0 else float('nan')
             print(f"{m.parameters[i]}: {val:.6g} +/- {err:.6g}; "
                   f"rel unc: {rel_unc:.3%}; deviation: {deviation_sigma:.2f} σ")
-            # if args_juno.write_output:
-            #     write_osc_params(str(m.parameters[i]), val, err)
+            if args_juno.write_output:
+                write_osc_params(str(m.parameters[i]), val, err)
 
 
     if args_juno.write_output:
         output_file.Close()
- 
+
     # ── 24. Post-fit residual plot (one per JUNO bundle) ─────────────────
     chi2_true = m.fval
     if not args_juno.silent_print:
@@ -1823,7 +1825,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 nuisance = [values_best[f'nuis{i}'] for i in range(n_shape)],
                 unc=b.unc_key)
             sp_obs = b.detector._get_obs_spectrum()
-            
+
             plot_fit_residuals_all(
                 s_tot_juno, sp_obs, s_juno, fit_bckgs,
                 b.detector.ndays, b.args,
@@ -1849,7 +1851,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             plt.ylabel(r'$\Delta m^2_{21}$ [eV$^2$]')
             plt.legend(); plt.grid(True); plt.tight_layout()
             plt.savefig("Plots/solar_contour.png")
- 
+
     # ── 26. NMO significance ─────────────────────────────────────────────
     chi2_opp = None
     if args_juno.NMO_sig:
@@ -1882,7 +1884,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             #print(m_opp)
             print(f"NMO significance: chi2 = {chi2_true}, chi2_opp = {chi2_opp}, "
                   f"Δχ² = {chi2_opp - chi2_true:.2f}")
- 
+
     # ── 27. Profile / matrix plots ───────────────────────────────────────
     if args_juno.plot_minuit_matrix or args_juno.plot_minuit_profiles:
         os.makedirs(f"{args_juno.plots_folder}/Chi2_profiles/Minuit",
@@ -1900,11 +1902,11 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         print("Plotting matrix")
         fig, ax = m.draw_mnmatrix(cl=[1, 2, 3])
         plt.show()
- 
+
     print('Migrad: ', migrad_time - final_fit_start)
     print('Hesse: ',  hesse_time - migrad_time)
     print("Final fit time:", datetime.now() - final_fit_start)
- 
+
     if return_cost_fn:
         return m, chi2_func
     return m

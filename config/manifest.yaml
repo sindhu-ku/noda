@@ -1,6 +1,6 @@
 # manifest_P25CD.yaml — top-level entry point for a multi-phase fit.
 #
-# Two accepted shapes:
+# Three accepted shapes:
 #
 #   1) Phase only (entire radius fit per phase):
 #         P25C: config/P25C_PRL2025.yaml
@@ -12,6 +12,17 @@
 #           FV2: config/P25C_FV2.yaml
 #         P25D:
 #           FV1: config/P25D_FV1.yaml
+#
+#   3) One common config + per-phase overrides — only list what changes
+#      between phases (livetime, eff, eff_unc, backgrounds, reactor
+#      power, detector response file/values, data spectrum). See
+#      config/240-day_FV165/manifest_phases.yaml for a full example:
+#         common: config/240-day_FV165/AllP_Jun2026.yaml
+#         phases:
+#           phase1:
+#             stat_opt: 57.09735092days
+#             detector_efficiency: 0.7046
+#             ...
 #
 # When you mix (some phases have shells, some don't) the no-shell ones
 # get shell='ALL'. The single-config legacy run also keeps working.

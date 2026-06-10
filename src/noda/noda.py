@@ -571,7 +571,7 @@ class Spectrum:
     elif mode == "spectrum":
       bins_new = self.bins*np.array([spectrum.GetAtEnergy(e) for e in self.bins])*(1+LY_shared)
     elif mode == "G4":
-      bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC, kI=kI)*LY_shared/G4model_gamma.eval(2.22, kB, fC=fC, kI=kI)
+      bins_new = self.bins*G4model.eval(self.bins, kB, fC=fC, kI=kI)*LY_shared/G4model_gamma.eval(2.224589, kB, fC=fC, kI=kI)
     elif mode == "fit":
       bins_new = self.bins*fit_bins
     old_bins = self.bins

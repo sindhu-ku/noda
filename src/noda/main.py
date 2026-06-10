@@ -95,18 +95,61 @@ def _build_bump_interpolator(input_data_file):
 # ─────────────────────────────────────────────────────────────────────────────
 # Config parsing — pulled out so setup_one_phase can call it per config file
 # ─────────────────────────────────────────────────────────────────────────────
-def _parse_phase_config(cfg_path, remaining_argv=None):
+CONFIG_SECTIONS = ('fit_options', 'common_det_inputs', 'juno_inputs',
+                   'dyb_inputs', 'tao_inputs')
+# Flat (un-sectioned) manifest overrides are per-phase JUNO quantities
+# (livetime, eff, backgrounds, reactor power, detector response, …), so
+# they are looked up in these sections, in this order:
+OVERRIDE_SEARCH_ORDER = ('juno_inputs', 'fit_options', 'common_det_inputs')
+
+
+def _apply_manifest_overrides(config, overrides):
+    """
+    Merge per-phase manifest overrides into the common config dict.
+
+    Two forms are accepted per key:
+      - a section name ('juno_inputs', 'tao_inputs', …) mapping to a dict
+        → merged into that section explicitly;
+      - a flat key (e.g. 'stat_opt', 'eff_unc', 'core_powers')
+        → replaces the key in the first section of OVERRIDE_SEARCH_ORDER
+          that already defines it. Unknown keys raise, so typos don't
+          silently fall back to the common value.
+    """
+    for key, val in overrides.items():
+        if key in CONFIG_SECTIONS:
+            if not isinstance(val, dict):
+                raise ValueError(
+                    f"manifest override '{key}' names a config section and "
+                    f"must map to a dict of keys")
+            config.setdefault(key, {}).update(val)
+            continue
+        for section in OVERRIDE_SEARCH_ORDER:
+            if key in config.get(section, {}):
+                config[section][key] = val
+                break
+        else:
+            raise KeyError(
+                f"manifest override '{key}' not found in common config "
+                f"sections {OVERRIDE_SEARCH_ORDER}; nest it under an "
+                f"explicit section (e.g. 'juno_inputs:') to add a new key")
+
+
+def _parse_phase_config(cfg_path, remaining_argv=None, overrides=None):
     """
     Run the existing argparse-from-YAML logic against ONE config file.
     Returns (args_juno, args_dyb, args_tao). `remaining_argv` is the
     command-line argv minus --config; pass None for nested loads where
-    you don't want CLI overrides applied.
+    you don't want CLI overrides applied. `overrides` is the per-phase
+    dict from a common-config manifest, applied on top of the YAML.
     """
     if remaining_argv is None:
         remaining_argv = []
 
     with open(cfg_path, 'r') as f:
         config = yaml.safe_load(f)
+
+    if overrides:
+        _apply_manifest_overrides(config, overrides)
 
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument('--config', default=cfg_path)
@@ -144,7 +187,7 @@ def _parse_phase_config(cfg_path, remaining_argv=None):
 # Per-phase setup — wraps everything the old main.py did for one config
 # ─────────────────────────────────────────────────────────────────────────────
 def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
-                    remaining_argv=None):
+                    remaining_argv=None, overrides=None):
     """
     Build the full stack of objects needed for one phase (or one shell of
     one phase): args namespaces, spectra, response matrices, covariance
@@ -154,7 +197,10 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
     This is the legacy main.py setup pipeline, hoisted into a function.
     """
     print(f"\n══════ setup phase={phase_label} shell={shell_label}  ({cfg_path}) ══════")
-    args_juno, args_dyb, args_tao = _parse_phase_config(cfg_path, remaining_argv)
+    if overrides:
+        print(f"  manifest overrides: {', '.join(overrides)}")
+    args_juno, args_dyb, args_tao = _parse_phase_config(cfg_path, remaining_argv,
+                                                        overrides=overrides)
 
     if not os.path.exists(args_juno.main_data_folder):
         os.makedirs(args_juno.main_data_folder, exist_ok=True)
@@ -514,19 +560,22 @@ def main(argv=None):
 
     if not is_multi:
         # legacy single-config — full CLI overrides supported
-        phase, shell, cfg_path = rows[0]
+        phase, shell, cfg_path, phase_ov = rows[0]
         setup = setup_one_phase(cfg_path,
                                 phase_label=phase, shell_label=shell,
-                                remaining_argv=remaining_argv)
+                                remaining_argv=remaining_argv,
+                                overrides=phase_ov)
         m = _run_legacy_single(setup, manifest_doc)
     else:
         # manifest — CLI overrides apply to every phase (so flags like
         # --use_prefit 1 take effect uniformly). Per-phase differences
-        # should live in the per-phase config files.
+        # live either in per-phase config files or, with a `common:` +
+        # `phases:` manifest, in the per-phase override blocks.
         setups = [setup_one_phase(cfg,
                                   phase_label=phase, shell_label=shell,
-                                  remaining_argv=remaining_argv)
-                  for phase, shell, cfg in rows]
+                                  remaining_argv=remaining_argv,
+                                  overrides=phase_ov)
+                  for phase, shell, cfg, phase_ov in rows]
         m = _run_multi_bundle(setups, manifest_doc)
 
     print(f"\nTotal wall time: {datetime.now() - start}")

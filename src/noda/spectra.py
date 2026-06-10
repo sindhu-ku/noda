@@ -335,7 +335,7 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd, ene
         ensp["snf_final"] = _apply_nonlinearity(ensp["snf_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         ensp["noneq_final"] =  _apply_nonlinearity(ensp["noneq_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
-def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions,
+def _build_snf_noneq_corrections_per_core(ensp, args,ndays, ebins, core_fractions,
                                           core_baselines, core_powers,
                                           resp_matrix, s_ibd, dm2_31):
     """
@@ -394,11 +394,11 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ebins, core_fractions,
         ensp[f"snf_{grp}"]   += final_snf_i
         ensp[f"noneq_{grp}"] += final_noneq_i
 
-        print(f"{grp}{i}  snf={snf_core[i].GetIntegral():.2f}  "
-              f"noneq={noneq_core[i].GetIntegral():.2f}")
+        print(f"{grp}{i}  snf={snf_core[i].GetIntegral()/ndays:.2f}  "
+              f"noneq={noneq_core[i].GetIntegral()/ndays:.2f}")
 
-    print(f"Final SNF Integral:   {ensp['snf_final'].GetIntegral():.2f}")
-    print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral():.2f}")
+    print(f"Final SNF Integral:   {ensp['snf_final'].GetIntegral()/ndays:.2f}")
+    print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral()/ndays:.2f}")
 # ---------------------------------------------------------------------------
 # Reactor flux builders
 # ---------------------------------------------------------------------------
@@ -759,7 +759,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             core_names, core_powers, core_fractions, core_baselines,
         )
         _build_snf_noneq_corrections_per_core(
-            ensp, args, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
+            ensp, args,ndays, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
         )
     else:
         print("Building spectrum with powers from config")
