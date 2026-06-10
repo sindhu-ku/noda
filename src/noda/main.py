@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-main.py — refactored to support either a legacy single-config run OR a
-multi-phase manifest (one JUNO bundle per phase, plus optionally one TAO
-and one DYB bundle from the FIRST phase's config).
+main.py — multi-phase fitting driver (one JUNO bundle per phase/shell,
+plus optionally one TAO and one DYB bundle from the FIRST phase's config).
 
-Decision is automatic: `manifest.load(args.config)` either returns
-[('p0', 'ALL', cfg_path)] for a legacy single-phase YAML (top-level keys
-like `fit_options`, `juno_inputs`, …) or [(phase, shell, cfg), …] for a
-manifest YAML (top-level keys are phase names mapping to config paths).
+`manifest.load(args.config)` either returns [('p0', 'ALL', cfg_path, {})]
+for a single-phase YAML (top-level keys like `fit_options`, `juno_inputs`,
+…) or [(phase, shell, cfg, overrides), …] for a manifest YAML (top-level
+keys are phase names mapping to config paths or override blocks).
 
-Per-phase setup is hoisted into setup_one_phase(); both code paths reuse
-it. The legacy path calls minuit_new.run_minuit() exactly as before; the
-multi-bundle path calls minuit_new.run_minuit_bundled().
+Per-phase setup lives in setup_one_phase(); the fit always goes through
+minuit_new.run_minuit_bundled().
 """
 
 import sys
@@ -187,14 +185,16 @@ def _parse_phase_config(cfg_path, remaining_argv=None, overrides=None):
 # Per-phase setup — wraps everything the old main.py did for one config
 # ─────────────────────────────────────────────────────────────────────────────
 def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
-                    remaining_argv=None, overrides=None):
+                    remaining_argv=None, overrides=None, dm2_31=None):
     """
     Build the full stack of objects needed for one phase (or one shell of
     one phase): args namespaces, spectra, response matrices, covariance
     matrices, backgrounds, ndays. Returns a dict — caller assembles
     DetectorBundles from it.
 
-    This is the legacy main.py setup pipeline, hoisted into a function.
+    `dm2_31` (physical eV², signed) overrides the nominal value when
+    generating the JUNO spectra — used by the FC machinery to build
+    truth spectra at a grid point.
     """
     print(f"\n══════ setup phase={phase_label} shell={shell_label}  ({cfg_path}) ══════")
     if overrides:
@@ -245,7 +245,7 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
     ensp_nom_juno, resp_matrix = spec.CreateSpectra(
         ndays=ndays, ebins=ebins, detector="JUNO",
         backgrounds=backgrounds, s_ibd=s_ibd, s_bump_lin=s_bump_lin,
-        args=args_juno)
+        args=args_juno, dm2_31=dm2_31)
 
     ensp_nom_dyb, resp_matrix_dyb = None, None
     ensp_nom_tao, resp_matrix_tao, ene_leak_tao = None, None, None
@@ -427,63 +427,6 @@ def _build_dyb_bundle(setup, dyb_model=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Legacy single-phase path — same call run_minuit() saw before
-# ─────────────────────────────────────────────────────────────────────────────
-def _run_legacy_single(setup, manifest_doc):
-    """One phase, fit via the original run_minuit (unchanged)."""
-    s = setup
-    args_juno = s['args_juno']
-
-    prefit_cache = None
-    if (args_juno.fit_type == 'PMOP_combined'
-            and getattr(args_juno, 'fit_mode', 'combined').startswith('prefit')
-            and getattr(args_juno, 'use_prefit', False)):
-        prefit_cache = load_prefit_cache(args_juno.prefit_path)
-
-    if args_juno.fit_type != 'PMOP_combined':
-        # JUNO-only legacy path
-        return minuit_new.run_minuit(
-            ndays=s['ndays'], s_ibd=s['s_ibd'], s_bump_lin=s['s_bump_lin'],
-            ensp_nom_juno=s['ensp_nom_juno'],
-            unc_juno=s['unc_key_juno'],
-            rm=s['rm'], cm_juno=s['cm_juno'],
-            args_juno=args_juno, backgrounds=s['backgrounds'])
-
-    if not args_juno.use_dagflow:
-        return minuit_new.run_minuit(
-            ndays=s['ndays'], ndays_dyb=s['ndays_dyb'], ndays_tao=s['ndays_tao'],
-            s_ibd=s['s_ibd'], s_bump_lin=s['s_bump_lin'],
-            ensp_nom_juno=s['ensp_nom_juno'],
-            ensp_nom_dyb=s['ensp_nom_dyb'],
-            ensp_nom_tao=s['ensp_nom_tao'],
-            unc_juno=s['unc_key_juno'], unc_tao='all',
-            rm=s['rm'], rm_dyb=s['rm_dyb'], rm_tao=s['rm_tao'],
-            cm_juno=s['cm_juno'], cm_dyb=s['cm_dyb'], cm_tao=s['cm_tao'],
-            args_juno=s['args_juno'], args_dyb=s['args_dyb'],
-            args_tao=s['args_tao'],
-            ene_leak_tao=s['ene_leak_tao'],
-            backgrounds=s['backgrounds'],
-            prefit_cache=prefit_cache)
-
-    # use_dagflow path
-    from .DYB_model import make_dyb_model
-    dyb_model = make_dyb_model(s['args_dyb'])
-    return minuit_new.run_minuit(
-        ndays=s['ndays'], ndays_tao=s['ndays_tao'],
-        s_ibd=s['s_ibd'], s_bump_lin=s['s_bump_lin'],
-        ensp_nom_juno=s['ensp_nom_juno'],
-        ensp_nom_tao=s['ensp_nom_tao'],
-        unc_juno=s['unc_key_juno'], unc_tao='stat',
-        rm=s['rm'], rm_tao=s['rm_tao'],
-        cm_juno=s['cm_juno'], cm_tao=s['cm_tao'],
-        args_juno=s['args_juno'], args_dyb=s['args_dyb'],
-        args_tao=s['args_tao'], dyb_model=dyb_model,
-        ene_leak_tao=s['ene_leak_tao'],
-        backgrounds=s['backgrounds'],
-        prefit_cache=prefit_cache)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Multi-bundle path — N JUNO bundles + at most 1 TAO + 1 DYB
 # ─────────────────────────────────────────────────────────────────────────────
 def _run_multi_bundle(setups, manifest_doc):
@@ -551,32 +494,22 @@ def main(argv=None):
                              help='Path to config file or manifest YAML')
     args, remaining_argv = conf_parser.parse_known_args(argv)
 
-    # ── decide: legacy single-phase vs multi-phase manifest ──────────────
+    # ── load manifest (a plain single-phase YAML is a 1-row manifest) ─────
     rows = load_manifest(args.config)
-    is_multi = True #not (len(rows) == 1 and rows[0][:2] == ('p0', 'ALL'))
 
     with open(args.config, 'r') as f:
         manifest_doc = yaml.safe_load(f) or {}
 
-    if not is_multi:
-        # legacy single-config — full CLI overrides supported
-        phase, shell, cfg_path, phase_ov = rows[0]
-        setup = setup_one_phase(cfg_path,
-                                phase_label=phase, shell_label=shell,
-                                remaining_argv=remaining_argv,
-                                overrides=phase_ov)
-        m = _run_legacy_single(setup, manifest_doc)
-    else:
-        # manifest — CLI overrides apply to every phase (so flags like
-        # --use_prefit 1 take effect uniformly). Per-phase differences
-        # live either in per-phase config files or, with a `common:` +
-        # `phases:` manifest, in the per-phase override blocks.
-        setups = [setup_one_phase(cfg,
-                                  phase_label=phase, shell_label=shell,
-                                  remaining_argv=remaining_argv,
-                                  overrides=phase_ov)
-                  for phase, shell, cfg, phase_ov in rows]
-        m = _run_multi_bundle(setups, manifest_doc)
+    # CLI overrides apply to every phase (so flags like --use_prefit 1
+    # take effect uniformly). Per-phase differences live either in
+    # per-phase config files or, with a `common:` + `phases:` manifest,
+    # in the per-phase override blocks.
+    setups = [setup_one_phase(cfg,
+                              phase_label=phase, shell_label=shell,
+                              remaining_argv=remaining_argv,
+                              overrides=phase_ov)
+              for phase, shell, cfg, phase_ov in rows]
+    m = _run_multi_bundle(setups, manifest_doc)
 
     print(f"\nTotal wall time: {datetime.now() - start}")
 

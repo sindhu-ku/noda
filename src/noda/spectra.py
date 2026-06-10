@@ -682,7 +682,7 @@ def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None):
     return graph
 
 
-def _write_juno_output(ensp,ndays, args, backgrounds):
+def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     from .fit.minuit import write_param_dbl
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
     output_file = ROOT.TFile(tag, "update")
@@ -694,6 +694,13 @@ def _write_juno_output(ensp,ndays, args, backgrounds):
     dir_pre = juno_dir.mkdir("prefit")
     dir_pre.cd()
     write_param_dbl("Efficiency", args.detector_efficiency)
+    if s_ibd is not None:
+        enu = np.arange(0.0, 12.001, 0.001)
+        xsec_vals = s_ibd(enu)
+        xsec_graph = ROOT.TGraph(len(enu),
+                                 np.ascontiguousarray(enu, dtype=float),
+                                 np.ascontiguousarray(xsec_vals, dtype=float))
+        xsec_graph.Write("xsec", ROOT.TObject.kOverwrite)
 
     dir_resp = juno_dir.mkdir("response")
     dir_resp.cd()
@@ -706,7 +713,7 @@ def _write_juno_output(ensp,ndays, args, backgrounds):
     ensp["rosc"].WritetoROOT("osc", tag, "juno/prefit")
     ensp["rvis_nonl"].WritetoROOT("dep", tag, "juno/prefit")
     ensp["rvis"].WritetoROOT("vis", tag, "juno/prefit")
-    ensp["rdet_fine"].WritetoROOT("reco", tag, "juno/prefit")
+    ensp["rdet_fine"].WritetoROOT("rec", tag, "juno/prefit")
     ensp["rdet"].WritetoROOT("reactor", tag, "juno/prefit")
     ensp["rtot"].WritetoROOT("totalpred", tag, "juno/prefit")
     for key in backgrounds["JUNO"]:
@@ -912,7 +919,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_juno(ensp, args)
 
         if args.write_output:
-            _write_juno_output(ensp, ndays, args, backgrounds)
+            _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=s_ibd)
 
     elif detector == "DYB":
         extra_spectra, leg_labels, colors = _assemble_total_spectrum_dyb(ensp, args, ndays)

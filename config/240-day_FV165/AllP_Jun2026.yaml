@@ -19,8 +19,9 @@ fit_options:
   run_hesse: True
   solar_contour: false
   CI_powers: False
-  calc_minuit_errors: false
-  profile_dm2_31: false
+  calc_minuit_errors: False
+  profile_dm2_31: true
+  profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
   profile_points: 100
   silent_print: false
   geo_spectra: ana
@@ -61,7 +62,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'June10-2026_P14_noprof_snfnoneq'
+  file_prefix: 'June10-2026_P14_DYB'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices

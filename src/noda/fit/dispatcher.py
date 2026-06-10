@@ -107,7 +107,7 @@ def collect_first_fix(bundles: List[DetectorBundle], routing: dict) -> list[str]
 def call_detector_chi2(b: DetectorBundle, mapping: dict[str, str],
                        values_by_mangled: dict[str, float],
                        shared_kwargs: dict,
-                       E_segments) -> float:
+                       E_segments, toy_dm2_31=None) -> float:
     """Re-builds the kwargs each detector's chi2_contribution expects."""
     base_names = b.detector.get_param_names()
     def g(base):       return values_by_mangled[mapping[base]]
@@ -139,7 +139,7 @@ def call_detector_chi2(b: DetectorBundle, mapping: dict[str, str],
             ThU_ratio= g('ThU_ratio'),
             core_powers_delta = vals('core_power'),
             efission = vals('efission'),
-            unc=b.unc_key)
+            unc=b.unc_key, toy_dm2_31=toy_dm2_31)
         return float(out[0]) + float(out[2])     # chi2 + chi2_penalty_er
 
     if b.kind == 'tao':
@@ -242,11 +242,54 @@ def pull_dedup_correction(values_by_mangled: dict[str, float],
     return correction
 
 
+def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
+                              bundles: List[DetectorBundle],
+                              toy_dm2_31=None) -> float:
+    """
+    Extra dedup for the dm²₃₁ pull terms that get_pull_defs cannot express:
+
+      * pull_dm2_31_lbl — depends on several Minuit parameters and on
+        toy_dm2_31, so it never appears in get_pull_defs at all;
+      * pull_dm2_31 with toy_dm2_31 set — get_pull_defs dedups it with the
+        NOMINAL centre while each bundle emitted it with the TOY centre.
+
+    Like pull_dedup_correction, returns the over-count to SUBTRACT.
+    Zero for a single JUNO bundle.
+    """
+    juno = [b for b in bundles if b.kind == 'juno']
+    n = len(juno)
+    if n <= 1:
+        return 0.0
+    args = juno[0].args
+    v = values_by_mangled
+    dm2_31_phys = v['dm2_31'] * 1e-3
+    corr = 0.0
+
+    if bool(getattr(args, 'pull_dm2_31', False)) and toy_dm2_31 is not None:
+        from .. import nuosc
+        s     = nuosc.op_nom['dm2_31_err']
+        c_nom = nuosc.op_nom['dm2_31']
+        # bundles emitted n× the toy-centred pull; get_pull_defs already
+        # removed (n-1)× the nominal-centred one — fix the difference
+        corr += (n - 1) * (((dm2_31_phys - toy_dm2_31) / s) ** 2
+                           - ((dm2_31_phys - c_nom) / s) ** 2)
+
+    if bool(getattr(args, 'pull_dm2_31_lbl', False)):
+        from .minuit import f_lbl
+        ordering = "NO" if dm2_31_phys > 0 else "IO"
+        targ = toy_dm2_31 if toy_dm2_31 is not None else args.dm2_31_lbl
+        lbl  = f_lbl(targ, v['sin2_th12'], v['sin2_th13'],
+                     v['dm2_21'] * 1e-5, args.theta23, args.dcp, ordering)
+        corr += (n - 1) * ((dm2_31_phys - lbl) / args.dm2_31_lbl_err) ** 2
+
+    return corr
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Build chi² closure for Minuit
 # ─────────────────────────────────────────────────────────────────────────────
 def build_chi2(bundles: List[DetectorBundle], policy: ParamPolicy,
-               args_juno, *, opp: bool = False
+               args_juno, *, opp: bool = False, toy_dm2_31=None
                ) -> tuple[Callable, list[str], list[float], dict]:
     det_names, det_starts, routing = mangled_param_table(bundles, policy)
 
@@ -272,8 +315,10 @@ def build_chi2(bundles: List[DetectorBundle], policy: ParamPolicy,
         c = 0.0
         for b in bundles:
             c += call_detector_chi2(b, routing[id(b)], values,
-                                    shared_kwargs, E_segments)
+                                    shared_kwargs, E_segments,
+                                    toy_dm2_31=toy_dm2_31)
         c -= pull_dedup_correction(values, bundles, routing)
+        c -= osc_pull_dedup_correction(values, bundles, toy_dm2_31)
         return c
 
     chi2.__signature__ = inspect.Signature([

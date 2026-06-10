@@ -3,11 +3,16 @@
 fc_toy.py — single Feldman-Cousins task (one cluster job runs one of these).
 
 Each invocation:
-  1. Builds the same setup as main.py (spectra, RMs, CMs, detectors)
+  1. Builds the same setup as main.py (manifest → one setup per phase/shell,
+     spectra, RMs, CMs, ParamPolicy, JUNO bundles)
   2. Loads the prefit cache(s) from disk — produced by `run_noda` runs with
      `save_prefit_path` set in the YAML config (one run per NMO ordering).
   3. Loops over its batch of toys at one (true_dm31, true_no) point
   4. Writes a CSV with one row per toy
+
+The --config may be a plain single-phase YAML or a multi-phase manifest
+(`common:` + `phases:`), exactly as for run_noda. Each phase/shell gets its
+own toy observation; the fits bundle all phases via run_minuit_bundled.
 
 PREFIT CACHES
 -------------
@@ -41,26 +46,21 @@ import os
 import sys
 import yaml
 import numpy as np
-import pandas as pd
 from datetime import datetime
 
 # package imports
-import noda.spectra_new_single as spec
-import noda.matrices as mat
-from noda.fit import combined_fit as minuit_new
+from noda.main import setup_one_phase, _build_juno_bundle
+from noda.fit.manifest import load as load_manifest
+from noda.fit.param_policy import policy_from_backgrounds
+from noda.fit.minuit import load_prefit_cache
 from noda.fc.feldman_cousins import (run_one_toy_dm31, run_one_toy_nmo,
 )
-from noda.fit.minuit import load_prefit_cache
-from noda.noda import (
-    CovMatrix, Spectrum, GetCovMatrixFromROOT, GetRelCM, LoadObject,
-    rebin_cov_matrix, calculate_ndays,
-)
-from noda import nuosc
 
 
 def parse():
     p = argparse.ArgumentParser()
-    p.add_argument("--config",      required=True)
+    p.add_argument("--config",      required=True,
+                   help="Config YAML or multi-phase manifest (as for run_noda)")
     p.add_argument("--task-id",     type=int, required=True)
     p.add_argument("--n-toys",      type=int, default=50)
     p.add_argument("--seed-base",   type=int, default=0,
@@ -78,7 +78,7 @@ def load_initial_fits(filepath):
     """Extracts the exact data needed for toy sampling from the npz archive."""
     if not filepath or not os.path.exists(filepath):
         raise FileNotFoundError(f"Could not find initial fits file: {filepath}")
-        
+
     data = np.load(filepath, allow_pickle=True)
     print(data)
     # Unpack the 0-d object arrays back into standard Python objects
@@ -90,143 +90,29 @@ def load_initial_fits(filepath):
         'param_names': data['param_names'].tolist()
     }
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Setup builder — replicates the relevant parts of main.py
 # ─────────────────────────────────────────────────────────────────────────────
-def build_args_from_yaml(config_path):
-    """Reproduce main.py's three-parser config parse."""
+def build_setups(config_path, dm2_31=None):
+    """
+    Manifest-aware setup: one setup_one_phase() dict per (phase, shell) row,
+    plus the ParamPolicy built like main._run_multi_bundle does.
+    Returns (setups, policy).
+    """
+    rows = load_manifest(config_path)
     with open(config_path) as f:
-        config = yaml.safe_load(f)
+        manifest_doc = yaml.safe_load(f) or {}
 
-    import argparse as ap
-    parsers = {'juno': ap.ArgumentParser(), 'dyb': ap.ArgumentParser(),
-               'tao':  ap.ArgumentParser()}
-    sections = {
-        "fit_options":       ["juno", "dyb", "tao"],
-        "common_det_inputs": ["juno", "dyb", "tao"],
-        "juno_inputs":       ["juno"],
-        "dyb_inputs":        ["dyb"],
-        "tao_inputs":        ["tao"],
-    }
-    for sec, dets in sections.items():
-        if sec not in config: continue
-        for opt, val in config[sec].items():
-            for d in dets:
-                parsers[d].add_argument(f"--{opt}", default=val)
+    setups = [setup_one_phase(cfg, phase_label=phase, shell_label=shell,
+                              overrides=phase_ov, dm2_31=dm2_31)
+              for phase, shell, cfg, phase_ov in rows]
 
-    return (parsers['juno'].parse_args([]),
-            parsers['dyb'].parse_args([]),
-            parsers['tao'].parse_args([]))
-
-
-def build_setup(args_juno, args_dyb, args_tao, dm2_31=None):
-    """
-    Build everything main.py builds, up to (but not including) the run_minuit
-    call. Returns a dict ready to splat into run_minuit().
-    """
-    from noda.main import (
-        _build_ibd_interpolator, _build_bump_interpolator,
-    )
-
-    ndays     = calculate_ndays(args_juno)
-    ndays_dyb = calculate_ndays(args_dyb)
-    ndays_tao = calculate_ndays(args_tao)
-
-    ebins     = np.linspace(args_juno.min_ene, args_juno.max_ene, args_juno.bins)
-    ebins_dyb = np.linspace(args_dyb.min_ene,  args_dyb.max_ene,  args_dyb.bins)
-    ebins_tao = np.linspace(args_tao.min_ene,  args_tao.max_ene,  args_tao.bins)
-
-    s_ibd      = _build_ibd_interpolator(ebins)
-    s_bump_lin = _build_bump_interpolator(args_juno.input_data_file)
-
-    with open(args_juno.backgrounds_yaml) as f:
-        backgrounds = yaml.safe_load(f)
-
-    ensp_nom_juno, rm = spec.CreateSpectra(
-        ndays=ndays, ebins=ebins, detector="JUNO", backgrounds=backgrounds,
-        s_ibd=s_ibd, s_bump_lin=s_bump_lin, args=args_juno, dm2_31 =dm2_31)
-
-    ensp_nom_dyb, rm_dyb = spec.CreateSpectra(
-        ndays=ndays_dyb, ebins=ebins_dyb, detector="DYB", backgrounds=backgrounds,
-        s_ibd=s_ibd, s_bump_lin=s_bump_lin, args=args_dyb)
-
-    ensp_nom_tao, rm_tao, ene_leak_tao = spec.CreateSpectra(
-        ndays=ndays_tao, ebins=ebins_tao, detector="TAO", backgrounds=backgrounds,
-        s_ibd=s_ibd, s_bump_lin=s_bump_lin, args=args_tao)
-
-    # JUNO covariance
-    unc_max_juno = max(args_juno.unc_list_juno, key=len)
-    unc_list_juno = unc_max_juno.split('+') if '+' in unc_max_juno else [unc_max_juno]
-    cm_juno = {}
-    for u in unc_list_juno:
-        cache = (f"{args_juno.data_matrix_folder}/cm_JUNO_{u}_{args_juno.bayes_chi2}_"
-                 f"{args_juno.geo_tnu_rate}_NO-{args_juno.NMO_opt}_"
-                 f"{args_juno.stat_opt}_{args_juno.bins}bins.dat")
-        if os.path.isfile(cache) and not args_juno.FORCE_CALC_CM:
-            cm_juno[u] = LoadObject(cache)
-        else:
-            cm_juno[u] = mat.GetCM(ensp=ensp_nom_juno, resp_matrix=rm, ndays=ndays,
-                                   unc=u, detector="JUNO", args=args_juno,
-                                   backgrounds=backgrounds)
-    full_unc = unc_list_juno[0] if len(unc_list_juno) == 1 else '+'.join(unc_list_juno)
-    cm_juno[full_unc] = CovMatrix(
-        data=np.zeros((len(ensp_nom_juno['rdet'].bins)-1,) * 2), bins=ebins)
-    for u in full_unc.split('+'):
-        cm_juno[full_unc] += cm_juno[u]
-
-    # TAO CM
-    cm_tao = {'all': rebin_cov_matrix(
-        GetCovMatrixFromROOT(args_tao.data_file, args_tao.FV_cov_matrix),
-        args_tao.bins_nonuniform)}
-
-    # DYB CM
-    dyb_V = np.loadtxt(args_dyb.dyb_cm)
-    if args_dyb.model == "PRL":
-        cov_75 = dyb_V.reshape(75, 75)
-        dyb_V = cov_75[50:75, 50:75] * 1e-86
-    DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_dyb['rdet'].bins)
-    if args_dyb.model == "CPC":
-        DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep=r'\s+',
-                                   names=["Bin_Center", "Sigma", "Rel_Unc"])
-    else:
-        DYB_spectrum = pd.read_csv(args_dyb.dyb_spectrum, sep=r'\s+',
-                                   names=["Bin_lowE", "Bin_highE", "Sigma", "Rel_Unc"])
-    DYB_sp = Spectrum(bins=ensp_nom_dyb['rdet'].bins,
-                      bin_cont=DYB_spectrum["Sigma"].to_numpy())
-    DYB_rel_cm = GetRelCM(DYB_CM, DYB_sp)
-    cm_dyb = {'all': DYB_rel_cm}
-
-    return dict(
-        ndays=ndays, ndays_dyb=ndays_dyb, ndays_tao=ndays_tao,
-        s_ibd=s_ibd, s_bump_lin=s_bump_lin,
-        ensp_nom_juno=ensp_nom_juno, ensp_nom_dyb=ensp_nom_dyb,
-        ensp_nom_tao=ensp_nom_tao,
-        unc_juno=full_unc, unc_dyb='all', unc_tao='all',
-        rm=rm, rm_dyb=rm_dyb, rm_tao=rm_tao,
-        cm_juno=cm_juno, cm_dyb=cm_dyb, cm_tao=cm_tao,
-        args_juno=args_juno, args_dyb=args_dyb, args_tao=args_tao,
-        dyb_model=None, backgrounds=backgrounds, ene_leak_tao=ene_leak_tao,
-    )
-
-
-def make_juno_det(setup, E_segments):
-    from noda.fit.juno_fit import JUNODetector
-    from noda.fit.combined_fit import load_reactor_summary
-    args_juno = setup['args_juno']
-    core_names, core_powers_std, core_fractions, core_baselines = \
-        load_reactor_summary(args_juno.reactor_summary_yaml)
-    return JUNODetector(
-        ndays=setup['ndays'],
-        ensp_nom=setup['ensp_nom_juno'],
-        rm=setup['rm'], cm=setup['cm_juno'],
-        args=args_juno,
-        backgrounds=setup['backgrounds'],
-        core_baselines=core_baselines,
-        core_powers_std=core_powers_std,
-        core_fractions=core_fractions,
-        E_segments=E_segments,
-        s_ibd=setup['s_ibd'],
-        s_bump_lin=setup['s_bump_lin'])
+    sys_override = (manifest_doc.get('systematics')
+                    if isinstance(manifest_doc, dict) else None)
+    policy = policy_from_backgrounds(
+        setups[0]['backgrounds']['JUNO'], sys_override=sys_override)
+    return setups, policy
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -258,25 +144,34 @@ def main():
     cli = parse()
     t0 = datetime.now()
     initial_fits = load_initial_fits(cli.initial_fits)
-    args_juno, args_dyb, args_tao = build_args_from_yaml(cli.config)
-    args_juno.toymc = True
-    args_juno.NMO_opt = bool(cli.true_no)
+
     if cli.mode == "dm31":
-        sign      = +1.0 if args_juno.NMO_opt else -1.0
-        dm2_31    = sign*cli.true_dm31*1e-3
+        sign   = +1.0 if bool(cli.true_no) else -1.0
+        dm2_31 = sign * cli.true_dm31 * 1e-3
     else:
         dm2_31 = None
-    setup = build_setup(args_juno, args_dyb, args_tao, dm2_31=dm2_31)
-    print(f"[FC] setup built in {datetime.now() - t0}", flush=True)
+    setups, policy = build_setups(cli.config, dm2_31=dm2_31)
+    print(f"[FC] setup built in {datetime.now() - t0} "
+          f"({len(setups)} phase/shell dataset(s))", flush=True)
 
-    E_segments = np.array(args_juno.seg_bins_nonuniform)
-    juno_det_truth = make_juno_det(setup, E_segments)
+    # truth args: applied to EVERY phase/shell dataset
+    for s in setups:
+        s['args_juno'].toymc   = True
+        s['args_juno'].NMO_opt = bool(cli.true_no)
+        if cli.mode == "dm31":
+            s['args_juno'].pull_dm2_31     = False
+            s['args_juno'].pull_dm2_31_lbl = False
+        if cli.mode == "nmo":
+            s['args_juno'].pull_dm2_31     = False
+            s['args_juno'].pull_dm2_31_lbl = True
+            s['args_juno'].PDG_opt = "NT2K"
+
+    # nominal bundles for the truth prediction (one per phase/shell)
+    truth_bundles = [_build_juno_bundle(s) for s in setups]
 
     prefit = (load_prefit_cache(cli.prefit_cache)
               if cli.prefit_cache and os.path.exists(cli.prefit_cache) else None)
     print(f"[FC] loaded prefit from {cli.prefit_cache}", flush=True)
-
-    common_kwargs = dict(setup)
 
     # ── prepare the output CSV (append-mode, header only if new) ──────────────
     os.makedirs(cli.output_dir, exist_ok=True)
@@ -301,37 +196,26 @@ def main():
             toy_t = datetime.now()
 
             if cli.mode == "dm31":
-                args_juno.pull_dm2_31     = False
-                args_juno.pull_dm2_31_lbl = False
                 r = run_one_toy_dm31(
                     seed=seed,
                     true_dm2_31_minuit=cli.true_dm31,
                     true_NO=bool(cli.true_no),
-                    run_minuit_fn=minuit_new.run_minuit,
-                    juno_det=juno_det_truth,
-                    args_juno_truth=args_juno,
-                    backgrounds=setup['backgrounds'],
-                    ensp_nom_juno=setup['ensp_nom_juno'],
+                    setups=setups,
+                    policy=policy,
+                    truth_bundles=truth_bundles,
                     initial_fits=initial_fits,
-                    prefit_cache=prefit,
-                    common_kwargs=common_kwargs)
+                    prefit_cache=prefit)
                 r['mode'] = 'dm31'
                 writer.writerow(r); fh.flush(); n_written += 1
 
             if cli.mode == "nmo":
-                args_juno.pull_dm2_31     = False
-                args_juno.pull_dm2_31_lbl = True
-                args_juno.PDG_opt = "NT2K"
                 r = run_one_toy_nmo(
                     seed=seed,
                     true_NO=bool(cli.true_no),
-                    run_minuit_fn=minuit_new.run_minuit,
-                    juno_det=juno_det_truth,
-                    args_juno_truth=args_juno,
-                    backgrounds=setup['backgrounds'],
-                    ensp_nom_juno=setup['ensp_nom_juno'],
-                    prefit_cache=prefit,
-                    common_kwargs=common_kwargs)
+                    setups=setups,
+                    policy=policy,
+                    truth_bundles=truth_bundles,
+                    prefit_cache=prefit)
                 r['mode'] = 'nmo'
                 writer.writerow(r); fh.flush(); n_written += 1
 
