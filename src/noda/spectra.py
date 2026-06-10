@@ -662,6 +662,28 @@ def _print_juno_event_summary(ev):
 # Optional write-out
 # ---------------------------------------------------------------------------
 
+def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None):
+    """Positron NL curve (Evis/Edep vs Edep), same convention as the ORSA
+    export (juno/response/<stage>/nl_positron): Geant4 model anchored to the
+    2.224589 MeV gamma.  Parameters default to the pre-fit nominals."""
+    if args.NL == "pull":
+        e = 0.5 * (ensp["scintNL"].bins[:-1] + ensp["scintNL"].bins[1:])
+        ratio = ensp["scintNL"].bin_cont
+    else:
+        kB = args.kB if kB is None else kB
+        fC = args.fC if fC is None else fC
+        kI = args.kI if kI is None else kI
+        LY_shared = args.LY_shared if LY_shared is None else LY_shared
+        e = np.arange(1.022, 12.0, 0.001)
+        ratio = (G4model.eval(e, kB, fC=fC, kI=kI) * LY_shared
+                 / G4model_gamma.eval(2.224589, kB, fC=fC, kI=kI))
+    graph = ROOT.TGraph(len(e),
+                        np.ascontiguousarray(e, dtype=float),
+                        np.ascontiguousarray(ratio, dtype=float))
+    graph.SetName("nl_positron")
+    return graph
+
+
 def _write_juno_output(ensp,ndays, args, backgrounds):
     from .fit.minuit import write_param_dbl
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
@@ -674,6 +696,12 @@ def _write_juno_output(ensp,ndays, args, backgrounds):
     dir_pre = juno_dir.mkdir("prefit")
     dir_pre.cd()
     write_param_dbl("Efficiency", args.detector_efficiency)
+
+    dir_resp = juno_dir.mkdir("response")
+    dir_resp.cd()
+    dir_resp_prefit = dir_resp.mkdir('prefit')
+    dir_resp_prefit.cd()
+    _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
     output_file.Close()
 
 

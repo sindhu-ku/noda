@@ -1503,9 +1503,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             continue
         m.fixed[p] = False
 
-    # m.fixed['sin2_th12'] = True
-    # m.fixed['dm2_21'] = True
-    # m.fixed['dm2_31'] = True
+
     m.migrad()
 
     # ── 16. Stage 3: free everything else ────────────────────────────────
