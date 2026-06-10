@@ -46,9 +46,9 @@ def time_chi2(chi2_func, *, label='chi2'):
               f"max {1000*state['max']:.2f}ms")
     atexit.register(_report)
     return wrapped
-    
+
 def plot_correlation_pair(nuis_cov, C_reco, ensp_nom_juno, n_nuis, save_path="cov_propagation.png"):
-    
+
     # compute correlation matrices from covariances
     def to_corr(cov):
         std = np.sqrt(np.diag(cov))
@@ -124,7 +124,7 @@ def write_osc_params(name, val, err):
 def write_param_dbl(name, val):
     value = ROOT.TParameter("double")(f"{name}", val)
     value.Write("", ROOT.TObject.kOverwrite)
-    
+
 def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
     import csv
     from scipy.interpolate import CubicSpline
@@ -177,8 +177,8 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
         n_points = len(dm2_fine)
         graph    = ROOT.TGraph(n_points,
                                dm2_fine.astype(float),
-                               delta_chi2_smooth.astype(float))
-        graph.SetName("dm2_31_conditional" if conditional else "dm2_31")
+                               chi2_smooth.astype(float))
+        graph.SetName("chi2_profile" if conditional else "dm2_31")
         graph.SetMarkerStyle(2)
         out_file = ROOT.TFile(
             f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
@@ -242,4 +242,3 @@ def load_prefit_cache(path: str) -> dict:
     return {'nuis_best': z['nuis_best'],
             'nuis_cov':  z['nuis_cov'],
             'C_reco':    None if C.size == 0 else C}
-

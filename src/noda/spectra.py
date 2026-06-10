@@ -704,8 +704,8 @@ def _write_juno_output(ensp,ndays, args, backgrounds):
 
     ensp["ribd"].WritetoROOT("unosc", tag, "juno/prefit")
     ensp["rosc"].WritetoROOT("osc", tag, "juno/prefit")
-    ensp["rvis"].WritetoROOT("dep", tag, "juno/prefit")
-    ensp["rvis_nonl"].WritetoROOT("vis", tag, "juno/prefit")
+    ensp["rvis_nonl"].WritetoROOT("dep", tag, "juno/prefit")
+    ensp["rvis"].WritetoROOT("vis", tag, "juno/prefit")
     ensp["rdet_fine"].WritetoROOT("reco", tag, "juno/prefit")
     ensp["rdet"].WritetoROOT("reactor", tag, "juno/prefit")
     ensp["rtot"].WritetoROOT("totalpred", tag, "juno/prefit")
@@ -861,7 +861,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             #ensp["rvis_temp_wcorr"] = ensp["rvis_nonl_temp_wcorr"]
 
         ensp["rdet"] = ensp["rvis"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-        ensp["rdet"] = ensp["rvis_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        ensp["rdet_temp"] = ensp["rvis_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         #ensp["rdet_temp_wcorr"] = ensp["rvis_temp_wcorr"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
     ensp['rdet_fine'] = ensp['rdet']

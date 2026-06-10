@@ -135,7 +135,7 @@ def SetOscillationParameters(opt, NO, silent=True):
     op_nom['dm2_21'] = 7.50e-5
     if NO:
       op_nom['sin2_th23'] = 0.534
-      op_nom['dm2_32'] = 2.466e-3
+      op_nom['dm2_32'] =2.1257e-3 #2.466e-3
     else:
       op_nom['sin2_th23'] = 0.537
       op_nom['dm2_32'] = -2.571e-3
