@@ -1152,7 +1152,10 @@ def run_minuit(ndays, ndays_dyb=0, ndays_tao=0, s_ibd=None, s_bump_lin=None,
     # ── dm2_31 profile ────────────────────────────────────────────────────────
     if args_juno.profile_dm2_31:
         profile_dm2_31(m, args_juno, NMO_opt=bool(args_juno.NMO_opt),
-                       write=args_juno.write_output)
+                       write=args_juno.write_output,
+                       conditional=bool(getattr(args_juno,
+                                                'profile_dm2_31_conditional',
+                                                False)))
 
     # ── MINOS ────────────────────────────────────────────────────────────────
     merrors = bool(args_juno.calc_minuit_errors)
@@ -1751,7 +1754,10 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     # ── 21. dm²₃₁ profile ────────────────────────────────────────────────
     if args_juno.profile_dm2_31:
         profile_dm2_31(m, args_juno, NMO_opt=bool(args_juno.NMO_opt),
-                       write=args_juno.write_output)
+                       write=args_juno.write_output,
+                       conditional=bool(getattr(args_juno,
+                                                'profile_dm2_31_conditional',
+                                                False)))
 
     # ── 22. MINOS errors ─────────────────────────────────────────────────
     merrors = bool(args_juno.calc_minuit_errors)

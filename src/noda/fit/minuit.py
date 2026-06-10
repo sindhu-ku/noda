@@ -125,14 +125,18 @@ def write_param_dbl(name, val):
     value = ROOT.TParameter("double")(f"{name}", val)
     value.Write("", ROOT.TObject.kOverwrite)
     
-def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
+def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
     import csv
     from scipy.interpolate import CubicSpline
-    print("Profiling dm2_31 using built-in mnprofile...")
-    if NMO_opt:
-        res = m.mnprofile("dm2_31", size=int(args_juno.profile_points), bound=(1.5, 3.5))
+    bound = (1.5, 3.5) if NMO_opt else (-3.5, -1.5)
+    if conditional:
+        # conditional scan: nuisance/oscillation parameters stay fixed at
+        # their current best-fit values instead of being re-minimized
+        print("Conditional scan of dm2_31 using built-in profile...")
+        res = m.profile("dm2_31", size=int(args_juno.profile_points), bound=bound)
     else:
-        res = m.mnprofile("dm2_31", size=int(args_juno.profile_points), bound=(-3.5, -1.5))
+        print("Profiling dm2_31 using built-in mnprofile...")
+        res = m.mnprofile("dm2_31", size=int(args_juno.profile_points), bound=bound)
     dm2_scan_vals = res[0]
     chi2_vals     = res[1]
     delta_chi2    = chi2_vals - np.min(chi2_vals)
@@ -142,7 +146,8 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
     delta_chi2_smooth = chi2_smooth - np.min(chi2_smooth)
 
     # --- Save raw scan points and smoothed curve to CSV ---
-    csv_path = f"Plots/profile_dm2_31_NO_{NMO_opt}_{args_juno.file_prefix}.csv"
+    scan_tag = "conditional_dm2_31" if conditional else "profile_dm2_31"
+    csv_path = f"Plots/{scan_tag}_NO_{NMO_opt}_{args_juno.file_prefix}.csv"
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["dm2_31_raw", "chi2_raw", "delta_chi2_raw",
@@ -157,13 +162,15 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
     print(f"Saved profile scan to {csv_path}")
 
     plt.figure(figsize=(6, 5))
-    plt.plot(dm2_fine, delta_chi2_smooth, label="Smoothed Profile", lw=2)
+    plt.plot(dm2_fine, delta_chi2_smooth,
+             label="Smoothed Conditional Scan" if conditional else "Smoothed Profile",
+             lw=2)
     plt.xlabel(r"$\Delta m^2_{31}$ [10$^{-3}$ eV$^2$]", fontsize=14)
     plt.ylabel(r"$\Delta \chi^2$", fontsize=14)
     plt.axhline(1.0, color="green", ls="--", label=r"1$\sigma$")
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig(f"Plots/profile_dm2_31_NO_{NMO_opt}_{args_juno.file_prefix}.png", dpi=300)
+    plt.savefig(f"Plots/{scan_tag}_NO_{NMO_opt}_{args_juno.file_prefix}.png", dpi=300)
     best_index    = np.argmin(delta_chi2)
     best_fit_val  = dm2_scan_vals[best_index]
     if write:
@@ -171,7 +178,7 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False):
         graph    = ROOT.TGraph(n_points,
                                dm2_fine.astype(float),
                                delta_chi2_smooth.astype(float))
-        graph.SetName("dm2_31")
+        graph.SetName("dm2_31_conditional" if conditional else "dm2_31")
         graph.SetMarkerStyle(2)
         out_file = ROOT.TFile(
             f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"

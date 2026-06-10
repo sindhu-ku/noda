@@ -131,8 +131,7 @@ def _build_energy_leak(args, detector, ebins):
             rootfile=args.data_file,
             histname=args.IAV_hist,
             ebins=ebins,
-            pebins=ebins,
-            ecrop=0.8
+            pebins=ebins
         )
     if detector == "DYB":
         iav_data = np.loadtxt(args.iav_matrix_file)
