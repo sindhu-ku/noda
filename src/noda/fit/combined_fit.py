@@ -1697,6 +1697,18 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         dir_post.cd()
         write_param_dbl("Efficiency", args_juno.detector_efficiency*(1+m.values["eff_nuis"]))
 
+        # post-fit NL curve, same convention as juno/response/prefit/nl_positron
+        if b_first is not None and args_juno.NL != "pull":
+            from ..spectra import _build_nl_graph
+            resp_dir = juno_dir.GetDirectory("response") or juno_dir.mkdir("response")
+            resp_post = resp_dir.GetDirectory("postfit") or resp_dir.mkdir("postfit")
+            resp_post.cd()
+            _build_nl_graph(None, args_juno,
+                            kB=m.values[juno_param('NL0')],
+                            fC=m.values[juno_param('NL1')],
+                            kI=m.values[juno_param('NL2')],
+                            LY_shared=m.values[juno_param('NL3')]).Write("", ROOT.TObject.kOverwrite)
+
     if args_juno.write_output:
         dyb_dir = output_file.GetDirectory("dyb")
         dyb_dir.cd()

@@ -38,7 +38,7 @@ class JUNODetector:
         self.backgrounds    = backgrounds
         self.core_baselines = core_baselines
         self.core_powers_std = core_powers_std
-        self.core_fractions = core_fractions    
+        self.core_fractions = core_fractions
         self.fine_bins      = ensp_nom['ribd'].bins
         self.E_segments     = E_segments
         self.s_ibd          = s_ibd
@@ -65,10 +65,10 @@ class JUNODetector:
                 fission_fracs.append([self.args.U235_scale, self.args.U238_scale,
                                    self.args.Pu239_scale, self.args.Pu241_scale])
 
-        
+
         self.fission_fracs = fission_fracs
         self.fission_fracs = np.asarray(fission_fracs, dtype=float)
-        
+
         fission_arrays = np.zeros((n_cores, len(dummy_sp.bin_cont)))
         for i in range(n_cores):
             if args_juno.CI_powers:
@@ -84,7 +84,7 @@ class JUNODetector:
             dummy_rfis.GetScaled(ndays)
             fission_arrays[i] = dummy_rfis.bin_cont
         self.fission_arrays = fission_arrays
-        
+
         self.n_cores = n_cores
 
         # ── per-call caches ─────────────────────────────────────────────────
@@ -102,13 +102,13 @@ class JUNODetector:
             args.a, args.b, args.c,
             args.kB, args.fC, args.kI, args.LY_shared
         ])
- 
+
         # Per-instance energy-response covariance. Falls back to the module
         # global when not supplied, so single-phase runs are unchanged.
 
         self.covariance_er = np.asarray(covariance_er)
         self._inv_cov_er   = np.linalg.inv(self.covariance_er)
-        
+
         if args.NL == "pull" and 'rfis0_geou' in ensp_nom and 'rfis0_geoth' in ensp_nom:
             self._geo_U_pos = ensp_nom['rfis0_geou'].GetWithPositronEnergy(
                 type=args.posE_shift, s_ibd=s_ibd,
@@ -120,22 +120,22 @@ class JUNODetector:
             self._geo_Th_pos_integral = self._geo_Th_pos.GetIntegral()
         else:
             self._geo_U_pos = self._geo_Th_pos = None
-    
+
         # ── precompute linearized response matrix in (a, b, c) ────────────────────
         if self._linearize_resp:
             a0, b0, c0 = args.a, args.b, args.c
             eps_a, eps_b, eps_c = args.a_err, args.b_err, args.c_err
-        
+
             def _R(a, b, c):
                 return CalcRespMatrix_abc(a, b, c, escale=1,
                                           ebins=self.fine_bins,
                                           pebins=self.fine_bins)
-        
+
             R0  = _R(a0, b0, c0)
             Rap = _R(a0 + eps_a, b0, c0); Ram = _R(a0 - eps_a, b0, c0)
             Rbp = _R(a0, b0 + eps_b, c0); Rbm = _R(a0, b0 - eps_b, c0)
             Rcp = _R(a0, b0, c0 + eps_c); Rcm = _R(a0, b0, c0 - eps_c)
-        
+
             self._R0      = R0.data
             self._dRda    = (Rap.data - Ram.data) / (2.0 * eps_a)
             self._dRdb    = (Rbp.data - Rbm.data) / (2.0 * eps_b)
@@ -150,7 +150,7 @@ class JUNODetector:
     def set_external_cov(self, C_reco):
         """Store propagated nuisance covariance from DYB+TAO pre-fit."""
         self._external_cov = C_reco
-        
+
     def get_param_names(self):
         args = self.args
         if args.NL == "pull":
@@ -266,7 +266,7 @@ class JUNODetector:
         """
         Return {base_name: callable(value) -> (pull/sigma)**2} mirroring
         the pulls that build_spectrum() appends internally.
- 
+
         Used by combined_fit.dispatcher.pull_dedup_correction to remove
         the (N-1) over-count when a Minuit parameter is shared across
         multiple bundles (phase × shell). For a single-bundle run, the
@@ -276,7 +276,7 @@ class JUNODetector:
         args = self.args
         nom  = nuosc.op_nom
         defs = {}
- 
+
         # ── oscillation parameters ────────────────────────────────────────
         if args.sin2_th13_opt == "pull":
             defs['sin2_th13'] = (
@@ -295,12 +295,12 @@ class JUNODetector:
         defs['me_rho'] = (
             lambda v, c=args.me_rho, s=args.me_rho_scale:
                 ((v - c) / s) ** 2 if v != 0.0 else 0.0)
- 
+
         # ── core powers (10 of them) ──────────────────────────────────────
         for i in range(10):
             defs[f'core_power{i}'] = (
                 lambda v, s=args.core_flux_unc: (v / s) ** 2)
- 
+
         # ── efission (length len(args.efission)) ──────────────────────────
         # In build_spectrum: efission_scaled = efission * 100, pull =
         # efission_scaled - args.efission, sigma = args.efission_err.
@@ -310,7 +310,7 @@ class JUNODetector:
             defs[f'efission{i}'] = (
                 lambda v, c=e_nom * 1e-2, s=e_err * 1e-2:
                     ((v - c) / s) ** 2)
- 
+
         # ── NL / abc — pull mode only ─────────────────────────────────────
         if args.NL == "pull":
             for i in range(4):
@@ -324,7 +324,7 @@ class JUNODetector:
                 lambda v, c=args.c, s=args.c_err: ((v - c) / s) ** 2)
         # (When NL != "pull", the joint ER 2D-covariance penalty is handled
         # SEPARATELY by pull_dedup_correction via _get_chi2_penalty_er().)
- 
+
         # ── SNF / non-equilibrium ─────────────────────────────────────────
         if args.CI_powers:
             defs['snf_noneq_norm0'] = (lambda v, s=args.snf_unc:   (v / s) ** 2)
@@ -333,18 +333,18 @@ class JUNODetector:
             for i in range(6):
                 sigma = args.snf_unc if i < 3 else args.noneq_unc
                 defs[f'snf_noneq_norm{i}'] = (lambda v, s=sigma: (v / s) ** 2)
- 
+
         # ── efficiency, Nrea ──────────────────────────────────────────────
         defs['eff_nuis'] = (lambda v, s=args.eff_unc: (v / s) ** 2)
         defs['Nrea']     = (lambda v, s=args.r2_unc:  (v / s) ** 2)
- 
+
         # ── Th/U ratio (only meaningful when "geo" is in backgrounds) ─────
         bckgs_keys = list(self.backgrounds['JUNO'].keys())
         if 'geo' in bckgs_keys:
             defs['ThU_ratio'] = (
                 lambda v, c=args.Th_U_ratio, s=args.Th_U_ratio_err:
                     ((v - c) / s) ** 2)
- 
+
         # ── background rate pulls ─────────────────────────────────────────
         for k in bckgs_keys:
             sigma = self.backgrounds['JUNO'][k].get('rate_unc', 0.0)
@@ -383,7 +383,7 @@ class JUNODetector:
             diff  = theta - self.theta0_er
             self._chi2_penalty_er_cache[key] = diff @ self._inv_cov_er @ diff
         return self._chi2_penalty_er_cache[key]
-        
+
     def _get_geo_spectrum(self, ThU_ratio, resp_matrix, a, b, c, kB, fC, kI, LY_shared):
         key = (ThU_ratio, a, b, c, kB, fC, kI, LY_shared)
         if key not in self._geo_spectrum_cache:
@@ -421,25 +421,25 @@ class JUNODetector:
             """
             args  = self.args
             ndays = self.ndays
-        
+
             key = (round(ThU_ratio, 10),) \
                 + tuple(round(x, 10) for x in NL) \
                 + tuple(round(x, 10) for x in abc)
-        
+
             if key in self._geo_spectrum_cache:
                 cached = self._geo_spectrum_cache[key]
                 # Hand out a copy — downstream may rebin / scale in place
                 return Spectrum(bins=cached.bins, bin_cont=cached.bin_cont.copy())
-        
+
             # ── cache miss: compute it ───────────────────────────────────────────
             rate  = float(args.geo_tnu_rate) * float(args.tnu_to_cpd)
             scale = rate * ndays / args.duty_cycle
-        
+
             U_pos  = self._geo_U_pos.GetScaledFit(
                 scale / ((1 + ThU_ratio) * self._geo_U_pos_integral))
             Th_pos = self._geo_Th_pos.GetScaledFit(
                 ThU_ratio * scale / ((1 + ThU_ratio) * self._geo_Th_pos_integral))
-        
+
             U_nonl  = U_pos.GetWithModifiedEnergy(mode='spectrum',
                                                   spectrum=new_nonl, LY_shared=NL[4])
             Th_nonl = Th_pos.GetWithModifiedEnergy(mode='spectrum',
@@ -452,17 +452,17 @@ class JUNODetector:
             if args.rebin_nonuniform:
                 bckg.Rebin_nonuniform(args.bins_nonuniform)
             self._geo_spectrum_cache[key] = bckg
-        
+
             # ── store (with FIFO eviction) ──────────────────────────────────────
             if len(self._geo_spectrum_cache) > 100:
                 for k in list(self._geo_spectrum_cache.keys())[:50]:
                     del self._geo_spectrum_cache[k]
-        
+
             # Store a copy so future hits aren't poisoned by anyone mutating `bckg`
             self._geo_spectrum_cache[key] = Spectrum(
                 bins=bckg.bins, bin_cont=bckg.bin_cont.copy())
             return bckg
-            
+
     def _get_wr_spectrum(self, resp_matrix, a, b, c, kB, fC, kI, LY_shared):
         key = (a, b, c, kB, fC, kI, LY_shared)
         if key not in self._wr_spectrum_cache:
@@ -471,7 +471,7 @@ class JUNODetector:
             ndays = self.ndays
             bckg  = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
                 mode='G4', kB=kB, fC=fC, kI=kI, LY_shared=LY_shared)
-            bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            bckg = bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
             rate  = self.backgrounds['JUNO']['wr']['rate']
             scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
             bckg  = bckg.GetScaledFit(scale*args.detector_efficiency)
@@ -684,7 +684,7 @@ class JUNODetector:
             pulls.append(Nrea)
             pull_unc.append(args.r2_unc)
             s_juno = s_juno.GetScaledFit(1 + Nrea)
-    
+
         if args.rebin_nonuniform:
             s_juno.Rebin_nonuniform(args.bins_nonuniform)
 
@@ -710,7 +710,7 @@ class JUNODetector:
                 if args.NL == "pull":
                     bckg = ensp['rfis_wr_pos'].GetWithModifiedEnergy(
                         mode='spectrum', spectrum=new_nonl, LY_shared=NL[4])
-                    bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+                    bckg = bckg.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
                     rate  = self.backgrounds['JUNO']['wr']['rate']
                     scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
                     bckg  = bckg.GetScaledFit(scale*args.detector_efficiency)
@@ -731,10 +731,10 @@ class JUNODetector:
                 pull_unc.append(info["sigma"])
 
             bckg = bckg.GetScaledFit(1 + info["pull"])
-            
-            if bckg == "geo" or bckg == "wr" or bckg =="atm": 
+
+            if bckg == "geo" or bckg == "wr" or bckg =="atm":
                 bckg = bckg.GetScaledFit(1 + eff_nuis)
-                
+
             if info["b2b"] > 0:
                 b2bunc = info["b2b"]
                 if cm_bckg is None:
@@ -754,7 +754,7 @@ class JUNODetector:
     def chi2_contribution(self, sin2_12, sin2_13, dm2_21, dm2_31,me_rho,
                           Nrea, NL, abc, bckgs_for_chi2, snf_noneq_norm,
                           eff_nuis, ThU_ratio,
-                          core_powers_delta, efission, nuisance, 
+                          core_powers_delta, efission, nuisance,
                           unc, opp=False, toy_dm2_31=None):
         """
         Returns (chi2_juno, chi2_penalty_er, s_juno, s_tot_juno,

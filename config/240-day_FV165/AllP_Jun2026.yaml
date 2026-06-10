@@ -61,7 +61,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'June10-2026_P14_noprof'
+  file_prefix: 'June10-2026_P14_noprof_snfnoneq'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -150,8 +150,8 @@ common_det_inputs:
   unc_corr_ind: r2+snf+noneq
 
   unc_corr_dep: crel+nl
-  snf_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/SNFYJandTS.root
-  noneq_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Non-Equilibrium_corrections.root
+  snf_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/SNFYJandTS_from_JUNOInputs2022_05_08.root #SNFYJandTS.root
+  noneq_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Non-Equilibrium_corrections_from_JUNOInputs2022_05_08.root #Non-Equilibrium_corrections.root
 
 juno_inputs:
   reactor_summary_yaml:  /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/reactor_summary_CI.yaml
