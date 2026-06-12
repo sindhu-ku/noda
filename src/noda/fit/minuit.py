@@ -147,19 +147,19 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
 
     # --- Save raw scan points and smoothed curve to CSV ---
     scan_tag = "conditional_dm2_31" if conditional else "profile_dm2_31"
-    csv_path = f"Plots/{scan_tag}_NO_{NMO_opt}_{args_juno.file_prefix}.csv"
-    with open(csv_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["dm2_31_raw", "chi2_raw", "delta_chi2_raw",
-                         "dm2_31_smooth", "chi2_smooth", "delta_chi2_smooth"])
-        # Pad raw columns with empty strings where lengths differ (raw < 500)
-        for i in range(len(dm2_fine)):
-            raw_dm2   = dm2_scan_vals[i] if i < len(dm2_scan_vals) else ""
-            raw_chi2  = chi2_vals[i]     if i < len(chi2_vals)     else ""
-            raw_dchi2 = delta_chi2[i]    if i < len(delta_chi2)    else ""
-            writer.writerow([raw_dm2, raw_chi2, raw_dchi2,
-                             dm2_fine[i], chi2_smooth[i], delta_chi2_smooth[i]])
-    print(f"Saved profile scan to {csv_path}")
+    # csv_path = f"Plots/{scan_tag}_NO_{NMO_opt}_{args_juno.file_prefix}.csv"
+    # with open(csv_path, "w", newline="") as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(["dm2_31_raw", "chi2_raw", "delta_chi2_raw",
+    #                      "dm2_31_smooth", "chi2_smooth", "delta_chi2_smooth"])
+    #     # Pad raw columns with empty strings where lengths differ (raw < 500)
+    #     for i in range(len(dm2_fine)):
+    #         raw_dm2   = dm2_scan_vals[i] if i < len(dm2_scan_vals) else ""
+    #         raw_chi2  = chi2_vals[i]     if i < len(chi2_vals)     else ""
+    #         raw_dchi2 = delta_chi2[i]    if i < len(delta_chi2)    else ""
+    #         writer.writerow([raw_dm2, raw_chi2, raw_dchi2,
+    #                          dm2_fine[i], chi2_smooth[i], delta_chi2_smooth[i]])
+    # print(f"Saved profile scan to {csv_path}")
 
     plt.figure(figsize=(6, 5))
     plt.plot(dm2_fine, delta_chi2_smooth,

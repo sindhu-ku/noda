@@ -134,14 +134,15 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
 
     obs_vals = s_obs.bin_cont
     obs_err = np.sqrt(np.diag(cm.data))
-
+    print(obs_err/np.abs(obs_vals))
     if detector_label != "DYB":
         obs_err += np.sqrt(np.maximum(obs_vals, 1e-12))
+
 
     fit_vals = s_tot.bin_cont
     fit_err  = np.sqrt(np.maximum(fit_vals, 1e-12))
 
-    residuals = (obs_vals - fit_vals) / np.maximum(obs_err, 1e-12)
+    residuals = (obs_vals-fit_vals)/ np.maximum(obs_err, 1e-12)
 
     chi2_bin  = (obs_vals - fit_vals) ** 2 / np.maximum(obs_err, 1e-12) ** 2
 
@@ -162,10 +163,11 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
 
 
     # ── top panel: data + fit + signal + backgrounds ────────────────────
+    total_cpd = np.sum(fit_vals) / ndays if ndays else 0.0
     ax1.errorbar(bin_centers2, obs_vals, yerr=obs_err, fmt='o', color='black',
                  markersize=3, label=f'{detector_label} data')
     ax1.step(bin_centers, np.append(fit_vals, fit_vals[-1]),
-             where='post', color='blue', lw=1.5, label='Total Fit')
+             where='post', color='blue', lw=1.5, label=f'Total Fit: {total_cpd:.2f} cpd')
     if s_signal is not None:
         sig_cpd = s_signal.GetIntegral() / ndays if ndays else 0.0
         ax1.step(bin_centers, np.append(s_signal.bin_cont, s_signal.bin_cont[-1]),
@@ -206,7 +208,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
 
     # ── residuals panel ─────────────────────────────────────────────────
     ax2.errorbar(bin_centers2, residuals, yerr=np.ones_like(residuals),
-                 fmt='o', color='blue', markersize=3)
+                fmt='o', color='blue', markersize=3)
     ax2.step(bin_centers, np.append(residuals, residuals[-1]), where='post', color='blue', lw=1)
     ax2.axhline(0, color='k', lw=1)
     for nsigma, alpha in zip([1, 2, 3], [0.25, 0.15, 0.1]):
@@ -349,14 +351,6 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
     for n in nuis_names:
         m_pre.limits[n] = [-1, None]
 
-        # Stage A: shape nuisances fixed at 0, fit TAO + DYB only
-    for n in nuis_names:
-        m_pre.fixed[n] = True
-    m_pre.migrad()
-
-    # Stage B: free shape nuisances, refit
-    for n in nuis_names:
-        m_pre.fixed[n] = False
     m_pre.migrad()
     m_pre.hesse()
 
@@ -438,6 +432,22 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
             )
 
 
+        import re
+        corr = np.array(m_pre.covariance.correlation())
+
+        labels = list(m_pre.parameters)
+
+        import seaborn as sns
+        plt.figure(figsize=(12, 12))          # smaller figure → smaller squares
+        ax = sns.heatmap(corr,
+                         annot=False,          # remove the numbers
+                         xticklabels=labels, yticklabels=labels,
+                         cmap="coolwarm", vmin=-1, vmax=1, cbar=False,
+                         square=True)          # force cells to be actual squares
+        ax.tick_params(labelsize=16)           # bigger axis labels
+        plt.tight_layout()
+
+        plt.savefig(f"Plots/corr_{args_juno.file_prefix}_corr_TAO.png", dpi=200)
 
     return m_pre, nuis_best, nuis_cov
 
@@ -936,20 +946,62 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         dir_post.cd()
         write_param_dbl("Efficiency", args_juno.detector_efficiency*(1+m.values["eff_nuis"]))
 
-        # post-fit NL curve, same convention as juno/response/prefit/nl_positron
-        if b_first is not None and args_juno.NL != "pull":
-            from ..spectra import _build_nl_graph
+        # post-fit NL / resolution curves, same convention as
+        # juno/response/prefit/{nl_positron,resolution}
+        if b_first is not None:
+            from ..spectra import _build_nl_graph, _build_resolution_graph
             resp_dir = juno_dir.GetDirectory("response") or juno_dir.mkdir("response")
             resp_post = resp_dir.GetDirectory("postfit") or resp_dir.mkdir("postfit")
             resp_post.cd()
-            _build_nl_graph(None, args_juno,
-                            kB=m.values[juno_param('NL0')],
-                            fC=m.values[juno_param('NL1')],
-                            kI=m.values[juno_param('NL2')],
-                            LY_shared=m.values[juno_param('NL3')]).Write("", ROOT.TObject.kOverwrite)
+            if args_juno.NL == "pull":
+                nl_graph = _build_nl_graph(
+                    b_first.detector.ensp_nom, args_juno,
+                    NL_pulls=[m.values[juno_param(f'NL{i}')] for i in range(5)])
+            else:
+                nl_graph = _build_nl_graph(
+                    None, args_juno,
+                    kB=m.values[juno_param('NL0')],
+                    fC=m.values[juno_param('NL1')],
+                    kI=m.values[juno_param('NL2')],
+                    LY_shared=m.values[juno_param('NL3')])
+            nl_graph.Write("", ROOT.TObject.kOverwrite)
+            _build_resolution_graph(
+                m.values[juno_param('abc0')],
+                m.values[juno_param('abc1')],
+                m.values[juno_param('abc2')]).Write("", ROOT.TObject.kOverwrite)
 
-    if args_juno.write_output:
-        dyb_dir = output_file.GetDirectory("dyb")
+        # ── TAO post-fit response curves (tao/response/postfit) ─────────
+        # In combined mode the TAO parameters live in the JUNO Minuit object
+        # (mangled via routing); in the prefit modes they come from m_pre.
+        if use_tao and tao_bundle is not None:
+            from ..spectra import _build_nl_graph, _build_resolution_graph
+
+            def tao_val(pname):
+                mangled = routing[id(tao_bundle)].get(pname, pname) \
+                          if id(tao_bundle) in routing else pname
+                if fit_mode == "combined" and mangled in m.parameters:
+                    return m.values[mangled]
+                if m_pre is not None and pname in m_pre.parameters:
+                    return m_pre.values[pname]
+                return None    # cached prefit — best-fit values unavailable
+
+            tao_NL  = [tao_val(f"NL_tao{i}") for i in range(5)]
+            tao_abc = [tao_val(f"abc_tao{i}") for i in range(3)]
+            if None not in tao_NL and None not in tao_abc:
+                tao_dir = (output_file.GetDirectory("tao")
+                           or output_file.mkdir("tao"))
+                resp_dir_tao = (tao_dir.GetDirectory("response")
+                                or tao_dir.mkdir("response"))
+                resp_post_tao = (resp_dir_tao.GetDirectory("postfit")
+                                 or resp_dir_tao.mkdir("postfit"))
+                resp_post_tao.cd()
+                _build_nl_graph(tao_bundle.detector.ensp_nom,
+                                tao_bundle.detector.args,
+                                NL_pulls=tao_NL).Write("", ROOT.TObject.kOverwrite)
+                _build_resolution_graph(*tao_abc).Write("", ROOT.TObject.kOverwrite)
+
+    if args_juno.write_output and args_juno.fit_type == "PMOP_combined" and not args_juno.use_prefit:
+        dyb_dir = output_file.GetDirectory("dyb") or output_file.mkdir("dyb")
         dyb_dir.cd()
         dir_nuis_dyb = dyb_dir.mkdir("nuisances")
         dir_nuis_dyb.cd()
@@ -959,6 +1011,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             else:
                 write_parameter(f"rea_shape_f{i}", m.values[f"nuis{i}"], m.errors[f"nuis{i}"])
 
+
+    if args_juno.write_output:
         output_file.Close()
     # ── 20. Correlation heat-map ─────────────────────────────────────────
     if args_juno.plot_correlation:
@@ -1086,6 +1140,75 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 chi2_value=m.fval,
                 ndf = len(sp_obs.bins)-4,
                 write_output=args_juno.write_output, cm=cm_juno, eff=b.detector.args.detector_efficiency*(1+m.values['eff_nuis']))
+
+        # ── TAO / DYB replay at the best-fit point (combined mode) ───────
+        # In the prefit modes these outputs are produced by
+        # run_dyb_tao_prefit; in combined mode the bundles stay in the main
+        # Minuit fit (id in routing), so replay them from m here.
+        nuis_vals = [values_best[f'nuis{i}'] for i in range(n_shape)]
+
+        if tao_bundle is not None and id(tao_bundle) in routing:
+            map_tao = routing[id(tao_bundle)]
+            def gv_tao(base): return values_best[map_tao[base]]
+            (chi2_tao, _, s_obs_tao, s_tot_tao,
+             bckg_tao, cm_tao) = tao_bundle.detector.chi2_contribution(
+                Nrea_tao=gv_tao('Nrea_tao'),
+                NL_tao=[gv_tao(f'NL_tao{i}') for i in range(5)],
+                abc_tao=[gv_tao('abc_tao0'), gv_tao('abc_tao1'),
+                         gv_tao('abc_tao2')],
+                snf_noneq_norm_tao=[gv_tao(f'snf_noneq_norm_tao{i}')
+                                    for i in range(2)],
+                core_power_tao=gv_tao('core_power_tao'),
+                eff_nuis_tao=gv_tao('eff_nuis_tao'),
+                bckg_rate=gv_tao('bckg_rate'),
+                unc=tao_bundle.unc_key, nuisance=nuis_vals)
+            plot_fit_residuals_all(
+                s_tot=s_tot_tao,
+                s_obs=s_obs_tao,
+                s_signal=tao_bundle.detector.ensp_nom['rtot'],
+                bckgs=bckg_tao,
+                ndays=tao_bundle.detector.ndays,
+                args=tao_bundle.args,
+                detector_label="TAO",
+                tag="best-fit",
+                chi2_value=chi2_tao,
+                cm=cm_tao,
+                ndf=len(s_obs_tao.bins) - len(E_segments),
+                write_output=tao_bundle.args.write_output)
+
+        if (dyb_bundle is not None and id(dyb_bundle) in routing
+                and not getattr(args_juno, 'use_dagflow', False)):
+            map_dyb = routing[id(dyb_bundle)]
+            noneq = (values_best[map_dyb['snf_noneq_norm_dyb']]
+                     if 'snf_noneq_norm_dyb' in map_dyb else 0.0)
+            (chi2_dyb, s_obs_dyb, s_tot_dyb,
+             cm_dyb, ibd_postfit) = dyb_bundle.detector.chi2_contribution(
+                nuisance_coarse=np.array(nuis_vals),
+                snf_noneq_norm_dyb=noneq,
+                E_segments=E_segments)
+            plot_fit_residuals_all(
+                s_tot=s_tot_dyb,
+                s_obs=s_obs_dyb,
+                s_signal=dyb_bundle.detector.ensp_nom['rtot'],
+                bckgs=None,
+                ndays=dyb_bundle.detector.ndays,
+                args=dyb_bundle.args,
+                detector_label="DYB",
+                tag="best-fit",
+                chi2_value=chi2_dyb,
+                cm=cm_dyb,
+                ndf=len(s_obs_dyb.bins) - len(E_segments),
+                write_output=dyb_bundle.args.write_output)
+            dyb_bundle.detector.ensp_nom['ribd'].Plot(
+                f"{args_juno.plots_folder}/rfis_posfit.png",
+                xlabel="Antineutrino energy (MeV)",
+                ylabel="Events",
+                extra_spectra=[ibd_postfit],
+                leg_labels=['pre-fit', 'post-fit'],
+                colors=['steelblue', 'brown'],
+                xmin=0.7, xmax=12.0, ymin=1e-3,
+                log_scale=False,
+                title=f"PRL 2025, {len(E_segments)} segments")
     # ── 25. Solar contour ────────────────────────────────────────────────
     if args_juno.solar_contour:
         try:

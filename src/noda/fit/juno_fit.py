@@ -44,6 +44,7 @@ class JUNODetector:
         self.s_ibd          = s_ibd
         self.s_bump_lin     = s_bump_lin
         self._linearize_resp = args.lin_resp
+        self._osc_per_core   = getattr(args, "osc_per_core", False)
         self._external_cov = None
         # ── pre-build fission arrays (expensive, do once) ──────────────────
         args_juno = args
@@ -606,12 +607,29 @@ class JUNODetector:
             cached = self._osc_cache[osc_key]
             s_juno = Spectrum(bins=cached.bins, bin_cont=cached.bin_cont.copy())
         else:
-            s_juno = rfis_param_post.GetOscillated(
-                    L=list(self.core_baselines),
-                    sin2_th12=sin2_12, sin2_th13=sin2_13,
-                    dm2_21=dm2_21, dm2_31=dm2_31,
-                    core_powers=list(core_powers_new),
-                    me_rho=rho, ene_mode='true', opp=opp, args=self.args)
+            if self._osc_per_core:
+                # Oscillate each core's flux at its own baseline, then sum,
+                # instead of oscillating the summed flux with power/L^2 shares.
+                raw_ibd_cores = (self.fission_arrays * core_scales[:, np.newaxis]
+                                 * nuisance_multiplier)
+                s_juno = None
+                for i in range(self.n_cores):
+                    sp_i = Spectrum(bins=self.dummy_sp.bins,
+                                    bin_cont=raw_ibd_cores[i])
+                    osc_i = sp_i.GetOscillated(
+                            L=[self.core_baselines[i]],
+                            sin2_th12=sin2_12, sin2_th13=sin2_13,
+                            dm2_21=dm2_21, dm2_31=dm2_31,
+                            core_powers=[core_powers_new[i]],
+                            me_rho=rho, ene_mode='true', opp=opp, args=self.args)
+                    s_juno = osc_i if s_juno is None else s_juno + osc_i
+            else:
+                s_juno = rfis_param_post.GetOscillated(
+                        L=list(self.core_baselines),
+                        sin2_th12=sin2_12, sin2_th13=sin2_13,
+                        dm2_21=dm2_21, dm2_31=dm2_31,
+                        core_powers=list(core_powers_new),
+                        me_rho=rho, ene_mode='true', opp=opp, args=self.args)
             if len(self._osc_cache) > 200:
                 # FIFO eviction; Python dicts keep insertion order
                 for k in list(self._osc_cache.keys())[:100]:
@@ -732,7 +750,7 @@ class JUNODetector:
 
             bckg = bckg.GetScaledFit(1 + info["pull"])
 
-            if bckg == "geo" or bckg == "wr" or bckg =="atm":
+            if bckg == "geo" or bckg == "wr":
                 bckg = bckg.GetScaledFit(1 + eff_nuis)
 
             if info["b2b"] > 0:

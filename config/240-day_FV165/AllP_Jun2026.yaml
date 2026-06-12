@@ -19,13 +19,14 @@ fit_options:
   run_hesse: True
   solar_contour: false
   CI_powers: False
+  osc_per_core: True # oscillate each core flux at its own baseline and sum, instead of summing fluxes and oscillating with power/L^2 shares
   calc_minuit_errors: False
   profile_dm2_31: true
   profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
-  profile_points: 100
+  profile_points: 1000
   silent_print: false
   geo_spectra: ana
-  pull_dm2_31: false
+  pull_dm2_31: true
   pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
   dm2_31_lbl: 2.517e-03 #0.0025043000
@@ -37,7 +38,7 @@ fit_options:
   save_prefit: True
   use_prefit: False
   prefit_path: /home/sindhu/Documents/JUNO/Fitter/noda/noda/prefit_data/240_allP_data.npz
-  include_tao: False
+  include_tao: True
   include_dyb: True
   geo_fit: true
   apply_bump: true
@@ -62,7 +63,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'June10-2026_P14_DYB'
+  file_prefix: 'GroupC_June12-2026_P14_JUNO+DYB+TAO'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -156,9 +157,9 @@ common_det_inputs:
 
 juno_inputs:
   reactor_summary_yaml:  /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/reactor_summary_CI.yaml
-  stat_opt: 215.68699days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
-  detector_efficiency: 0.7054 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
-  eff_unc: 0.02098609788 #rel
+  stat_opt: 207.117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  detector_efficiency: 0.7048 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  eff_unc: 0.01938200364 #rel
   bins: 601
   min_ene: 0.0  # Minimum energy
   max_ene: 12
@@ -167,7 +168,7 @@ juno_inputs:
     - 12.0
   NL: real
   NL_data_file:  /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/JUNOInputs2022_05_08.root #/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June9_shell_TTree.root
+  data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June11_clean.root
   det_resp_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/Jun2026_cov_er.txt
   data_hist_name: data
   rebin_nonuniform: true
@@ -334,7 +335,7 @@ tao_inputs:
   data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/TAOInputs_2026_6_5.root
   data_hist_name: IBD_spectrum_bkg_not_subtracted_FV800
   bckg_hist_name: Bkg_spectrum_FV800
-  bckg_rate_unc: 0.0356
+  bckg_rate_unc: 0.0109
   IAV_hist: Energy_leakage_FV800
   FV_cov_matrix: FVcut800_covariance
   rebin_nonuniform:  True

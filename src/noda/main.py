@@ -320,12 +320,13 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
         if args_dyb.model == "PRL":
             cov_75 = dyb_V.reshape(75, 75)
             dyb_V = cov_75[50:75, 50:75] * 1e-86 * compute_extrafactors(args_dyb)* compute_extrafactors(args_dyb) * ndays_dyb * ndays_dyb
+            print("DYB CM scaling 1e-86: ", compute_extrafactors(args_dyb)* compute_extrafactors(args_dyb) * ndays_dyb * ndays_dyb)
         DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_dyb['rdet'].bins)
         DYB_CM.ScaleByBinWidth()
         if args_dyb.is_data:
-            cm_dyb = {'all':  GetRelCM(DYB_CM, ensp_nom_dyb['data'])}
+            cm_dyb = {'all':  DYB_CM} #GetRelCM(DYB_CM, ensp_nom_dyb['data'])}
         else:
-            cm_dyb = {'all':  GetRelCM(DYB_CM, ensp_nom_dyb['rtot'])}
+            cm_dyb = {'all': DYB_CM} # GetRelCM(DYB_CM, ensp_nom_dyb['rtot'])}
 
     return {
         'phase':            phase_label,
@@ -398,6 +399,7 @@ def _build_tao_bundle(setup):
         core_baselines=args_tao.core_baselines,
         core_powers_std=args_tao.core_powers,
         s_ibd=s['s_ibd'],
+        s_bump_lin=s['s_bump_lin'],
         ene_leak_tao=s['ene_leak_tao'],
         E_segments=np.array(s['args_juno'].seg_bins_nonuniform))
     return DetectorBundle(

@@ -31,7 +31,7 @@ class TAODetector:
 
     def __init__(self, ndays, ensp_nom, rm, cm, args,
                  core_baselines, core_powers_std,
-                 s_ibd, ene_leak_tao, E_segments):
+                 s_ibd, s_bump_lin, ene_leak_tao, E_segments):
         self.ndays           = ndays
         self.ensp_nom        = ensp_nom
         self.rm              = rm
@@ -41,6 +41,7 @@ class TAODetector:
         self.core_powers_std = core_powers_std
         self.fine_bins       = ensp_nom['ribd'].bins
         self.s_ibd           = s_ibd
+        self.s_bump_lin      = s_bump_lin
         self.ene_leak        = ene_leak_tao
         self.E_segments      = E_segments
 
@@ -62,6 +63,8 @@ class TAODetector:
                                   bin_cont=ensp_nom["rfis0"].bin_cont)
             dummy_rfis.WeightWithFunction(s_ibd)
             dummy_rfis.ScaleByBinWidth()
+            if self.args.apply_bump:
+                dummy_rfis = dummy_rfis.GetWeightedWithFunction(s_bump_lin)
             dummy_rfis.GetScaled(ndays)
             fission_arrays[i] = dummy_rfis.bin_cont
         self.fission_arrays = fission_arrays
@@ -220,6 +223,8 @@ class TAODetector:
 
 
         s_tao = rfis_param_post
+
+        #print("ibd" , s_tao.GetIntegral())
 
         # ── positron energy shift ────────────────────────────────────────────
         s_tao = s_tao.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=args.input_data_file,

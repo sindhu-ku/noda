@@ -403,10 +403,12 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd, ene
 # ---------------------------------------------------------------------------
 
 def _build_reactor_flux_per_core(ensp, args, ebins, s_ibd, s_bump_lin, ndays,
-                                  core_names, core_powers, core_fractions, core_baselines):
+                                  core_names, core_powers, core_fractions, core_baselines, dm2_31):
     """Build per-core IBD-weighted reactor fluxes. Modifies *ensp* in-place."""
     rfis_sum  = None
     rfis0_sum = None
+    rosc_sum = None
+    osc_per_core = getattr(args, "osc_per_core", False)
 
     extrafactors = compute_extrafactors_per_core(args, core_powers, core_baselines, core_fractions)
 
@@ -422,9 +424,17 @@ def _build_reactor_flux_per_core(ensp, args, ebins, s_ibd, s_bump_lin, ndays,
         rfis_sum = rfis_i if rfis_sum is None else rfis_sum + rfis_i
 
         print(f"Core {i} IBD/day: {rfis_i.GetIntegral() / ndays:.2f}")
-
+        if osc_per_core:
+            rosc_i = rfis_i.GetOscillated(
+                L=[baseline], core_powers=[power],
+                me_rho=args.me_rho, ene_mode="true", args=args,
+                dm2_31=dm2_31
+            )
+            rosc_sum = rosc_i if rosc_sum is None else rosc_sum + rosc_i
     ensp["rfis0"] = rfis0_sum
     ensp["rfis"]  = rfis_sum
+    if osc_per_core:
+        ensp['rosc_pcore'] = rosc_sum
 
 
 def _build_reactor_flux_simple(ensp, args, ebins, s_ibd, s_bump_lin, ndays):
@@ -449,7 +459,7 @@ def _build_reactor_flux_simple(ensp, args, ebins, s_ibd, s_bump_lin, ndays):
     extrafactors = compute_extrafactors(args)
     print(f"extrafactors: {extrafactors}")
     ensp["rfis"].GetScaled(extrafactors)
-
+    print("DYB expectation scaling: ", extrafactors*ndays)
 
 # ---------------------------------------------------------------------------
 # Geo-neutrino spectra  (JUNO analytic path)
@@ -554,6 +564,7 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
 
         ensp["data"].GetScaled(extrafactors)
         ensp["data"].GetScaled(ndays)
+        print("DYB data scaling 1e-43: ", extrafactors*ndays)
         ensp["data"].ScaleByBinWidth()
 
 
@@ -660,13 +671,23 @@ def _print_juno_event_summary(ev):
 # Optional write-out
 # ---------------------------------------------------------------------------
 
-def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None):
+def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None,
+                    NL_pulls=None):
     """Positron NL curve (Evis/Edep vs Edep), same convention as the ORSA
-    export (juno/response/<stage>/nl_positron): Geant4 model anchored to the
-    2.224589 MeV gamma.  Parameters default to the pre-fit nominals."""
+    export (<det>/response/<stage>/nl_positron): Geant4 model anchored to the
+    2.224589 MeV gamma.  Parameters default to the pre-fit nominals.
+
+    In pull mode, *NL_pulls* = [p0, p1, p2, p3, LY_pull] gives the post-fit
+    curve: nominal + Σ pᵢ·(pullᵢ − nominal), scaled by (1 + LY_pull) — the
+    same construction as build_spectrum()."""
     if args.NL == "pull":
         e = 0.5 * (ensp["scintNL"].bins[:-1] + ensp["scintNL"].bins[1:])
-        ratio = ensp["scintNL"].bin_cont
+        nom = ensp["scintNL"].bin_cont
+        if NL_pulls is not None:
+            ratio = (nom + sum(NL_pulls[i] * (ensp["NL_pull"][i].bin_cont - nom)
+                               for i in range(4))) * (1 + NL_pulls[4])
+        else:
+            ratio = nom
     else:
         kB = args.kB if kB is None else kB
         fC = args.fC if fC is None else fC
@@ -679,6 +700,18 @@ def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None):
                         np.ascontiguousarray(e, dtype=float),
                         np.ascontiguousarray(ratio, dtype=float))
     graph.SetName("nl_positron")
+    return graph
+
+
+def _build_resolution_graph(a, b, c):
+    """Relative energy resolution σ_E/E vs Evis, same parametrisation as
+    CalcRespMatrix_abc: sqrt(a²/E + b² + c²/E²)."""
+    e = np.arange(0.8, 12.0, 0.001)
+    res = np.sqrt(a**2 / e + b**2 + c**2 / e**2)
+    graph = ROOT.TGraph(len(e),
+                        np.ascontiguousarray(e, dtype=float),
+                        np.ascontiguousarray(res, dtype=float))
+    graph.SetName("resolution")
     return graph
 
 
@@ -707,10 +740,12 @@ def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     dir_resp_prefit = dir_resp.mkdir('prefit')
     dir_resp_prefit.cd()
     _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
+    _build_resolution_graph(args.a, args.b, args.c).Write("", ROOT.TObject.kOverwrite)
     output_file.Close()
 
     ensp["ribd"].WritetoROOT("unosc", tag, "juno/prefit")
     ensp["rosc"].WritetoROOT("osc", tag, "juno/prefit")
+    ensp["rvis_nonl_temp"].WritetoROOT("unosc_dep", tag, "juno/prefit")
     ensp["rvis_nonl"].WritetoROOT("dep", tag, "juno/prefit")
     ensp["rvis"].WritetoROOT("vis", tag, "juno/prefit")
     ensp["rdet_fine"].WritetoROOT("rec", tag, "juno/prefit")
@@ -737,7 +772,12 @@ def _write_tao_output(ensp, args, backgrounds):
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
     output_file = ROOT.TFile(tag, "update")
 
-    output_file.mkdir("tao")
+    tao_dir = output_file.mkdir("tao")
+    dir_resp = tao_dir.mkdir("response")
+    dir_resp_prefit = dir_resp.mkdir("prefit")
+    dir_resp_prefit.cd()
+    _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
+    _build_resolution_graph(args.a, args.b, args.c).Write("", ROOT.TObject.kOverwrite)
     output_file.Close()
 
     ensp["rtot"].WritetoROOT("totalpred", tag, "tao/prefit")
@@ -794,6 +834,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         _build_reactor_flux_per_core(
             ensp, args, ebins, s_ibd, s_bump_lin, ndays,
             core_names, core_powers, core_fractions, core_baselines,
+            dm2_31
         )
         _build_snf_noneq_corrections_per_core(
             ensp, args,ndays, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
@@ -821,10 +862,13 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     # ------------------------------------------------------------------
     ensp["ribd"] = ensp["rfis"].Copy()
     if detector == "JUNO":
-        ensp["rosc"] = ensp["ribd"].GetOscillated(
-            L=list(core_baselines), core_powers=list(core_powers),
-            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
-        )
+        if getattr(args, "osc_per_core", False):
+            ensp["rosc"] = ensp["rosc_pcore"]
+        else:
+            ensp["rosc"] = ensp["ribd"].GetOscillated(
+                L=list(core_baselines), core_powers=list(core_powers),
+                me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
+            )
     else:
         ensp["rosc"] = ensp["ribd"]
 
@@ -871,7 +915,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         ensp["rdet_temp"] = ensp["rvis_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         #ensp["rdet_temp_wcorr"] = ensp["rvis_temp_wcorr"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
-    ensp['rdet_fine'] = ensp['rdet']
+
     # Add corrections
     if detector == "DYB":
         if args.model == "CPC":
@@ -880,7 +924,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             ensp["rdet"] = ensp["rdet"]
     else:
         ensp["rdet"] = ensp["rdet"] + ensp["snf_final"] + ensp["noneq_final"]
-
+    ensp['rdet_fine'] = ensp['rdet']
     if args.rebin_nonuniform:
         ensp["rdet"].Rebin_nonuniform(args.bins_nonuniform)
 

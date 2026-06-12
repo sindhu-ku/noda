@@ -75,12 +75,12 @@ class DYBDetector:
 
     def get_param_names(self):
         if self.is_cpc and not self.dyb_model:
-            return ["snf_noneq_norm_dyb"]  
+            return ["snf_noneq_norm_dyb"]
         else:
             return []
 
     def get_start_values(self):
-        if self.is_cpc and not self.dyb_model: 
+        if self.is_cpc and not self.dyb_model:
             return [0.0]
         else:
             return []
@@ -88,16 +88,16 @@ class DYBDetector:
     def apply_limits(self, m):
         if self.is_cpc and not self.dyb_model:
             m.limits["snf_noneq_norm_dyb"] = [-1, None]
-        
+
     def get_first_fix(self):
         """Parameters to fix in the first Minuit stage."""
         if self.is_cpc and not self.dyb_model:
             return (
-                ["snf_noneq_norm_dyb"]  
+                ["snf_noneq_norm_dyb"]
             )
         else:
             return []
-        
+
     # ════════════════════════════════════════════════════════════════════════
     #  Internal cached helpers
     # ════════════════════════════════════════════════════════════════════════
@@ -106,7 +106,7 @@ class DYBDetector:
         key = tuple(nuisance_coarse)
         if key in self._chi2_cache:
             return self._chi2_cache[key], [], []
-            
+
         chi2_dyb = self._chi2_dyb_func(*nuisance_coarse)[0]
         n_expected = sum(1 for _ in self._flux_params.walkvalues())
         if len(nuisance_coarse) != n_expected:
@@ -128,7 +128,7 @@ class DYBDetector:
                                  bin_cont=rfis_param_dyb.bin_cont * (1 + np.array(nuisance_fine)))
         s_dyb = rfis_param_dyb
         if self.is_cpc: s_dyb = s_dyb.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=self.args_juno.input_data_file, tf2name=self.args_juno.pos_ene_TF2)
-        s_dyb = s_dyb.ApplyDetResp(self.rm_dyb, pecrop=self.args_dyb.ene_crop) 
+        s_dyb = s_dyb.ApplyDetResp(self.rm_dyb, pecrop=self.args_dyb.ene_crop)
         self._dyb_spec_cache[key] = (s_dyb, rfis_param_dyb)
         return s_dyb, rfis_param_dyb
 
@@ -159,15 +159,16 @@ class DYBDetector:
             s_tot_dyb = s_dyb + noneq
         else:
             s_tot_dyb = s_dyb
-        
+
         if args_dyb.rebin_nonuniform:
             s_tot_dyb.Rebin_nonuniform(args_dyb.bins_nonuniform)
 
         sp_obs_dyb = self._get_obs_spectrum()
 
-        cm_dyb_new = CovMatrix(
-            data=self.cm_dyb['all'].data * np.outer(s_tot_dyb.bin_cont, s_tot_dyb.bin_cont),
-            bins=self.cm_dyb['all'].bins)
+        cm_dyb_new = self.cm_dyb['all']
+        # CovMatrix(
+        #     data=self.cm_dyb['all'].data * np.outer(s_tot_dyb.bin_cont, s_tot_dyb.bin_cont),
+        #     bins=self.cm_dyb['all'].bins)
 
         _, chi2_dyb = Chi2(cm_dyb_new, sp_obs_dyb, s_tot_dyb, sp_obs_dyb, s_tot_dyb,
                            'all', args_juno.stat_method_opt,
