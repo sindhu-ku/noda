@@ -92,7 +92,7 @@ JUNO:
   fastn:
     rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June11_clean.root"
     histname: "prefit/fastn" #FnBkgHistogramAD"
-    rate: 0.15
+    rate: 0.067
     rate_unc: 1.0
     b2b_unc: 0.15
     b2b_scale: 0.04

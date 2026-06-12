@@ -456,7 +456,9 @@ def _build_reactor_flux_simple(ensp, args, ebins, s_ibd, s_bump_lin, ndays):
     ensp["rfis"].GetScaled(ndays)
     ensp["rfis_fit"] = ensp["rfis"].Copy()
 
-    extrafactors = compute_extrafactors(args)
+    # normalise with the same fission fractions used to build the flux,
+    # not the common args.alpha (they differ for TAO/DYB)
+    extrafactors = compute_extrafactors(args, alpha=list(fracs.values()))
     print(f"extrafactors: {extrafactors}")
     ensp["rfis"].GetScaled(extrafactors)
     print("DYB expectation scaling: ", extrafactors*ndays)
@@ -545,7 +547,9 @@ def _process_world_reactor(wr_spec, args, ensp, resp_matrix, ebins, s_ibd):
 # ---------------------------------------------------------------------------
 
 def _assemble_total_spectrum_dyb(ensp, args, ndays):
-    extrafactors = compute_extrafactors(args)
+    extrafactors = compute_extrafactors(
+        args, alpha=[args.U235_scale, args.U238_scale,
+                     args.Pu239_scale, args.Pu241_scale])
     ensp["rtot"] = ensp["rdet"]
 
     if args.is_data:
@@ -592,6 +596,8 @@ def _assemble_total_spectrum_tao(ensp, args, ndays):
     ensp["bckg"] = GetSpectrumFromROOT(args.data_file, args.bckg_hist_name)
     ensp["bckg"].ScaleByBinWidth()
     #ensp["bckg"].GetScaled(ndays*args.bckg_rate)
+    # reactor-on/off DAQ livetime ratio (Group A convention); 1.0 if absent
+    ensp["bckg"].GetScaled(getattr(args, "bckg_scale", 1.0))
     print("TAO background: ", ensp['bckg'].GetIntegral())
     if args.rebin_nonuniform:
         ensp["bckg"].Rebin_nonuniform(args.bins_nonuniform)

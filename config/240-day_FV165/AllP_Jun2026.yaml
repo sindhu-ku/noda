@@ -26,7 +26,7 @@ fit_options:
   profile_points: 1000
   silent_print: false
   geo_spectra: ana
-  pull_dm2_31: true
+  pull_dm2_31: false
   pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
   dm2_31_lbl: 2.517e-03 #0.0025043000
@@ -335,6 +335,7 @@ tao_inputs:
   data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/TAOInputs_2026_6_5.root
   data_hist_name: IBD_spectrum_bkg_not_subtracted_FV800
   bckg_hist_name: Bkg_spectrum_FV800
+  bckg_scale: 1.0 #0.9827282340500528 # 27.88/28.37 reactor-on/off DAQ livetime ratio (Group A convention)
   bckg_rate_unc: 0.0109
   IAV_hist: Energy_leakage_FV800
   FV_cov_matrix: FVcut800_covariance

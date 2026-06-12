@@ -134,8 +134,8 @@ class TAODetector:
         for p in ["Nrea_tao", "core_power_tao", "eff_nuis_tao", "snf_noneq_norm_tao0", "snf_noneq_norm_tao1", "bckg_rate"]:
             m.limits[p] = [-1, None]
         # NL pull params: unconstrained below (pull penalty handles it)
-        for i in range(5):
-            m.limits[f"NL_tao{i}"] = [-1, None]
+        #for i in range(5):
+        m.limits[f"NL_tao4"] = [-1, None]
 
         # abc: unconstrained (individual pull penalties)
         # no explicit limits needed beyond [-inf, inf]

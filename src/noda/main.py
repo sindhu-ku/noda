@@ -319,8 +319,12 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
         dyb_V = np.loadtxt(args_dyb.dyb_cm)
         if args_dyb.model == "PRL":
             cov_75 = dyb_V.reshape(75, 75)
-            dyb_V = cov_75[50:75, 50:75] * 1e-86 * compute_extrafactors(args_dyb)* compute_extrafactors(args_dyb) * ndays_dyb * ndays_dyb
-            print("DYB CM scaling 1e-86: ", compute_extrafactors(args_dyb)* compute_extrafactors(args_dyb) * ndays_dyb * ndays_dyb)
+            # same fission fractions as the DYB flux/data scaling in spectra.py
+            ef_dyb = compute_extrafactors(
+                args_dyb, alpha=[args_dyb.U235_scale, args_dyb.U238_scale,
+                                 args_dyb.Pu239_scale, args_dyb.Pu241_scale])
+            dyb_V = cov_75[50:75, 50:75] * 1e-86 * ef_dyb * ef_dyb * ndays_dyb * ndays_dyb
+            print("DYB CM scaling 1e-86: ", ef_dyb * ef_dyb * ndays_dyb * ndays_dyb)
         DYB_CM = CovMatrix(dyb_V, bins=ensp_nom_dyb['rdet'].bins)
         DYB_CM.ScaleByBinWidth()
         if args_dyb.is_data:

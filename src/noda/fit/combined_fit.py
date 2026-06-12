@@ -822,274 +822,252 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         write_param_dbl("chi2/ndof", m.fval/len(b_first.detector.ensp_nom['rdet'].bins) -4)
         dir_nuis = juno_dir.mkdir("nuisances")
         dir_post = juno_dir.mkdir("postfit")
-    if not args_juno.silent_print:
-        print("************Other parameter fit results************")
-        for i in range(len(SHARED_PARAM_NAMES), len(m.values)):
-            print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
+    try:
+        if not args_juno.silent_print:
+            print("************Other parameter fit results************")
+            for i in range(len(SHARED_PARAM_NAMES), len(m.values)):
+                print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
 
-        # ── Background rates per JUNO bundle ─────────────────────────────
-        print("************Background rates************")
-        for b in juno_bundles_all:
-            tag_pre = (f"[{b.phase}/{b.shell}] "
-                       if len(juno_bundles_all) > 1 else "")
-            for key, info in b.backgrounds['JUNO'].items():
-                mangled  = routing[id(b)][f'bkg_{key}']
-                nuis     = m.values[mangled]
-                nuis_err = m.errors[mangled]
-                rate_unc        = info.get("rate_unc", None)
-                if key == "geo":
-                    start_rate = (float(b.args.geo_tnu_rate)
-                                  * float(b.args.tnu_to_cpd)) * float(b.args.detector_efficiency)
-                    rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
-                elif key == "wr" or key == "atm":
-                    start_rate = info["rate"]*float(b.args.detector_efficiency)
-                    rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
-                else:
-                    start_rate = info["rate"]
-                    rate_fit  = start_rate * (1 + nuis)
+            # ── Background rates per JUNO bundle ─────────────────────────────
+            print("************Background rates************")
+            for b in juno_bundles_all:
+                tag_pre = (f"[{b.phase}/{b.shell}] "
+                           if len(juno_bundles_all) > 1 else "")
+                for key, info in b.backgrounds['JUNO'].items():
+                    mangled  = routing[id(b)][f'bkg_{key}']
+                    nuis     = m.values[mangled]
+                    nuis_err = m.errors[mangled]
+                    rate_unc        = info.get("rate_unc", None)
+                    if key == "geo":
+                        start_rate = (float(b.args.geo_tnu_rate)
+                                      * float(b.args.tnu_to_cpd)) * float(b.args.detector_efficiency)
+                        rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
+                    elif key == "wr" or key == "atm":
+                        start_rate = info["rate"]*float(b.args.detector_efficiency)
+                        rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
+                    else:
+                        start_rate = info["rate"]
+                        rate_fit  = start_rate * (1 + nuis)
 
-                rate_err        = start_rate * nuis_err
-                deviation_sigma = ((rate_fit - start_rate)
-                                   / (start_rate * rate_unc)
-                                   if rate_unc else float('nan'))
-                print(f"{tag_pre}{key}: {rate_fit:.4f} ± {rate_err:.4f} cpd "
-                      f"(rel unc: {rate_err/rate_fit:.3%}; "
-                      f"deviation: {deviation_sigma:.2f} σ)")
+                    rate_err        = start_rate * nuis_err
+                    deviation_sigma = ((rate_fit - start_rate)
+                                       / (start_rate * rate_unc)
+                                       if rate_unc else float('nan'))
+                    print(f"{tag_pre}{key}: {rate_fit:.4f} ± {rate_err:.4f} cpd "
+                          f"(rel unc: {rate_err/rate_fit:.3%}; "
+                          f"deviation: {deviation_sigma:.2f} σ)")
+                    if args_juno.write_output:
+                        dir_nuis.cd()
+                        if rate_unc != 0.0:
+                            write_parameter(f"{tag_pre}{key}", nuis/rate_unc, nuis_err/rate_unc)
+                        else:
+                            write_parameter(f"{tag_pre}{key}", nuis, nuis_err)
+
+            # ── Normalization parameters per JUNO bundle ─────────────────────
+            print("************Normalization parameters************")
+            for b in juno_bundles_all:
+                tag_pre = (f"[{b.phase}/{b.shell}] "
+                           if len(juno_bundles_all) > 1 else "")
+                n_name = routing[id(b)]['Nrea']
+                e_name = routing[id(b)]['eff_nuis']
+                print(f"{tag_pre}Rflux: {1.0 + m.values[n_name]} +/- {m.errors[n_name]}")
+                print(f"{tag_pre}Eff:   "
+                      f"{b.args.detector_efficiency * (1 + m.values[e_name])} "
+                      f"+/- {b.args.detector_efficiency * m.errors[e_name]}")
                 if args_juno.write_output:
                     dir_nuis.cd()
-                    if rate_unc != 0.0:
-                        write_parameter(f"{tag_pre}{key}", nuis/rate_unc, nuis_err/rate_unc)
+                    write_parameter(f"{tag_pre}Rflux", m.values[n_name]/b.detector.args.r2_unc, m.errors[n_name]/b.detector.args.r2_unc)
+                    write_parameter(f"{tag_pre}eff_pull", m.values[e_name]/b.detector.args.eff_unc, m.errors[e_name]/b.detector.args.eff_unc)
+
+            # ── Shared (osc + me_rho) ────────────────────────────────────────
+            print("************Shared parameters************")
+            print(f"me_rho: {m.values['me_rho']} +/- {m.errors['me_rho']}")
+
+            # ── JUNO detector response (NL + abc) — usually global ───────────
+            if b_first is not None:
+                print("************JUNO Detector response************")
+                print(f"a:  {m.values[juno_param('abc0')]} "
+                      f"+/- {m.errors[juno_param('abc0')]}")
+                print(f"b:  {m.values[juno_param('abc1')]} "
+                      f"+/- {m.errors[juno_param('abc1')]}")
+                print(f"c:  {m.values[juno_param('abc2')]} "
+                      f"+/- {m.errors[juno_param('abc2')]}")
+                print(f"kB: {m.values[juno_param('NL0')]}  "
+                      f"+/- {m.errors[juno_param('NL0')]}")
+                print(f"fC: {m.values[juno_param('NL1')]}  "
+                      f"+/- {m.errors[juno_param('NL1')]}")
+                print(f"kI: {m.values[juno_param('NL2')]}  "
+                      f"+/- {m.errors[juno_param('NL2')]}")
+                print(f"LY: {m.values[juno_param('NL3')]}  "
+                      f"+/- {m.errors[juno_param('NL3')]}")
+
+            # ── TAO detector response ────────────────────────────────────────
+            if use_tao and tao_bundle is not None:
+                print("************TAO Detector response************")
+                tao_pnames = tao_bundle.detector.get_param_names()
+                for pname in tao_pnames:
+                    mangled = routing[id(tao_bundle)].get(pname, pname) \
+                              if id(tao_bundle) in routing else pname
+                    # In combined mode TAO is in the JUNO Minuit object.
+                    # In prefit modes it was fit by m_pre (if we ran it fresh).
+                    if fit_mode == "combined" and mangled in m.parameters:
+                        print(f"{pname}: {m.values[mangled]} "
+                              f"+/- {m.errors[mangled]}")
+                    elif m_pre is not None and pname in m_pre.parameters:
+                        print(f"{pname}: {m_pre.values[pname]} "
+                              f"+/- {m_pre.errors[pname]}  (from prefit)")
                     else:
-                        write_parameter(f"{tag_pre}{key}", nuis, nuis_err)
+                        pass    # cached prefit — m_pre unavailable; skip
 
-        # ── Normalization parameters per JUNO bundle ─────────────────────
-        print("************Normalization parameters************")
-        for b in juno_bundles_all:
-            tag_pre = (f"[{b.phase}/{b.shell}] "
-                       if len(juno_bundles_all) > 1 else "")
-            n_name = routing[id(b)]['Nrea']
-            e_name = routing[id(b)]['eff_nuis']
-            print(f"{tag_pre}Rflux: {1.0 + m.values[n_name]} +/- {m.errors[n_name]}")
-            print(f"{tag_pre}Eff:   "
-                  f"{b.args.detector_efficiency * (1 + m.values[e_name])} "
-                  f"+/- {b.args.detector_efficiency * m.errors[e_name]}")
-            if args_juno.write_output:
+            # ── ROOT writes for JUNO response ────────────────────────────────
+            if args_juno.write_output and b_first is not None:
                 dir_nuis.cd()
-                write_parameter(f"{tag_pre}Rflux", m.values[n_name]/b.detector.args.r2_unc, m.errors[n_name]/b.detector.args.r2_unc)
-                write_parameter(f"{tag_pre}eff_pull", m.values[e_name]/b.detector.args.eff_unc, m.errors[e_name]/b.detector.args.eff_unc)
+                sigma_prior = np.sqrt(np.diag(b_first.detector.covariance_er))
 
-        # ── Shared (osc + me_rho) ────────────────────────────────────────
-        print("************Shared parameters************")
-        print(f"me_rho: {m.values['me_rho']} +/- {m.errors['me_rho']}")
+                det_params = [("a","abc0"), ("b","abc1"), ("c","abc2"),
+                              ("kB","NL0"), ("fC","NL1"), ("kI","NL2"), ("LY","NL3")]
 
-        # ── JUNO detector response (NL + abc) — usually global ───────────
-        if b_first is not None:
-            print("************JUNO Detector response************")
-            print(f"a:  {m.values[juno_param('abc0')]} "
-                  f"+/- {m.errors[juno_param('abc0')]}")
-            print(f"b:  {m.values[juno_param('abc1')]} "
-                  f"+/- {m.errors[juno_param('abc1')]}")
-            print(f"c:  {m.values[juno_param('abc2')]} "
-                  f"+/- {m.errors[juno_param('abc2')]}")
-            print(f"kB: {m.values[juno_param('NL0')]}  "
-                  f"+/- {m.errors[juno_param('NL0')]}")
-            print(f"fC: {m.values[juno_param('NL1')]}  "
-                  f"+/- {m.errors[juno_param('NL1')]}")
-            print(f"kI: {m.values[juno_param('NL2')]}  "
-                  f"+/- {m.errors[juno_param('NL2')]}")
-            print(f"LY: {m.values[juno_param('NL3')]}  "
-                  f"+/- {m.errors[juno_param('NL3')]}")
+                for i, (tag, base) in enumerate(det_params):
+                    name    = juno_param(base)
+                    nominal = m.init_params[name].value
+                    dev     = (m.values[name] - nominal) / sigma_prior[i]   # element0 (pull)
+                    rel_unc =  m.errors[name]            / sigma_prior[i]   # element1 (err in σ units)
+                    write_parameter(tag, dev, rel_unc)
 
-        # ── TAO detector response ────────────────────────────────────────
-        if use_tao and tao_bundle is not None:
-            print("************TAO Detector response************")
-            tao_pnames = tao_bundle.detector.get_param_names()
-            for pname in tao_pnames:
-                mangled = routing[id(tao_bundle)].get(pname, pname) \
-                          if id(tao_bundle) in routing else pname
-                # In combined mode TAO is in the JUNO Minuit object.
-                # In prefit modes it was fit by m_pre (if we ran it fresh).
-                if fit_mode == "combined" and mangled in m.parameters:
-                    print(f"{pname}: {m.values[mangled]} "
-                          f"+/- {m.errors[mangled]}")
-                elif m_pre is not None and pname in m_pre.parameters:
-                    print(f"{pname}: {m_pre.values[pname]} "
-                          f"+/- {m_pre.errors[pname]}  (from prefit)")
+                write_parameter('me_rho', (m.values['me_rho'] - b_first.detector.args.me_rho) / b_first.detector.args.me_rho_scale, m.errors['me_rho']/b_first.detector.args.me_rho_scale)
+                write_parameter('ratio', (m.values['ThU_ratio'] - b_first.detector.args.Th_U_ratio) / b_first.detector.args.Th_U_ratio_err, m.errors['ThU_ratio']/b_first.detector.args.Th_U_ratio_err)
+                for i, (tag, base) in enumerate([("YJ-C1","core_power0"), ("YJ-C2","core_power1"), ("YJ-C3","core_power2"),
+                                  ("YJ-C4","core_power3"), ("YJ-C5","core_power4"), ("YJ-C6", "core_power5"),
+                                  ("TS-C1","core_power6"), ("TS-C2","core_power7"), ("FCG-C1-4", "core_power8"), ("DYB-C", "core_power9")]):
+                    name = juno_param(base)
+                    write_parameter(tag, m.values[name]/b_first.detector.args.core_flux_unc, m.errors[name]/b_first.detector.args.core_flux_unc)
+
+
+        if args_juno.write_output and output_file is not None:
+            dir_post.cd()
+            write_param_dbl("Efficiency", args_juno.detector_efficiency*(1+m.values["eff_nuis"]))
+
+            # post-fit NL / resolution curves, same convention as
+            # juno/response/prefit/{nl_positron,resolution}
+            if b_first is not None:
+                from ..spectra import _build_nl_graph, _build_resolution_graph
+                resp_dir = juno_dir.GetDirectory("response") or juno_dir.mkdir("response")
+                resp_post = resp_dir.GetDirectory("postfit") or resp_dir.mkdir("postfit")
+                resp_post.cd()
+                if args_juno.NL == "pull":
+                    nl_graph = _build_nl_graph(
+                        b_first.detector.ensp_nom, args_juno,
+                        NL_pulls=[m.values[juno_param(f'NL{i}')] for i in range(5)])
                 else:
-                    pass    # cached prefit — m_pre unavailable; skip
+                    nl_graph = _build_nl_graph(
+                        None, args_juno,
+                        kB=m.values[juno_param('NL0')],
+                        fC=m.values[juno_param('NL1')],
+                        kI=m.values[juno_param('NL2')],
+                        LY_shared=m.values[juno_param('NL3')])
+                nl_graph.Write("", ROOT.TObject.kOverwrite)
+                _build_resolution_graph(
+                    m.values[juno_param('abc0')],
+                    m.values[juno_param('abc1')],
+                    m.values[juno_param('abc2')]).Write("", ROOT.TObject.kOverwrite)
 
-        # ── ROOT writes for JUNO response ────────────────────────────────
-        if args_juno.write_output and b_first is not None:
-            dir_nuis.cd()
-            sigma_prior = np.sqrt(np.diag(b_first.detector.covariance_er))
+            # ── TAO post-fit response curves (tao/response/postfit) ─────────
+            # In combined mode the TAO parameters live in the JUNO Minuit object
+            # (mangled via routing); in the prefit modes they come from m_pre.
+            if use_tao and tao_bundle is not None:
+                from ..spectra import _build_nl_graph, _build_resolution_graph
 
-            det_params = [("a","abc0"), ("b","abc1"), ("c","abc2"),
-                          ("kB","NL0"), ("fC","NL1"), ("kI","NL2"), ("LY","NL3")]
+                def tao_val(pname):
+                    mangled = routing[id(tao_bundle)].get(pname, pname) \
+                              if id(tao_bundle) in routing else pname
+                    if fit_mode == "combined" and mangled in m.parameters:
+                        return m.values[mangled]
+                    if m_pre is not None and pname in m_pre.parameters:
+                        return m_pre.values[pname]
+                    return None    # cached prefit — best-fit values unavailable
 
-            for i, (tag, base) in enumerate(det_params):
-                name    = juno_param(base)
-                nominal = m.init_params[name].value
-                dev     = (m.values[name] - nominal) / sigma_prior[i]   # element0 (pull)
-                rel_unc =  m.errors[name]            / sigma_prior[i]   # element1 (err in σ units)
-                write_parameter(tag, dev, rel_unc)
+                tao_NL  = [tao_val(f"NL_tao{i}") for i in range(5)]
+                tao_abc = [tao_val(f"abc_tao{i}") for i in range(3)]
+                if None not in tao_NL and None not in tao_abc:
+                    tao_dir = (output_file.GetDirectory("tao")
+                               or output_file.mkdir("tao"))
+                    resp_dir_tao = (tao_dir.GetDirectory("response")
+                                    or tao_dir.mkdir("response"))
+                    resp_post_tao = (resp_dir_tao.GetDirectory("postfit")
+                                     or resp_dir_tao.mkdir("postfit"))
+                    resp_post_tao.cd()
+                    _build_nl_graph(tao_bundle.detector.ensp_nom,
+                                    tao_bundle.detector.args,
+                                    NL_pulls=tao_NL).Write("", ROOT.TObject.kOverwrite)
+                    _build_resolution_graph(*tao_abc).Write("", ROOT.TObject.kOverwrite)
 
-            write_parameter('me_rho', (m.values['me_rho'] - b_first.detector.args.me_rho) / b_first.detector.args.me_rho_scale, m.errors['me_rho']/b_first.detector.args.me_rho_scale)
-            write_parameter('ratio', (m.values['ThU_ratio'] - b_first.detector.args.Th_U_ratio) / b_first.detector.args.Th_U_ratio_err, m.errors['ThU_ratio']/b_first.detector.args.Th_U_ratio_err)
-            for i, (tag, base) in enumerate([("YJ-C1","core_power0"), ("YJ-C2","core_power1"), ("YJ-C3","core_power2"),
-                              ("YJ-C4","core_power3"), ("YJ-C5","core_power4"), ("YJ-C6", "core_power5"),
-                              ("TS-C1","core_power6"), ("TS-C2","core_power7"), ("FCG-C1-4", "core_power8"), ("DYB-C", "core_power9")]):
-                name = juno_param(base)
-                write_parameter(tag, m.values[name]/b_first.detector.args.core_flux_unc, m.errors[name]/b_first.detector.args.core_flux_unc)
+        if args_juno.write_output and args_juno.fit_type == "PMOP_combined" and not args_juno.use_prefit:
+            dyb_dir = output_file.GetDirectory("dyb") or output_file.mkdir("dyb")
+            dyb_dir.cd()
+            dir_nuis_dyb = dyb_dir.mkdir("nuisances")
+            dir_nuis_dyb.cd()
+            for i in range(n_nuis):
+                if fit_mode == 'prefit_wosegs':
+                    write_parameter(f"rea_shape_f{i}", m_pre.values[f"nuis{i}"], m_pre.errors[f"nuis{i}"])
+                else:
+                    write_parameter(f"rea_shape_f{i}", m.values[f"nuis{i}"], m.errors[f"nuis{i}"])
 
+        # ── TAO nuisances (tao/nuisances) — ORSA convention: TVectorD(2) of
+        #    [pull, err] in prior-σ units, same names as the ORSA export ────────
+        if (args_juno.write_output and use_tao and tao_bundle is not None
+                and args_juno.fit_type == "PMOP_combined"):
+            args_tao_w = tao_bundle.detector.args
 
-    if args_juno.write_output and output_file is not None:
-        dir_post.cd()
-        write_param_dbl("Efficiency", args_juno.detector_efficiency*(1+m.values["eff_nuis"]))
-
-        # post-fit NL / resolution curves, same convention as
-        # juno/response/prefit/{nl_positron,resolution}
-        if b_first is not None:
-            from ..spectra import _build_nl_graph, _build_resolution_graph
-            resp_dir = juno_dir.GetDirectory("response") or juno_dir.mkdir("response")
-            resp_post = resp_dir.GetDirectory("postfit") or resp_dir.mkdir("postfit")
-            resp_post.cd()
-            if args_juno.NL == "pull":
-                nl_graph = _build_nl_graph(
-                    b_first.detector.ensp_nom, args_juno,
-                    NL_pulls=[m.values[juno_param(f'NL{i}')] for i in range(5)])
-            else:
-                nl_graph = _build_nl_graph(
-                    None, args_juno,
-                    kB=m.values[juno_param('NL0')],
-                    fC=m.values[juno_param('NL1')],
-                    kI=m.values[juno_param('NL2')],
-                    LY_shared=m.values[juno_param('NL3')])
-            nl_graph.Write("", ROOT.TObject.kOverwrite)
-            _build_resolution_graph(
-                m.values[juno_param('abc0')],
-                m.values[juno_param('abc1')],
-                m.values[juno_param('abc2')]).Write("", ROOT.TObject.kOverwrite)
-
-        # ── TAO post-fit response curves (tao/response/postfit) ─────────
-        # In combined mode the TAO parameters live in the JUNO Minuit object
-        # (mangled via routing); in the prefit modes they come from m_pre.
-        if use_tao and tao_bundle is not None:
-            from ..spectra import _build_nl_graph, _build_resolution_graph
-
-            def tao_val(pname):
+            def tao_val_err(pname):
                 mangled = routing[id(tao_bundle)].get(pname, pname) \
                           if id(tao_bundle) in routing else pname
                 if fit_mode == "combined" and mangled in m.parameters:
-                    return m.values[mangled]
+                    return m.values[mangled], m.errors[mangled]
                 if m_pre is not None and pname in m_pre.parameters:
-                    return m_pre.values[pname]
-                return None    # cached prefit — best-fit values unavailable
+                    return m_pre.values[pname], m_pre.errors[pname]
+                return None
 
-            tao_NL  = [tao_val(f"NL_tao{i}") for i in range(5)]
-            tao_abc = [tao_val(f"abc_tao{i}") for i in range(3)]
-            if None not in tao_NL and None not in tao_abc:
-                tao_dir = (output_file.GetDirectory("tao")
-                           or output_file.mkdir("tao"))
-                resp_dir_tao = (tao_dir.GetDirectory("response")
-                                or tao_dir.mkdir("response"))
-                resp_post_tao = (resp_dir_tao.GetDirectory("postfit")
-                                 or resp_dir_tao.mkdir("postfit"))
-                resp_post_tao.cd()
-                _build_nl_graph(tao_bundle.detector.ensp_nom,
-                                tao_bundle.detector.args,
-                                NL_pulls=tao_NL).Write("", ROOT.TObject.kOverwrite)
-                _build_resolution_graph(*tao_abc).Write("", ROOT.TObject.kOverwrite)
+            # (output name, Minuit name, nominal, prior sigma)
+            tao_export = ([("Eff",   "eff_nuis_tao",        0.0, args_tao_w.eff_unc),
+                           ("Rflux", "Nrea_tao",            0.0, args_tao_w.r2_unc),
+                           ("TS1",   "core_power_tao",      0.0, args_tao_w.core_flux_unc),
+                           ("bkg",   "bckg_rate",           0.0, args_tao_w.bckg_rate_unc),
+                           ("snf_tao",   "snf_noneq_norm_tao0", 0.0, args_tao_w.snf_unc),
+                           ("noneq_tao", "snf_noneq_norm_tao1", 0.0, args_tao_w.noneq_unc),
+                           ("LY",    "NL_tao4",             0.0, args_tao_w.ene_scale_unc)]
+                          + [(f"a{i}", f"NL_tao{i}", 0.0, args_tao_w.NL_sd)
+                             for i in range(4)]
+                          + [("a", "abc_tao0", args_tao_w.a, args_tao_w.a_err),
+                             ("b", "abc_tao1", args_tao_w.b, args_tao_w.b_err),
+                             ("c", "abc_tao2", args_tao_w.c, args_tao_w.c_err)])
 
-    if args_juno.write_output and args_juno.fit_type == "PMOP_combined" and not args_juno.use_prefit:
-        dyb_dir = output_file.GetDirectory("dyb") or output_file.mkdir("dyb")
-        dyb_dir.cd()
-        dir_nuis_dyb = dyb_dir.mkdir("nuisances")
-        dir_nuis_dyb.cd()
-        for i in range(n_nuis):
-            if fit_mode == 'prefit_wosegs':
-                write_parameter(f"rea_shape_f{i}", m_pre.values[f"nuis{i}"], m_pre.errors[f"nuis{i}"])
+            fetched = {tag: tao_val_err(pname) for tag, pname, _, _ in tao_export}
+            if any(v is None for v in fetched.values()):
+                print("[bundled] TAO nuisances not written — best-fit values "
+                      "unavailable (cached prefit, no m_pre)")
             else:
-                write_parameter(f"rea_shape_f{i}", m.values[f"nuis{i}"], m.errors[f"nuis{i}"])
-
-
-    if args_juno.write_output:
-        output_file.Close()
-    # ── 20. Correlation heat-map ─────────────────────────────────────────
-    if args_juno.plot_correlation:
-        import re
-        corr = np.array(m.covariance.correlation())
-
-        def _drop(p):
-            return (re.fullmatch(r"nuis\d+", p)          # shape nuisances
-                    or p.startswith("core_power")        # power corrections (+_tao)
-                    or p.startswith("snf_noneq_norm")   # SNF / non-eq (+_tao/_dyb)
-                    or p.startswith("efission"))
-
-        keep   = [i for i, p in enumerate(m.parameters) if not _drop(p)]
-        corr   = corr[np.ix_(keep, keep)]
-        labels = [m.parameters[i] for i in keep]
-
-        import seaborn as sns
-        plt.figure(figsize=(12, 12))          # smaller figure → smaller squares
-        ax = sns.heatmap(corr,
-                         annot=False,          # remove the numbers
-                         xticklabels=labels, yticklabels=labels,
-                         cmap="coolwarm", vmin=-1, vmax=1, cbar=False,
-                         square=True)          # force cells to be actual squares
-        ax.tick_params(labelsize=16)           # bigger axis labels
-        plt.tight_layout()
-
-        plt.savefig(f"Plots/corr_{args_juno.file_prefix}", dpi=200)
-
-    # ── 21. dm²₃₁ profile ────────────────────────────────────────────────
-    if args_juno.profile_dm2_31:
-        profile_dm2_31(m, args_juno, NMO_opt=bool(args_juno.NMO_opt),
-                       write=args_juno.write_output,
-                       conditional=bool(getattr(args_juno,
-                                                'profile_dm2_31_conditional',
-                                                False)))
-
-    # ── 22. MINOS errors ─────────────────────────────────────────────────
-    merrors = bool(args_juno.calc_minuit_errors)
-    if merrors:
-        m.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31")
-
-    # ── 23. Oscillation parameter results ────────────────────────────────
-    osc_params_nom = [
-        nuosc.op_nom["sin2_th12"],
-        nuosc.op_nom["sin2_th13"],
-        nuosc.op_nom["dm2_21"] * 1e5,
-        nuosc.op_nom["dm2_31"] * 1e3,
-    ]
-
-
-    if not args_juno.silent_print: # and not args_juno.is_data:
-        if args_juno.write_output:
-                output_file = ROOT.TFile(
-                            f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
-                            f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root",
-                            "update")
-
-                dir_osc = output_file.mkdir("oscillation_parameters")
-                dir_osc.cd()
-        print("************Oscillation parameter fit results************")
-        for i in range(4):
-            err = (max(abs(m.merrors[i].upper), abs(m.merrors[i].lower))
-                   if merrors else m.errors[i])
-            val             = m.values[i]
-            exp_val         = osc_params_nom[i]
-            rel_unc         = err / val if val != 0 else float('nan')
-            deviation_sigma = (val - exp_val) / err if err != 0 else float('nan')
-            print(f"{m.parameters[i]}: {val:.6g} +/- {err:.6g}; "
-                  f"rel unc: {rel_unc:.3%}; deviation: {deviation_sigma:.2f} σ")
-            if args_juno.write_output:
-                write_osc_params(str(m.parameters[i]), val, err)
-
-
-    if args_juno.write_output:
-        output_file.Close()
-
-    # ── 24. Post-fit residual plot (one per JUNO bundle) ─────────────────
+                tao_dir = output_file.GetDirectory("tao") or output_file.mkdir("tao")
+                dir_nuis_tao = (tao_dir.GetDirectory("nuisances")
+                                or tao_dir.mkdir("nuisances"))
+                dir_nuis_tao.cd()
+                for tag, pname, nominal, sigma in tao_export:
+                    val, err = fetched[tag]
+                    write_parameter(tag, (val - nominal) / sigma, err / sigma)
+                # segment (shape) nuisances, mirrored here like in the ORSA file
+                for i in range(n_nuis):
+                    if fit_mode == 'prefit_wosegs' and m_pre is not None:
+                        write_parameter(f"rea_shape_f{i}",
+                                        m_pre.values[f"nuis{i}"], m_pre.errors[f"nuis{i}"])
+                    else:
+                        write_parameter(f"rea_shape_f{i}",
+                                        m.values[f"nuis{i}"], m.errors[f"nuis{i}"])
+    finally:
+        if output_file is not None:
+            output_file.Close()
+    # ── 19b. Post-fit spectra replay + residual plots ────────────────────
+    # Runs right after the fit (before correlation/profiling/minos) so the
+    # juno/dyb/tao postfit spectra reach the ROOT file even if a later
+    # post-fit step crashes or the run is interrupted.
     chi2_true = m.fval
     if not args_juno.silent_print:
         # Replay each JUNO bundle's chi2_contribution at the best-fit point
@@ -1209,6 +1187,81 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 xmin=0.7, xmax=12.0, ymin=1e-3,
                 log_scale=False,
                 title=f"PRL 2025, {len(E_segments)} segments")
+
+    # ── 20. Correlation heat-map ─────────────────────────────────────────
+    if args_juno.plot_correlation:
+        import re
+        corr = np.array(m.covariance.correlation())
+
+        def _drop(p):
+            return (re.fullmatch(r"nuis\d+", p)          # shape nuisances
+                    or p.startswith("core_power")        # power corrections (+_tao)
+                    or p.startswith("snf_noneq_norm")   # SNF / non-eq (+_tao/_dyb)
+                    or p.startswith("efission"))
+
+        keep   = [i for i, p in enumerate(m.parameters) if not _drop(p)]
+        corr   = corr[np.ix_(keep, keep)]
+        labels = [m.parameters[i] for i in keep]
+
+        import seaborn as sns
+        plt.figure(figsize=(12, 12))          # smaller figure → smaller squares
+        ax = sns.heatmap(corr,
+                         annot=False,          # remove the numbers
+                         xticklabels=labels, yticklabels=labels,
+                         cmap="coolwarm", vmin=-1, vmax=1, cbar=False,
+                         square=True)          # force cells to be actual squares
+        ax.tick_params(labelsize=16)           # bigger axis labels
+        plt.tight_layout()
+
+        plt.savefig(f"Plots/corr_{args_juno.file_prefix}", dpi=200)
+
+    # ── 21. dm²₃₁ profile ────────────────────────────────────────────────
+    if args_juno.profile_dm2_31:
+        profile_dm2_31(m, args_juno, NMO_opt=bool(args_juno.NMO_opt),
+                       write=args_juno.write_output,
+                       conditional=bool(getattr(args_juno,
+                                                'profile_dm2_31_conditional',
+                                                False)))
+
+    # ── 22. MINOS errors ─────────────────────────────────────────────────
+    merrors = bool(args_juno.calc_minuit_errors)
+    if merrors:
+        m.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31")
+
+    # ── 23. Oscillation parameter results ────────────────────────────────
+    osc_params_nom = [
+        nuosc.op_nom["sin2_th12"],
+        nuosc.op_nom["sin2_th13"],
+        nuosc.op_nom["dm2_21"] * 1e5,
+        nuosc.op_nom["dm2_31"] * 1e3,
+    ]
+
+
+    if not args_juno.silent_print: # and not args_juno.is_data:
+        if args_juno.write_output:
+            output_file = ROOT.TFile(
+                f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
+                f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root",
+                "update")
+            dir_osc = output_file.mkdir("oscillation_parameters")
+            dir_osc.cd()
+        try:
+            print("************Oscillation parameter fit results************")
+            for i in range(4):
+                err = (max(abs(m.merrors[i].upper), abs(m.merrors[i].lower))
+                       if merrors else m.errors[i])
+                val             = m.values[i]
+                exp_val         = osc_params_nom[i]
+                rel_unc         = err / val if val != 0 else float('nan')
+                deviation_sigma = (val - exp_val) / err if err != 0 else float('nan')
+                print(f"{m.parameters[i]}: {val:.6g} +/- {err:.6g}; "
+                      f"rel unc: {rel_unc:.3%}; deviation: {deviation_sigma:.2f} σ")
+                if args_juno.write_output:
+                    write_osc_params(str(m.parameters[i]), val, err)
+        finally:
+            if args_juno.write_output:
+                output_file.Close()
+
     # ── 25. Solar contour ────────────────────────────────────────────────
     if args_juno.solar_contour:
         try:
