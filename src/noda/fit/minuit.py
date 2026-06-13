@@ -184,10 +184,11 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
             f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
             f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root", "update")
         try:
-            dir_prof = out_file.mkdir("profiles")
+            dir_prof = out_file.GetDirectory("profiles") or out_file.mkdir("profiles")
             dir_prof.cd()
             graph.Write()
         finally:
+            force_vector_streamers(out_file)
             out_file.Close()
     best_dm2_from_scan  = dm2_fine[np.argmin(chi2_smooth)]
     print(best_dm2_from_scan)

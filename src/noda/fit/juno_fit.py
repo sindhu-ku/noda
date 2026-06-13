@@ -29,7 +29,8 @@ class JUNODetector:
 
     def __init__(self, ndays, ensp_nom, rm, cm, args, backgrounds,
                  core_baselines, core_powers_std,
-                 E_segments, s_ibd, s_bump_lin, core_fractions=None, covariance_er=None):
+                 E_segments, s_ibd, s_bump_lin, core_fractions=None,
+                 core_names=None, covariance_er=None):
         self.ndays          = ndays
         self.ensp_nom       = ensp_nom
         self.rm             = rm
@@ -39,6 +40,7 @@ class JUNODetector:
         self.core_baselines = core_baselines
         self.core_powers_std = core_powers_std
         self.core_fractions = core_fractions
+        self.core_names     = core_names
         self.fine_bins      = ensp_nom['ribd'].bins
         self.E_segments     = E_segments
         self.s_ibd          = s_ibd
@@ -167,7 +169,7 @@ class JUNODetector:
             snf_names = [f"snf_noneq_norm{i}" for i in range(6)]
 
         efission_names = [f"efission{i}" for i in range(len(args.efission))]
-        core_names     = [f"core_power{i}" for i in range(10)]
+        core_names     = [f"core_power{i}" for i in range(self.n_cores)]
 
         # NOTE: me_rho is a shared parameter (lives in combined_fit, not here)
         return (
@@ -199,7 +201,7 @@ class JUNODetector:
             snf_start = [0.0] * 6
 
         efission_start = list(np.array(args.efission) * 1e-2)
-        core_start     = list(np.zeros(10))
+        core_start     = list(np.zeros(self.n_cores))
 
         return (
             [0.0]               # Nrea
@@ -238,7 +240,7 @@ class JUNODetector:
             else:
                 m.limits[f"NL{i}"] = [0, None]
 
-        for i in range(10):
+        for i in range(self.n_cores):
             m.limits[f"core_power{i}"] = [-1.0, None]
 
         for i in range(len(args.efission)):
@@ -259,7 +261,7 @@ class JUNODetector:
             + [f"snf_noneq_norm{i}" for i in range(n_snf)]
             + [f"bkg_{k}" for k in bckgs_keys]
             + ["eff_nuis", "ThU_ratio"]
-            + [f"core_power{i}" for i in range(10)]
+            + [f"core_power{i}" for i in range(self.n_cores)]
             + [f"efission{i}" for i in range(len(args.efission))]
         )
 
@@ -297,8 +299,8 @@ class JUNODetector:
             lambda v, c=args.me_rho, s=args.me_rho_scale:
                 ((v - c) / s) ** 2 if v != 0.0 else 0.0)
 
-        # ── core powers (10 of them) ──────────────────────────────────────
-        for i in range(10):
+        # ── core powers (one per reactor core) ────────────────────────────
+        for i in range(self.n_cores):
             defs[f'core_power{i}'] = (
                 lambda v, s=args.core_flux_unc: (v / s) ** 2)
 
@@ -552,7 +554,7 @@ class JUNODetector:
             core_powers_new = list(
                 np.array(self.core_powers_std) * (1 + np.array(core_powers_delta)))
             pulls.extend(core_powers_delta)
-            pull_unc.extend([args.core_flux_unc] * 10)
+            pull_unc.extend([args.core_flux_unc] * len(core_powers_delta))
         else:
             core_powers_new = args.core_powers
 

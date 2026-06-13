@@ -49,9 +49,8 @@ import numpy as np
 from datetime import datetime
 
 # package imports
-from noda.main import setup_one_phase, _build_juno_bundle
-from noda.fit.manifest import load as load_manifest
-from noda.fit.param_policy import policy_from_backgrounds
+from noda.main import (_build_juno_bundle,
+                       build_setups as _main_build_setups, build_policy)
 from noda.fit.minuit import load_prefit_cache
 from noda.fc.feldman_cousins import (run_one_toy_dm31, run_one_toy_nmo,
 )
@@ -96,22 +95,16 @@ def load_initial_fits(filepath):
 # ─────────────────────────────────────────────────────────────────────────────
 def build_setups(config_path, dm2_31=None):
     """
-    Manifest-aware setup: one setup_one_phase() dict per (phase, shell) row,
-    plus the ParamPolicy built like main._run_multi_bundle does.
+    Manifest-aware setup: one setup dict per (phase, shell) row plus the
+    ParamPolicy, built through the SAME helpers run_noda uses
+    (noda.main.build_setups / build_policy) so the two never drift.
     Returns (setups, policy).
     """
-    rows = load_manifest(config_path)
     with open(config_path) as f:
         manifest_doc = yaml.safe_load(f) or {}
 
-    setups = [setup_one_phase(cfg, phase_label=phase, shell_label=shell,
-                              overrides=phase_ov, dm2_31=dm2_31)
-              for phase, shell, cfg, phase_ov in rows]
-
-    sys_override = (manifest_doc.get('systematics')
-                    if isinstance(manifest_doc, dict) else None)
-    policy = policy_from_backgrounds(
-        setups[0]['backgrounds']['JUNO'], sys_override=sys_override)
+    setups = _main_build_setups(config_path, dm2_31=dm2_31)
+    policy = build_policy(setups, manifest_doc)
     return setups, policy
 
 
@@ -159,12 +152,12 @@ def main():
         s['args_juno'].toymc   = True
         s['args_juno'].NMO_opt = bool(cli.true_no)
         if cli.mode == "dm31":
-            s['args_juno'].pull_dm2_31     = False
+            s['args_juno'].pull_dm2_31     = True
             s['args_juno'].pull_dm2_31_lbl = False
         if cli.mode == "nmo":
             s['args_juno'].pull_dm2_31     = False
             s['args_juno'].pull_dm2_31_lbl = True
-            s['args_juno'].PDG_opt = "NT2K"
+            s['args_juno'].PDG_opt = "NuFitLBL"
 
     # nominal bundles for the truth prediction (one per phase/shell)
     truth_bundles = [_build_juno_bundle(s) for s in setups]
@@ -215,6 +208,7 @@ def main():
                     setups=setups,
                     policy=policy,
                     truth_bundles=truth_bundles,
+                    initial_fits=initial_fits,
                     prefit_cache=prefit)
                 r['mode'] = 'nmo'
                 writer.writerow(r); fh.flush(); n_written += 1

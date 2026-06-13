@@ -2,7 +2,7 @@ cd config: ''
 # Fit options configuration
 
 fit_options:
-  is_data: True
+  is_data: False
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
@@ -37,7 +37,7 @@ fit_options:
   fit_mode: prefit_wosegs
   save_prefit: True
   use_prefit: False
-  prefit_path: /home/sindhu/Documents/JUNO/Fitter/noda/noda/prefit_data/240_allP_data.npz
+  prefit_path: ${NODA_BASE}/prefit_data/240_allP_data.npz
   include_tao: True
   include_dyb: True
   geo_fit: true
@@ -63,30 +63,30 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'GroupC_172m_June12-2026_P14_JUNO+DYB+TAO'
+  file_prefix: 'GroupC_172m_June13-2026_P14_JUNO+DYB+TAO'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
   PLOT_CM: false # Plot covariance matrices
 
-  backgrounds_yaml: /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/240-day_FV165/backgrounds_AllP_172m.yaml
-  input_data_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/JUNOInputs2022_05_08.root #data file
-  geo_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/geo_raw_Nov2723.root
-  geoU_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/U238_IHEP.txt
-  geoTh_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Th232_IHEP.txt
-  geo_MC_U_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/geo_U_promptFV.root
-  geo_MC_Th_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/geo_Th_promptFV.root
-  geo_MC_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/xc_pdfs_2023-08-25.root
+  backgrounds_yaml: ${NODA_BASE}/config/240-day_FV165/backgrounds_AllP_172m.yaml
+  input_data_file: ${NODA_BASE}/data/JUNOInputs2022_05_08.root #data file
+  geo_file: ${NODA_BASE}/data/geo_raw_Nov2723.root
+  geoU_file: ${NODA_BASE}/data/U238_IHEP.txt
+  geoTh_file: ${NODA_BASE}/data/Th232_IHEP.txt
+  geo_MC_U_file: ${NODA_BASE}/data/geo_U_promptFV.root
+  geo_MC_Th_file: ${NODA_BASE}/data/geo_Th_promptFV.root
+  geo_MC_file: ${NODA_BASE}/data/xc_pdfs_2023-08-25.root
   geoU_hist_name: 'geoU'
   geoTh_hist_name: 'geoTh'
   reactor_model: Huber-Mueller
 
-  main_data_folder: /home/sindhu/Documents/JUNO/Fitter/noda/noda/Geo_sens_Jan14
-  cov_matrix_plots_folder: /home/sindhu/Documents/JUNO/Fitter/noda/noda/CMplots #folder to store CM plots
-  plots_folder: /home/sindhu/Documents/JUNO/Fitter/noda/noda/Plots #folder to save plots of spectra
-  data_matrix_folder: /home/sindhu/Documents/JUNO/Fitter/noda/noda/Geo_sens_Jan14 #folder to save or to use csv files of spectra and matrices
-  bayes_data_folder: /home/sindhu/Documents/JUNO/Fitter/noda/noda/Bayesian/npz_files
-  bayes_plots_folder: /home/sindhu/Documents/JUNO/Fitter/noda/noda/Bayesian/Plots
+  main_data_folder: ${NODA_BASE}/Geo_sens_Jan14
+  cov_matrix_plots_folder: ${NODA_BASE}/CMplots #folder to store CM plots
+  plots_folder: ${NODA_BASE}/Plots #folder to save plots of spectra
+  data_matrix_folder: ${NODA_BASE}/Geo_sens_Jan14 #folder to save or to use csv files of spectra and matrices
+  bayes_data_folder: ${NODA_BASE}/Bayesian/npz_files
+  bayes_plots_folder: ${NODA_BASE}/Bayesian/Plots
 
   #start and end points for each parameter in grid space
   grid_params:
@@ -152,11 +152,11 @@ common_det_inputs:
   unc_corr_ind: r2+snf+noneq
 
   unc_corr_dep: crel+nl
-  snf_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/SNFYJandTS_from_JUNOInputs2022_05_08.root #SNFYJandTS.root
-  noneq_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Non-Equilibrium_corrections_from_JUNOInputs2022_05_08.root #Non-Equilibrium_corrections.root
+  snf_file: ${NODA_BASE}/data/SNFYJandTS.root
+  noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  reactor_summary_yaml:  /home/sindhu/Documents/JUNO/Fitter/noda/noda/config/reactor_summary_CI.yaml
+  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_CI.yaml
   stat_opt: 207.117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7714 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   eff_unc: 0.03342206957 #rel
@@ -167,9 +167,9 @@ juno_inputs:
     - 0.0
     - 12.0
   NL: real
-  NL_data_file:  /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/JUNOInputs2022_05_08.root #/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root
-  det_resp_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/Jun2026_cov_er_172m.txt
+  NL_data_file:  ${NODA_BASE}/data/JUNOInputs2022_05_08.root #${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
+  data_spectrum: ${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root
+  det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er_172m.txt
   data_hist_name: data
   rebin_nonuniform: true
   bins_nonuniform:
@@ -260,7 +260,7 @@ dyb_inputs:
   stat_opt: 3158days # time period for sensitivity studies # time period for sensitivity studies
   FORCE_CALC_ENE_LEAK: False
   NL: na
-  NL_data_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/Irvine_NL_inputs_nov13_2025.root
+  NL_data_file: ${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
   iav_matrix_file: data/dyb_iav_matrix.txt
   dagflow_data: ../dayabay-model/data/
   custom_bin_edges: ../dayabay-model/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
@@ -303,9 +303,9 @@ dyb_inputs:
   unc_list_nd:
      - stat+b2b_ff #stat+bg+eff+r2+nl+snf+noneq
 
-  dyb_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/dyb_spectra_prl.txt
-  dyb_cm: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/dyb_cov_matrix_prl.txt
-  dyb_resp_matrix: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/dyb_resp_matrix.txt
+  dyb_spectrum: ${NODA_BASE}/data/dyb_spectra_prl.txt
+  dyb_cm: ${NODA_BASE}/data/dyb_cov_matrix_prl.txt
+  dyb_resp_matrix: ${NODA_BASE}/data/dyb_resp_matrix.txt
     #   - stat+eff
     #   - stat+r2
     #   - stat+crel
@@ -330,9 +330,9 @@ tao_inputs:
   FORCE_CALC_ENE_LEAK: False
   NL: pull
   NL_sd: 1.0
-  data_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/TAOInputs_2026_6_5.root
-  NL_data_file: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/energy_nl.root
-  data_spectrum: /home/sindhu/Documents/JUNO/Fitter/noda/noda/data/TAOInputs_2026_6_5.root
+  data_file: ${NODA_BASE}/data/TAOInputs_2026_6_5.root
+  NL_data_file: ${NODA_BASE}/data/energy_nl.root
+  data_spectrum: ${NODA_BASE}/data/TAOInputs_2026_6_5.root
   data_hist_name: IBD_spectrum_bkg_not_subtracted_FV800
   bckg_hist_name: Bkg_spectrum_FV800
   bckg_scale: 1.0 #0.9827282340500528 # 27.88/28.37 reactor-on/off DAQ livetime ratio (Group A convention)

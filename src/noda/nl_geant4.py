@@ -2,11 +2,15 @@ import numpy as np
 import os
 import re
 import uproot
+from pathlib import Path
 from scipy.interpolate import interp1d
 from numba import njit, prange, typed
 
 
-SPECTRA_PATH = "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/"
+# Portable base path: honour $NODA_BASE (set per cluster, or by main.py from
+# --base_path / config), else fall back to the repo root that holds this file.
+_NODA_BASE = os.environ.get('NODA_BASE') or str(Path(__file__).resolve().parents[2])
+SPECTRA_PATH = os.path.join(_NODA_BASE, "data", "")
 me = 0.51099893
 """
 Defines the Geant4Model for calculating particle non-linearity.

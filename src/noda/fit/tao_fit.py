@@ -314,6 +314,13 @@ class TAODetector:
             cm_t  = CovMatrix(
             data=self.cm['all'].data * np.outer(s_tao.bin_cont, s_tao.bin_cont),
             bins=self.cm['all'].bins)
+            # Background bin-to-bin (b2b) covariance: per-bin relative
+            # uncertainty sigma_i = sqrt(N_i)/N_i, giving a diagonal
+            # var_i = (sigma_i * N_i)^2 = N_i.
+            bckg_cont = np.asarray(bckg.bin_cont, dtype=float)
+            b2b_rel = np.divide(np.sqrt(bckg_cont), bckg_cont,
+                                out=np.zeros_like(bckg_cont), where=bckg_cont > 0)
+            cm_t.data += np.diag((b2b_rel * bckg_cont) ** 2)
         else:
             ebins = self.ensp_nom['rdet'].bins
             nbins = len(ebins)

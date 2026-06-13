@@ -2,7 +2,7 @@
 
 JUNO:
   lihe:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root" #lihe_spectrum.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root" #lihe_spectrum.root"
     histname: "prefit/lihe" #Li9BkgHistogramAD"
     rate: 3.32
     rate_unc: 0.70
@@ -13,7 +13,7 @@ JUNO:
     correlate_shell: true
 
   geo:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
     histname: "prefit/geo" #GeoNuHistogramAD"
     rate:  1.75 #1.2209750 #1.4831250 #1.239 #1.147
     rate_unc: 0.0
@@ -24,7 +24,7 @@ JUNO:
     correlate_shell: true
 
   wr:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/WR_new.root"
+    rootfile: "${NODA_BASE}/data/WR_new.root"
     histname: "wreac" #spectrum_nom" #OtherReactorSpectrum_L300km"
     rate: 1.26 # 0.87910200  #886 #1.185
     rate_unc: 0.1
@@ -35,7 +35,7 @@ JUNO:
     correlate_shell: true
 
   bipo:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
     histname: "prefit/bipo" #OtherReactorSpectrum_L300km"
     rate: 0.41
     rate_unc: 0.703
@@ -46,7 +46,7 @@ JUNO:
     correlate_shell: false
 
   acc:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
     histname: "prefit/acc" #AccBkgHistogramAD"
     rate: 0.507547
     rate_unc: 0.002
@@ -57,7 +57,7 @@ JUNO:
     correlate_shell: true
 
   doublen:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
     histname: "prefit/doublen" #FnBkgHistogramAD"
     rate: 0.11
     rate_unc: 1.0
@@ -68,7 +68,7 @@ JUNO:
     correlate_shell: false
 
   atm:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
     histname: "prefit/atm" #AtmosphericNeutrinoModelGENIE2"
     rate:  0.15 #0.10465500
     rate_unc: 0.5
@@ -79,7 +79,7 @@ JUNO:
     correlate_shell: true
 
   alphan:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root" #/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/GeoneutrinoCommonInputs.root" #"/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root" #${NODA_BASE}/data/GeoneutrinoCommonInputs.root" #"${NODA_BASE}/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
     histname: "prefit/alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
     rate: 0.028
     rate_unc: 0.25
@@ -90,7 +90,7 @@ JUNO:
     correlate_shell: false
 
   fastn:
-    rootfile: "/home/sindhu/Documents/JUNO/Fitter/noda/noda/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2_June11_clean.root"
     histname: "prefit/fastn" #FnBkgHistogramAD"
     rate: 0.076
     rate_unc: 1.0

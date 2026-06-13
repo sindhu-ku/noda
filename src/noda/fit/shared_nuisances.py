@@ -46,8 +46,19 @@ def get_shape_nuis_start_values(n_bins):
     return list(np.zeros(n_bins))
 
 
-def apply_shared_limits(m, args_juno, n_shape_bins):
-    """Set Minuit limits on the shared parameters (me_rho + shape nuisances)."""
+def apply_shared_limits(m, args_juno, n_shape_bins, nmo_opt=None):
+    """Set Minuit limits on the shared parameters (me_rho + shape nuisances).
+
+    `dm2_31` is confined to its ordering's sign domain so a fit cannot hop
+    across dm2_31=0 into the other ordering's basin — which would flip both
+    the oscillation and the LBL-pull branch (f_lbl) and corrupt the NMO
+    significance. Bounds mirror profile_dm2_31 (Minuit units, ×1e-3 eV²).
+    `nmo_opt` selects the ordering (defaults to args_juno.NMO_opt); pass
+    `not args_juno.NMO_opt` for the opposite-ordering significance fit.
+    """
     m.limits["me_rho"] = [0.0, None]
+    if nmo_opt is None:
+        nmo_opt = bool(args_juno.NMO_opt)
+    m.limits["dm2_31"] = (1.5, 3.5) if nmo_opt else (-3.5, -1.5)
     for i in range(n_shape_bins):
         m.limits[f"nuis{i}"] = [-1, None]

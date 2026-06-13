@@ -154,6 +154,20 @@ def SetOscillationParameters(opt, NO, silent=True):
       op_nom['dm2_32'] = -2.477e-03
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
     op_nom['dm2_31_err'] = 0.035e-3
+  elif opt == 'NuFitLBL':
+    op_nom['sin2_th12'] = 0.307
+    op_nom['sin2_th13'] = 0.02175
+    op_nom['sin2_th13_err'] = 0.063e-2
+    op_nom['dm2_21'] = 7.50e-5
+    if NO:
+      op_nom['sin2_th23'] = 0.534
+      op_nom['dm2_32'] = 2.442e-03
+      op_nom['dm2_31_err'] = 0.0265e-3
+    else:
+      op_nom['sin2_th23'] = 0.537
+      op_nom['dm2_32'] = -2.483e-03
+      op_nom['dm2_31_err'] = 0.0275e-3
+    op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
   else:
     print(f"No such option \"{opt}\"")
     return

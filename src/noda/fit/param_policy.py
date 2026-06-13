@@ -50,7 +50,7 @@ DEFAULT_SYSTEMATICS: Dict[str, CorrelationPair] = {
     'core_power': (True, True),
     'snf_noneq_norm': (True, True),
     # detection efficiency — (phase, shell)
-    'eff_nuis':   (True, True),
+    'eff_nuis':   (False, False),
 }
 
 
@@ -59,14 +59,32 @@ def _family(base_name: str) -> str:
     return re.sub(r'\d+$', '', base_name)
 
 
+def _ident(s: str) -> str:
+    """Make a phase/shell label safe as part of a Python/Minuit parameter name.
+
+    Minuit parameter names must be valid identifiers, so any character that is
+    not [A-Za-z0-9_] (e.g. the '-' in a shell name like 'S-15') is replaced by
+    '_'. 'S-15' → 'S_15', 'S-15-172' → 'S_15_172'.
+    """
+    return re.sub(r'\W', '_', str(s))
+
+
 class ParamPolicy:
     """Pure function: (base_name, phase, shell) → resolved Minuit name."""
 
     def __init__(self,
                  backgrounds_corr: Dict[str, CorrelationPair],
-                 systematics_corr: Dict[str, CorrelationPair] | None = None):
+                 systematics_corr: Dict[str, CorrelationPair] | None = None,
+                 multi_phase: bool = True,
+                 multi_shell: bool = True):
         self.bkg = backgrounds_corr
         self.sys = {**DEFAULT_SYSTEMATICS, **(systematics_corr or {})}
+        # Only suffix a parameter per phase/shell when the run actually spans
+        # more than one. For a single phase AND single shell every name stays
+        # bare (no '__p…__s…'), matching _dataset_suffix's collapse rule so
+        # stored nuisances aren't tagged with a redundant bundle suffix.
+        self.multi_phase = multi_phase
+        self.multi_shell = multi_shell
 
     # ─── classification ──────────────────────────────────────────────────
     def correlation(self, base_name: str) -> CorrelationPair:
@@ -78,8 +96,8 @@ class ParamPolicy:
     def resolve(self, base_name: str, phase: str, shell: str) -> str:
         cp, cs = self.correlation(base_name)
         suffix = ''
-        if not cp: suffix += f'__p{phase}'
-        if not cs: suffix += f'__s{shell}'
+        if not cp and self.multi_phase: suffix += f'__p{_ident(phase)}'
+        if not cs and self.multi_shell: suffix += f'__s{_ident(shell)}'
         return base_name + suffix
 
     # ─── helpers for the dispatcher ──────────────────────────────────────
@@ -88,16 +106,21 @@ class ParamPolicy:
 
 
 def policy_from_backgrounds(bg_dict: dict,
-                            sys_override: dict | None = None) -> ParamPolicy:
+                            sys_override: dict | None = None,
+                            multi_phase: bool = True,
+                            multi_shell: bool = True) -> ParamPolicy:
     """
     Build a ParamPolicy by reading correlate_phase / correlate_shell from
     each background entry. Missing keys default to False (independent).
 
     `bg_dict` is the JUNO sub-dict of backgrounds_*.yaml.
     `sys_override` may be the optional `systematics:` block from the manifest.
+    `multi_phase` / `multi_shell` say whether the run spans >1 phase / >1
+    shell; when False the corresponding suffix is dropped from every name.
     """
     bg = {}
     for key, info in bg_dict.items():
         bg[key] = (bool(info.get('correlate_phase', False)),
                    bool(info.get('correlate_shell', False)))
-    return ParamPolicy(backgrounds_corr=bg, systematics_corr=sys_override)
+    return ParamPolicy(backgrounds_corr=bg, systematics_corr=sys_override,
+                       multi_phase=multi_phase, multi_shell=multi_shell)

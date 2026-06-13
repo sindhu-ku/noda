@@ -28,15 +28,29 @@ from .noda import *
 # Constants / index ranges
 # ---------------------------------------------------------------------------
 
-# Core index slices for JUNO (10 cores total: 6 YJ + 2 TS + 2 HM)
-IDX_YJ = range(0, 6)
-IDX_TS = range(6, 8)
-IDX_HM = range(8, 10)
+# Core index layout for the per-core JUNO build. Order matches
+# load_reactor_summary(): 6 near YJ cores, 2 near TS cores, then the distant
+# combined plants (DYB, TPL, FC, …), all handled identically as the "HM" group.
+# Generic in the number of distant plants, so adding one (e.g. TPL, 11 cores
+# total) needs no change here.
+N_YJ = 6
+N_TS = 2
+HM_START = N_YJ + N_TS            # every core at index >= HM_START is an HM plant
 
-_CORE_GROUP = {}
-for _i in IDX_YJ: _CORE_GROUP[_i] = ("YJ", _i - IDX_YJ.start + 1)
-for _i in IDX_TS: _CORE_GROUP[_i] = ("TS", _i - IDX_TS.start + 1)
-for _i in IDX_HM: _CORE_GROUP[_i] = ("HM", _i - IDX_HM.start + 1)
+# kept for the (commented-out) legacy builder further down
+IDX_YJ = range(0, N_YJ)
+IDX_TS = range(N_YJ, HM_START)
+IDX_HM = range(HM_START, HM_START + 3)
+
+
+def _core_group(i):
+    """Return (plant-label, 1-based index-within-group) for JUNO core index i.
+
+    YJ: 0..5, TS: 6..7, HM (distant combined plants DYB/TPL/FC/…): >= HM_START.
+    """
+    if i < N_YJ:      return ("YJ", i + 1)
+    if i < HM_START:  return ("TS", i - N_YJ + 1)
+    return ("HM", i - HM_START + 1)
 
 
 # ---------------------------------------------------------------------------
@@ -205,58 +219,62 @@ def _load_nonlinearity(ensp, args, detector):
 # SNF / Non-equilibrium corrections  (JUNO per-core path)
 # ---------------------------------------------------------------------------
 
-def _build_snf_noneq_corrections_per_core(ensp, args, ndays, ebins, core_fractions, core_baselines, core_powers, resp_matrix, s_ibd, dm2_31):
+def _build_snf_noneq_corrections_per_core(ensp, args, ndays, ebins, core_fractions, core_baselines, core_powers, resp_matrix, s_ibd, dm2_31, core_names=None):
     """
     Build oscillated, smeared SNF and Non-Eq spectra for each of the 10 JUNO
     cores and accumulate group totals.  Modifies *ensp* in-place.
     """
     n_cores = len(core_powers)
 
-    # --- global HM-only SNF / Noneq base ratios ---
+    # --- global HM SNF / Noneq base flux-ratio shapes ---
+    # The distant combined plants (DYB, TPL, FC, …) all share these shapes;
+    # each is weighted by its own per-core fission flux in the loop below.
     for key, hist in [("snf0", "SNF_FluxRatio"), ("noneq0", "NonEq_FluxRatio")]:
         ensp[key] = GetSpectrumFromROOT(args.input_data_file, hist)
         ensp[key].Rebin(ebins, mode="spline-not-keep-norm")
 
-    for suffix, fc_key, db_key in [
-        ("snf",   "snf_FC",   "snf_DB"),
-        ("noneq", "noneq_FC", "noneq_DB"),
-    ]:
-        ensp[fc_key] = interp_to_target(ensp[f"{suffix}0"], ensp["rfis_core8"]).GetWeightedWithSpectrum(ensp["rfis_core8"])
-        ensp[db_key] = interp_to_target(ensp[f"{suffix}0"], ensp["rfis_core9"]).GetWeightedWithSpectrum(ensp["rfis_core9"])
-        del ensp[f"{suffix}0"]
-
-    # --- per-core SNF from dedicated histograms (YJ + TS only; HM uses global) ---
+    # --- per-core SNF / Non-Eq ---
+    #   YJ + TS (cores 0-7): dedicated per-core histograms.
+    #   HM (cores >= HM_START: DYB / TPL / FC / …): the global flux ratio
+    #     weighted by each plant's own fission flux. Generic in HM-plant count.
     snf_core = []
     noneq_core = []
 
+    name_i = lambda i: core_names[i] if core_names is not None else None
+
     for i in range(n_cores):
-        prefix, core_idx = _CORE_GROUP[i]
+        prefix, core_idx = _core_group(i)
         rfis_i = ensp[f"rfis_core{i}"]
 
-        # SNF
-        if i in IDX_HM:
-            # HM cores: use global ratio already weighted per-core
-            fc_or_db = ensp["snf_FC"] if i == 8 else ensp["snf_DB"]
-            snf_core.append(fc_or_db.Copy())
-        else:
-            spec = GetSpectrumFromROOT(args.snf_file, f"Ratio{prefix}ReactorSNF{core_idx}")
-            spec.Rebin(ebins, mode="spline-not-keep-norm")
-            snf_core.append(interp_to_target(spec, rfis_i).GetWeightedWithSpectrum(rfis_i))
+        if prefix == "HM":
+            # TLP (TPL) carries no SNF contribution — zero it out while keeping
+            # the binning consistent with the other per-core spectra.
+            if name_i(i) == "TPL":
+                snf_core.append(_zero_spectrum(rfis_i.bins))
+            else:
+                snf_core.append(
+                    interp_to_target(ensp["snf0"], rfis_i).GetWeightedWithSpectrum(rfis_i))
+            noneq_core.append(
+                interp_to_target(ensp["noneq0"], rfis_i).GetWeightedWithSpectrum(rfis_i))
+            continue
 
-        # Non-equilibrium
-        if i in IDX_HM:
-            fc_or_db = ensp["noneq_FC"] if i == 8 else ensp["noneq_DB"]
-            noneq_core.append(fc_or_db.Copy())
-        else:
-            group_noneq = None
-            for iso, frac in core_fractions[i].items():
-                if iso == "U238":
-                    continue
-                spec = GetSpectrumFromROOT(args.noneq_file, f"{prefix}{core_idx}_{iso}")
-                spec.Rebin(ebins, mode="spline-not-keep-norm")
-                weighted = interp_to_target(spec.GetScaledFit(frac), rfis_i).GetWeightedWithSpectrum(rfis_i)
-                group_noneq = weighted.Copy() if group_noneq is None else group_noneq + weighted
-            noneq_core.append(group_noneq)
+        # SNF (YJ/TS dedicated histogram)
+        spec = GetSpectrumFromROOT(args.snf_file, f"Ratio{prefix}ReactorSNF{core_idx}")
+        spec.Rebin(ebins, mode="spline-not-keep-norm")
+        snf_core.append(interp_to_target(spec, rfis_i).GetWeightedWithSpectrum(rfis_i))
+
+        # Non-equilibrium (sum over isotopes)
+        group_noneq = None
+        for iso, frac in core_fractions[i].items():
+            if iso == "U238":
+                continue
+            spec = GetSpectrumFromROOT(args.noneq_file, f"{prefix}{core_idx}_{iso}")
+            spec.Rebin(ebins, mode="spline-not-keep-norm")
+            weighted = interp_to_target(spec.GetScaledFit(frac*0.01), rfis_i).GetWeightedWithSpectrum(rfis_i)
+            group_noneq = weighted.Copy() if group_noneq is None else group_noneq + weighted
+        noneq_core.append(group_noneq)
+
+    del ensp["snf0"], ensp["noneq0"]
 
     # --- YJ shutdown contributions ---
     def _load_shutdown(hist, core_idx):
@@ -264,17 +282,23 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ndays, ebins, core_fractio
         spec.Rebin(ebins, mode="spline-not-keep-norm")
         return interp_to_target(spec, ensp[f"rfis_core{core_idx}"]).GetWeightedWithSpectrum(ensp[f"rfis_core{core_idx}"])
 
-    snf_core[0] += _load_shutdown("RatioYJReactor1Shutdown", 0)
-    snf_core[3] += _load_shutdown("RatioYJReactor4Shutdown", 3)
+    shutdown_core = [None] * n_cores
+    shutdown_core[0] = _load_shutdown("RatioYJReactor1Shutdown", 0)
+    shutdown_core[3] = _load_shutdown("RatioYJReactor4Shutdown", 3)
+    snf_core[0] += shutdown_core[0]
+    snf_core[3] += shutdown_core[3]
 
     # --- Accumulate group totals ---
     for grp in ("snf", "noneq"):
         for lbl in ("YJ", "TS", "HM", "final", "osc"):
             ensp[f"{grp}_{lbl}"] = _zero_spectrum(ebins)
 
+    core_records = []   # per-core event-rate summary (slide-7 format), Group C
+
     for i in range(n_cores):
         s_i = snf_core[i]
         n_i = noneq_core[i]
+        rfis_i = ensp[f"rfis_core{i}"]
 
         s_osc = s_i.GetOscillated(
             L=[core_baselines[i]], core_powers=[core_powers[i]],
@@ -293,14 +317,101 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ndays, ebins, core_fractio
         ensp["snf_final"]   += final_snf_i
         ensp["noneq_final"] += final_noneq_i
 
-        group_label = _CORE_GROUP[i][0]   # "YJ", "TS", or "HM"
+        group_label = _core_group(i)[0]   # "YJ", "TS", or "HM"
         ensp[f"snf_{group_label}"]   += final_snf_i
         ensp[f"noneq_{group_label}"] += final_noneq_i
 
+        # --- per-core event rates (events/day) for the Group C summary CSV ---
+        rosc_main_i = rfis_i.GetOscillated(
+            L=[core_baselines[i]], core_powers=[core_powers[i]],
+            me_rho=args.me_rho, ene_mode="true", dm2_31=dm2_31, args=args,
+        )
+        reco_main_i = _apply_full_energy_response(rosc_main_i, args, ensp, resp_matrix, s_ibd)
+
+        shut_rate = shutdown_core[i].GetIntegral() / ndays if shutdown_core[i] is not None else 0.0
+        snf_rate  = s_i.GetIntegral() / ndays - shut_rate   # s_i already includes shutdown
+        base_hm   = rfis_i.GetIntegral() / ndays
+        noneq_rate = n_i.GetIntegral() / ndays
+        core_records.append({
+            "core":       core_names[i] if core_names is not None else f"core{i}",
+            "unosc":      base_hm + noneq_rate + snf_rate + shut_rate,
+            "oscillated": rosc_main_i.GetIntegral() / ndays,
+            "reco":       reco_main_i.GetIntegral() / ndays,
+            "base_hm":    base_hm,
+            "noneq":      noneq_rate,
+            "snf":        snf_rate,
+            "shutdown":   shut_rate,
+        })
+
         print(f"{group_label}{i}  snf={s_i.GetIntegral()/ndays:.2f}  noneq={n_i.GetIntegral()/ndays:.2f}")
+
+    ensp["core_records"] = core_records
 
     print(f"Final SNF Integral:   {ensp['snf_final'].GetIntegral()/ndays:.2f}")
     print(f"Final Noneq Integral: {ensp['noneq_final'].GetIntegral()/ndays:.2f}")
+
+
+def _write_groupC_csvs(ensp, args, core_names, core_powers, core_fractions):
+    """
+    Write the three Group-C summary tables as CSVs, matching the formats on
+    slides 5-7 of the Reactor-Nu PWG group-comparison deck:
+
+      * <out>_powers.csv     – average reactor power per core      (slide 5)
+      * <out>_fractions.csv  – average fission fractions per core  (slide 6)
+      * <out>_event_rates.csv – predicted event rates per core     (slide 7)
+
+    All event rates are in events/day; a TOTAL row is appended.
+    """
+    out_dir = getattr(args, "plots_folder", ".")
+    _ensure_dir(out_dir)
+    # The file_prefix belongs in the *filename*, not glued in front of the
+    # absolute out_dir path (which produced a non-existent relative directory
+    # like 'PREFIX_/home/.../Plots/' and crashed open()).
+    prefix = f"{args.file_prefix}_" if getattr(args, "file_prefix", "") else ""
+    base = os.path.join(out_dir, f"{prefix}")
+
+    names = list(core_names) if core_names is not None else [f"core{i}" for i in range(len(core_powers))]
+
+    # --- slide 5: reactor powers ---
+    with open(f"{base}_powers.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Core", "Power_GW"])
+        for name, power in zip(names, core_powers):
+            w.writerow([name, f"{power:.3f}"])
+
+    # --- slide 6: average fission fractions ---
+    isotopes = ["U235", "U238", "Pu239", "Pu241"]
+    with open(f"{base}_fractions.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Core"] + isotopes)
+        for name, frac in zip(names, core_fractions):
+            w.writerow([name] + [f"{frac[iso]:.3f}" for iso in isotopes])
+
+    # --- slide 7: predicted event rates ---
+    records = ensp.get("core_records", [])
+    cols = ["unosc", "oscillated", "reco", "base_hm", "noneq", "snf", "shutdown"]
+    header = ["Core", "Unosc", "Oscillated", "Reco", "Base(HM)", "NonEq", "SNF", "Shutdown"]
+
+    def _write_rates(path, scale):
+        totals = {c: 0.0 for c in cols}
+        with open(path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(header)
+            for rec in records:
+                w.writerow([rec["core"]] + [f"{rec[c] * scale:.4f}" for c in cols])
+                for c in cols:
+                    totals[c] += rec[c] * scale
+            w.writerow(["TOTAL"] + [f"{totals[c]:.4f}" for c in cols])
+
+    # as built (includes IBD detection efficiency)
+    _write_rates(f"{base}_event_rates.csv", 1.0)
+
+    # efficiency-corrected: divide out detector_efficiency -> 100% IBD efficiency
+    eff = getattr(args, "detector_efficiency", 1.0) or 1.0
+    _write_rates(f"{base}_event_rates_eff100.csv", 1.0 / eff)
+
+    print(f"# Wrote Group C CSVs: {base}_powers.csv, {base}_fractions.csv, "
+          f"{base}_event_rates.csv, {base}_event_rates_eff100.csv (eff={eff:.4f})")
 
 
 def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd, ene_leak=None):
@@ -595,7 +706,7 @@ def _assemble_total_spectrum_dyb(ensp, args, ndays):
 def _assemble_total_spectrum_tao(ensp, args, ndays):
     ensp["bckg"] = GetSpectrumFromROOT(args.data_file, args.bckg_hist_name)
     ensp["bckg"].ScaleByBinWidth()
-    #ensp["bckg"].GetScaled(ndays*args.bckg_rate)
+    ensp["bckg"].GetScaled(ndays*args.bckg_rate/ensp['bckg'].GetIntegral())
     # reactor-on/off DAQ livetime ratio (Group A convention); 1.0 if absent
     ensp["bckg"].GetScaled(getattr(args, "bckg_scale", 1.0))
     print("TAO background: ", ensp['bckg'].GetIntegral())
@@ -724,13 +835,17 @@ def _build_resolution_graph(a, b, c):
 def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     from .fit.minuit import write_param_dbl
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
+    sfx = getattr(args, 'root_suffix', '')      # per shell/phase, '' if single
     output_file = ROOT.TFile(tag, "update")
 
-    juno_dir = output_file.mkdir("juno")
+    # get-or-create: with multiple phases/shells these dirs already exist from
+    # an earlier dataset's write, and TDirectory.mkdir() returns null for an
+    # existing directory (which previously crashed on the 2nd shell).
+    juno_dir = output_file.GetDirectory("juno") or output_file.mkdir("juno")
     juno_dir.cd()
     write_param_dbl("LivetimeDays", ndays)
 
-    dir_pre = juno_dir.mkdir("prefit")
+    dir_pre = juno_dir.GetDirectory("prefit") or juno_dir.mkdir("prefit")
     dir_pre.cd()
     write_param_dbl("Efficiency", args.detector_efficiency)
     if s_ibd is not None:
@@ -739,27 +854,32 @@ def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
         xsec_graph = ROOT.TGraph(len(enu),
                                  np.ascontiguousarray(enu, dtype=float),
                                  np.ascontiguousarray(xsec_vals, dtype=float))
-        xsec_graph.Write("xsec", ROOT.TObject.kOverwrite)
+        xsec_graph.Write(f"xsec{sfx}", ROOT.TObject.kOverwrite)
 
-    dir_resp = juno_dir.mkdir("response")
+    dir_resp = juno_dir.GetDirectory("response") or juno_dir.mkdir("response")
     dir_resp.cd()
-    dir_resp_prefit = dir_resp.mkdir('prefit')
+    dir_resp_prefit = dir_resp.GetDirectory("prefit") or dir_resp.mkdir('prefit')
     dir_resp_prefit.cd()
-    _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
-    _build_resolution_graph(args.a, args.b, args.c).Write("", ROOT.TObject.kOverwrite)
+    g_nl = _build_nl_graph(ensp, args);  g_nl.SetName(f"nl_positron{sfx}")
+    g_nl.Write("", ROOT.TObject.kOverwrite)
+    g_res = _build_resolution_graph(args.a, args.b, args.c)
+    g_res.SetName(f"resolution{sfx}");   g_res.Write("", ROOT.TObject.kOverwrite)
+    force_vector_streamers(output_file)
     output_file.Close()
 
-    ensp["ribd"].WritetoROOT("unosc", tag, "juno/prefit")
-    ensp["rosc"].WritetoROOT("osc", tag, "juno/prefit")
-    ensp["rvis_nonl_temp"].WritetoROOT("unosc_dep", tag, "juno/prefit")
-    ensp["rvis_nonl"].WritetoROOT("dep", tag, "juno/prefit")
-    ensp["rvis"].WritetoROOT("vis", tag, "juno/prefit")
-    ensp["rdet_fine"].WritetoROOT("rec", tag, "juno/prefit")
-    ensp["rdet"].WritetoROOT("reactor", tag, "juno/prefit")
-    ensp["rtot"].WritetoROOT("totalpred", tag, "juno/prefit")
+    ensp["ribd"].WritetoROOT(f"unosc{sfx}", tag, "juno/prefit")
+    ensp["rosc"].WritetoROOT(f"osc{sfx}", tag, "juno/prefit")
+    if "rosc_wcorr" in ensp:
+        ensp["rosc_wcorr"].WritetoROOT(f"osc_wcorr{sfx}", tag, "juno/prefit")
+    ensp["rvis_nonl_temp"].WritetoROOT(f"unosc_dep{sfx}", tag, "juno/prefit")
+    ensp["rvis_nonl"].WritetoROOT(f"dep{sfx}", tag, "juno/prefit")
+    ensp["rvis"].WritetoROOT(f"vis{sfx}", tag, "juno/prefit")
+    ensp["rdet_fine"].WritetoROOT(f"rec{sfx}", tag, "juno/prefit")
+    ensp["rdet"].WritetoROOT(f"reactor{sfx}", tag, "juno/prefit")
+    ensp["rtot"].WritetoROOT(f"totalpred{sfx}", tag, "juno/prefit")
     for key in backgrounds["JUNO"]:
-        ensp[key].WritetoROOT(key, tag, "juno/prefit")
-    if args.is_data: ensp["data"].WritetoROOT("data", tag, "juno")
+        ensp[key].WritetoROOT(f"{key}{sfx}", tag, "juno/prefit")
+    if args.is_data: ensp["data"].WritetoROOT(f"data{sfx}", tag, "juno")
 
 
 
@@ -767,7 +887,9 @@ def _write_dyb_output(ensp, args, backgrounds):
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
     output_file = ROOT.TFile(tag, "update")
 
-    output_file.mkdir("dyb")
+    if not output_file.GetDirectory("dyb"):
+        output_file.mkdir("dyb")
+    force_vector_streamers(output_file)
     output_file.Close()
 
     ensp["rdet"].WritetoROOT("totalpred", tag, "dyb/prefit")
@@ -778,12 +900,13 @@ def _write_tao_output(ensp, args, backgrounds):
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
     output_file = ROOT.TFile(tag, "update")
 
-    tao_dir = output_file.mkdir("tao")
-    dir_resp = tao_dir.mkdir("response")
-    dir_resp_prefit = dir_resp.mkdir("prefit")
+    tao_dir = output_file.GetDirectory("tao") or output_file.mkdir("tao")
+    dir_resp = tao_dir.GetDirectory("response") or tao_dir.mkdir("response")
+    dir_resp_prefit = dir_resp.GetDirectory("prefit") or dir_resp.mkdir("prefit")
     dir_resp_prefit.cd()
     _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
     _build_resolution_graph(args.a, args.b, args.c).Write("", ROOT.TObject.kOverwrite)
+    force_vector_streamers(output_file)
     output_file.Close()
 
     ensp["rtot"].WritetoROOT("totalpred", tag, "tao/prefit")
@@ -844,7 +967,9 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
         )
         _build_snf_noneq_corrections_per_core(
             ensp, args,ndays, ebins, core_fractions, core_baselines, core_powers, resp_matrix,s_ibd, dm2_31,
+            core_names=core_names,
         )
+        if args.write_output: _write_groupC_csvs(ensp, args, core_names, core_powers, core_fractions)
     else:
         print("Building spectrum with powers from config")
         core_baselines = args.core_baselines
@@ -877,6 +1002,11 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             )
     else:
         ensp["rosc"] = ensp["ribd"]
+
+    # Oscillated spectrum with SNF + Non-Eq corrections added (true-energy level).
+    # snf_osc / noneq_osc are only built in the per-core (Group C) path.
+    if "snf_osc" in ensp and "noneq_osc" in ensp:
+        ensp["rosc_wcorr"] = ensp["rosc"] + ensp["snf_osc"] + ensp["noneq_osc"]
 
     ensp["rosc"].Plot(
         f"{args.plots_folder}/osc_spectrum_{detector}.png",

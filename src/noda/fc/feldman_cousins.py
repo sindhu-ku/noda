@@ -276,6 +276,22 @@ def fluctuate_poisson(prediction: np.ndarray, rng: np.random.Generator) -> np.nd
     return rng.poisson(np.maximum(prediction, 0.0)).astype(float)
 
 
+def sample_aux_dm2_31(rng, args_juno, true_NO, centre_phys):
+    """Draw the external (auxiliary) dm²₃₁ measurement for one toy.
+
+    Returns the sampled physical eV² value the dm²₃₁ pull is constrained to,
+    or None when no dm²₃₁ pull is active. `centre_phys` (signed physical eV²)
+    is the value the measurement fluctuates around — the grid truth for the
+    dm²₃₁ FC scan, the data best fit for the NMO test.
+    """
+    if args_juno.pull_dm2_31:
+        nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=true_NO)
+        return rng.normal(loc=centre_phys, scale=nuosc.op_nom['dm2_31_err'])
+    if args_juno.pull_dm2_31_lbl:
+        return rng.normal(loc=abs(centre_phys), scale=args_juno.dm2_31_lbl_err)
+    return None
+
+
 def make_toy_ensp(ensp_nom_juno: dict, toy_obs_array: np.ndarray) -> dict:
     """
     Deep-copy ensp_nom_juno with the *observed* spectrum bin_cont replaced.
@@ -378,14 +394,9 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
             true_dm2_31=true_phys, true_NO=true_NO, resolve=resolve)
         toy_obs_list.append(fluctuate_poisson(pred, rng))
 
-    toy_dm2_31 = None
-    if args_juno_truth.pull_dm2_31:
-        nuosc.SetOscillationParameters(opt=args_juno_truth.PDG_opt, NO=true_NO)
-        dyb_sigma  = nuosc.op_nom['dm2_31_err']
-        toy_dm2_31 = rng.normal(loc=true_phys, scale=dyb_sigma)
-    if args_juno_truth.pull_dm2_31_lbl:
-        lbl_sigma  = args_juno_truth.dm2_31_lbl_err
-        toy_dm2_31 = rng.normal(loc=abs(true_phys), scale=lbl_sigma)
+    # FC scan: the auxiliary dm²₃₁ measurement fluctuates around the grid truth.
+    toy_dm2_31 = sample_aux_dm2_31(rng, args_juno_truth, true_NO,
+                                   centre_phys=true_phys)
 
     # ── free fit ──────────────────────────────────────────────────────────────
     free, cost_fn = run_one_toy_fit(
@@ -432,10 +443,14 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
 
 def run_one_toy_nmo(*, seed: int, true_NO: bool,
                     setups, policy, truth_bundles,
+                    initial_fits: dict,
                     prefit_cache: dict) -> dict:
     """
     One toy for the NMO test. Toy generated under `true_NO`. JUNO is then fit
     once with NO and once with IO. T = chi²_IO - chi²_NO (> 0 favours NO).
+
+    The auxiliary dm²₃₁ pull is fluctuated around the *data* best fit under
+    `true_NO` (from `initial_fits`), not the Asimov/PDG truth.
     """
     fits_start = datetime.now()
 
@@ -452,14 +467,11 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
             true_dm2_31=true_phys, true_NO=true_NO)
         toy_obs_list.append(fluctuate_poisson(asimov, rng))
 
-    toy_dm2_31 = None
-    if args_juno_truth.pull_dm2_31:
-        nuosc.SetOscillationParameters(opt=args_juno_truth.PDG_opt, NO=true_NO)
-        dyb_sigma  = nuosc.op_nom['dm2_31_err']
-        toy_dm2_31 = rng.normal(loc=true_phys, scale=dyb_sigma)
-    if args_juno_truth.pull_dm2_31_lbl:
-        lbl_sigma  = args_juno_truth.dm2_31_lbl_err
-        toy_dm2_31 = rng.normal(loc=args_juno_truth.dm2_31_lbl, scale=lbl_sigma)
+    # Auxiliary dm²₃₁ measurement fluctuates around the data best fit under the
+    # true ordering (free-fit value stored by fc_observed, in Minuit 1e-3 eV²).
+    data_bestfit_phys = initial_fits['grid_best_fits'][int(true_NO)]['true_dm31'] * 1e-3
+    toy_dm2_31 = sample_aux_dm2_31(rng, args_juno_truth, true_NO,
+                                   centre_phys=data_bestfit_phys)
 
     # True physical dm²₃₁ for each ordering (scan centre)
     true_phys_NO = +abs(true_phys)

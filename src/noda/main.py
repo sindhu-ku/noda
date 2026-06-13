@@ -16,6 +16,7 @@ import sys
 import os
 import argparse
 import yaml
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import scipy as sp
@@ -26,7 +27,7 @@ from . import matrices as mat
 from .noda import *
 from .fit import combined_fit as minuit_new
 from .fit.manifest import load as load_manifest
-from .fit.param_policy import policy_from_backgrounds
+from .fit.param_policy import policy_from_backgrounds, _ident
 from .fit.dispatcher import DetectorBundle
 from .fit.juno_fit import JUNODetector
 from .fit.tao_fit  import TAODetector
@@ -34,6 +35,48 @@ from .fit.dyb_fit  import DYBDetector
 from .fit.combined_fit import load_reactor_summary
 from .fit.minuit import load_prefit_cache
 from .constants import *
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Portable base path — lets the same configs run on any cluster
+# ─────────────────────────────────────────────────────────────────────────────
+# Every file path in the config / background YAMLs is written relative to the
+# token ``${NODA_BASE}``. At load time it is replaced by the resolved root of
+# the NODA tree, chosen in this priority:
+#   1. CLI flag        --base_path
+#   2. env var         NODA_BASE
+#   3. config key      base_path  (top-level or in fit_options/common_det_inputs)
+#   4. auto-detect     the repo root that contains this source file
+# To move to a new cluster you only need `export NODA_BASE=/path/to/noda/noda`
+# (or pass --base_path); no YAML edits required.
+_DEFAULT_BASE = str(Path(__file__).resolve().parents[2])   # …/noda/noda
+NODA_BASE = os.path.abspath(os.path.expanduser(
+    os.environ.get('NODA_BASE') or _DEFAULT_BASE))
+
+
+def _expand_base(obj, base=None):
+    """Recursively substitute ${NODA_BASE} in every string of a config tree."""
+    base = NODA_BASE if base is None else base
+    if isinstance(obj, str):
+        return obj.replace('${NODA_BASE}', base)
+    if isinstance(obj, dict):
+        return {k: _expand_base(v, base) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_expand_base(v, base) for v in obj]
+    return obj
+
+
+def _resolve_base_path(cli_base, manifest_doc):
+    """CLI > env > config base_path > auto-detected repo root."""
+    cand = (cli_base
+            or os.environ.get('NODA_BASE')
+            or (manifest_doc.get('base_path') if manifest_doc else None)
+            or ((manifest_doc.get('fit_options') or {}).get('base_path')
+                if manifest_doc else None)
+            or ((manifest_doc.get('common_det_inputs') or {}).get('base_path')
+                if manifest_doc else None)
+            or _DEFAULT_BASE)
+    return os.path.abspath(os.path.expanduser(cand))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -149,6 +192,9 @@ def _parse_phase_config(cfg_path, remaining_argv=None, overrides=None):
     if overrides:
         _apply_manifest_overrides(config, overrides)
 
+    # Substitute ${NODA_BASE} (after overrides, so injected paths expand too).
+    config = _expand_base(config)
+
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument('--config', default=cfg_path)
 
@@ -175,17 +221,40 @@ def _parse_phase_config(cfg_path, remaining_argv=None, overrides=None):
                     p.add_argument(f"--{opt}", default=val,
                                    type=type(val) if val is not None else str)
 
+    # CLI overrides (remaining_argv) must reach all three detectors, not just
+    # JUNO — otherwise shared fit_options flags like --is_data silently apply
+    # to JUNO only, leaving DYB/TAO on their config values (e.g. JUNO Asimov but
+    # DYB/TAO on real data → biased combined fit). parse_known_args lets each
+    # detector pick up the shared flags it defines while ignoring the others'
+    # detector-specific flags (juno_inputs/dyb_inputs/tao_inputs) instead of
+    # erroring on them.
     args_juno = parser_juno.parse_args(remaining_argv)
-    args_dyb  = parser_dyb.parse_args([])
-    args_tao  = parser_tao.parse_args([])
+    args_dyb, _  = parser_dyb.parse_known_args(remaining_argv)
+    args_tao, _  = parser_tao.parse_known_args(remaining_argv)
     return args_juno, args_dyb, args_tao
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Per-phase setup — wraps everything the old main.py did for one config
 # ─────────────────────────────────────────────────────────────────────────────
+def _dataset_suffix(phase, shell, rows):
+    """Per-dataset ROOT-name suffix so multiple phases/shells don't overwrite
+    each other's stored spectra. Mirrors the nuisance naming (`__p…__s…`) and
+    only includes the dimension(s) that actually vary across `rows`. A single
+    dataset (legacy single-config run) yields '' — names stay unchanged."""
+    if len(rows) <= 1:
+        return ''
+    suf = ''
+    if len({r[0] for r in rows}) > 1: suf += f'__p{_ident(phase)}'
+    if len({r[1] for r in rows}) > 1: suf += f'__s{_ident(shell)}'
+    if not suf:                       # bundles differ but labels identical
+        suf = f'__p{_ident(phase)}__s{_ident(shell)}'
+    return suf
+
+
 def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
-                    remaining_argv=None, overrides=None, dm2_31=None):
+                    remaining_argv=None, overrides=None, dm2_31=None,
+                    root_suffix=''):
     """
     Build the full stack of objects needed for one phase (or one shell of
     one phase): args namespaces, spectra, response matrices, covariance
@@ -201,6 +270,15 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
         print(f"  manifest overrides: {', '.join(overrides)}")
     args_juno, args_dyb, args_tao = _parse_phase_config(cfg_path, remaining_argv,
                                                         overrides=overrides)
+
+    # Stamp dataset identity so the output writers can suffix per phase/shell.
+    for _a in (args_juno, args_dyb, args_tao):
+        _a.phase = phase_label
+        _a.shell = shell_label
+    # Only JUNO has multiple datasets (shells); TAO/DYB stay unsuffixed.
+    args_juno.root_suffix = root_suffix
+    args_dyb.root_suffix  = ''
+    args_tao.root_suffix  = ''
 
     if not os.path.exists(args_juno.main_data_folder):
         os.makedirs(args_juno.main_data_folder, exist_ok=True)
@@ -239,7 +317,7 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
 
     # ── backgrounds ─────────────────────────────────────────────────────
     with open(args_juno.backgrounds_yaml, 'r') as f:
-        backgrounds = yaml.safe_load(f)
+        backgrounds = _expand_base(yaml.safe_load(f))
 
     # ── spectra ─────────────────────────────────────────────────────────
     ensp_nom_juno, resp_matrix = spec.CreateSpectra(
@@ -369,6 +447,7 @@ def _build_juno_bundle(setup):
         core_baselines = args_juno.core_baselines
         core_powers_std    = args_juno.core_powers
         core_fractions = None
+        core_names = None
     else:
         core_names, core_powers_std, core_fractions, core_baselines = \
             load_reactor_summary(args_juno.reactor_summary_yaml)
@@ -381,6 +460,7 @@ def _build_juno_bundle(setup):
         core_baselines=core_baselines,
         core_powers_std=core_powers_std,
         core_fractions=core_fractions,
+        core_names=core_names,
         E_segments=np.array(args_juno.seg_bins_nonuniform),
         s_ibd=s['s_ibd'], s_bump_lin=s['s_bump_lin'],
         covariance_er=s.get('covariance_er'))
@@ -435,6 +515,39 @@ def _build_dyb_bundle(setup, dyb_model=None):
 # ─────────────────────────────────────────────────────────────────────────────
 # Multi-bundle path — N JUNO bundles + at most 1 TAO + 1 DYB
 # ─────────────────────────────────────────────────────────────────────────────
+def build_setups(config_path, *, remaining_argv=None, dm2_31=None):
+    """Manifest → one setup_one_phase() dict per (phase, shell) row, with the
+    per-dataset ROOT suffix applied exactly as the main run_noda flow does.
+
+    Shared by run_noda (main) and the FC drivers so the setup never drifts
+    between the two. `dm2_31` (physical eV², signed) is forwarded to
+    setup_one_phase for FC truth-spectrum builds.
+    """
+    rows = load_manifest(config_path)
+    return [setup_one_phase(cfg,
+                            phase_label=phase, shell_label=shell,
+                            remaining_argv=remaining_argv,
+                            overrides=phase_ov, dm2_31=dm2_31,
+                            root_suffix=_dataset_suffix(phase, shell, rows))
+            for phase, shell, cfg, phase_ov in rows]
+
+
+def build_policy(setups, manifest_doc):
+    """ParamPolicy from the first dataset's JUNO backgrounds plus the manifest
+    `systematics:` override — identical to the construction in run_noda.
+
+    The per-phase / per-shell suffixes are only enabled when the run actually
+    spans more than one phase / shell (same rule as _dataset_suffix), so a
+    single-phase single-shell run stores nuisances under bare names."""
+    sys_override = (manifest_doc.get('systematics')
+                    if isinstance(manifest_doc, dict) else None)
+    phases = {s['args_juno'].phase for s in setups}
+    shells = {s['args_juno'].shell for s in setups}
+    return policy_from_backgrounds(
+        setups[0]['backgrounds']['JUNO'], sys_override=sys_override,
+        multi_phase=len(phases) > 1, multi_shell=len(shells) > 1)
+
+
 def _run_multi_bundle(setups, manifest_doc):
     """
     Build all bundles, build the param policy, run the bundled fit.
@@ -465,10 +578,7 @@ def _run_multi_bundle(setups, manifest_doc):
             bundles.append(_build_dyb_bundle(first))
 
     # ── param-correlation policy ─────────────────────────────────────────
-    sys_override = (manifest_doc.get('systematics')
-                    if isinstance(manifest_doc, dict) else None)
-    policy = policy_from_backgrounds(
-        first['backgrounds']['JUNO'], sys_override=sys_override)
+    policy = build_policy(setups, manifest_doc)
 
     # ── prefit cache ────────────────────────────────────────────────────
     prefit_cache = None
@@ -498,23 +608,27 @@ def main(argv=None):
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument('--config', default='config/groupA_paperconfig.yaml',
                              help='Path to config file or manifest YAML')
+    conf_parser.add_argument('--base_path', default=None,
+                             help='Root of the NODA tree, substituted for '
+                                  '${NODA_BASE} in all config/background paths. '
+                                  'Overrides $NODA_BASE and auto-detection.')
     args, remaining_argv = conf_parser.parse_known_args(argv)
 
     # ── load manifest (a plain single-phase YAML is a 1-row manifest) ─────
-    rows = load_manifest(args.config)
-
     with open(args.config, 'r') as f:
         manifest_doc = yaml.safe_load(f) or {}
+
+    # ── resolve the portable base path and publish it everywhere ─────────
+    global NODA_BASE
+    NODA_BASE = _resolve_base_path(args.base_path, manifest_doc)
+    os.environ['NODA_BASE'] = NODA_BASE        # so child modules see it too
+    print(f"[base] NODA_BASE = {NODA_BASE}")
 
     # CLI overrides apply to every phase (so flags like --use_prefit 1
     # take effect uniformly). Per-phase differences live either in
     # per-phase config files or, with a `common:` + `phases:` manifest,
     # in the per-phase override blocks.
-    setups = [setup_one_phase(cfg,
-                              phase_label=phase, shell_label=shell,
-                              remaining_argv=remaining_argv,
-                              overrides=phase_ov)
-              for phase, shell, cfg, phase_ov in rows]
+    setups = build_setups(args.config, remaining_argv=remaining_argv)
     m = _run_multi_bundle(setups, manifest_doc)
 
     print(f"\nTotal wall time: {datetime.now() - start}")
