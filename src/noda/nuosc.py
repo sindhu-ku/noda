@@ -136,9 +136,13 @@ def SetOscillationParameters(opt, NO, silent=True):
     if NO:
       op_nom['sin2_th23'] = 0.534
       op_nom['dm2_32'] = 2.466e-3
+      op_nom['dm2_31_dyb']     = 2.466e-3 + op_nom['dm2_21']   # DYB, NO
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
     else:
       op_nom['sin2_th23'] = 0.537
       op_nom['dm2_32'] = -2.571e-3
+      op_nom['dm2_31_dyb']     = -2.571e-3 + op_nom['dm2_21']  # DYB, IO
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
     op_nom['dm2_31_err'] = 0.06e-3
   elif opt == 'NT2K':
@@ -163,10 +167,22 @@ def SetOscillationParameters(opt, NO, silent=True):
       op_nom['sin2_th23'] = 0.534
       op_nom['dm2_32'] = 2.442e-03
       op_nom['dm2_31_err'] = 0.0265e-3
+      # LBL projection (NuFit IC19 w/o SK atmospheric, NO best fit):
+      # theta23/delta_cp feed the f_lbl |Dm2| conversion, ordering-dependent.
+      op_nom['theta23'] = 48.5    # [deg]
+      op_nom['dcp']     = 177.0   # [deg]
+      # Daya Bay external Dm2_31 constraint (pull_dm2_31): Dm2_32 + Dm2_21.
+      op_nom['dm2_31_dyb']     = 2.466e-3 + op_nom['dm2_21']   # DYB, NO
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
     else:
       op_nom['sin2_th23'] = 0.537
       op_nom['dm2_32'] = -2.483e-03
       op_nom['dm2_31_err'] = 0.0275e-3
+      # LBL projection (NuFit IC19 w/o SK atmospheric, IO best fit):
+      op_nom['theta23'] = 48.6    # [deg]
+      op_nom['dcp']     = 285.0   # [deg]
+      op_nom['dm2_31_dyb']     = -2.571e-3 + op_nom['dm2_21']  # DYB, IO
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
   else:
     print(f"No such option \"{opt}\"")

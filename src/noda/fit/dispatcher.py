@@ -28,6 +28,16 @@ from .shared_nuisances import (SHARED_PARAM_NAMES, get_shared_start_values,
                                apply_shared_limits)
 
 
+def _aux_dm2_31(toy, which):
+    """Per-pull toy dm²₃₁ central — see juno_fit._aux_dm2_31. `toy` may be None,
+    a float (legacy, shared), or {'dyb':…, 'lbl':…} for combined DYB+LBL toys."""
+    if toy is None:
+        return None
+    if isinstance(toy, dict):
+        return toy.get(which)
+    return toy
+
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DetectorBundle — one dataset
@@ -265,21 +275,26 @@ def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
     dm2_31_phys = v['dm2_31'] * 1e-3
     corr = 0.0
 
-    if bool(getattr(args, 'pull_dm2_31', False)) and toy_dm2_31 is not None:
+    t_dyb = _aux_dm2_31(toy_dm2_31, 'dyb')
+    if bool(getattr(args, 'pull_dm2_31', False)) and t_dyb is not None:
         from .. import nuosc
-        s     = nuosc.op_nom['dm2_31_err']
-        c_nom = nuosc.op_nom['dm2_31']
+        s     = nuosc.op_nom.get('dm2_31_dyb_err', nuosc.op_nom['dm2_31_err'])
+        c_nom = nuosc.op_nom.get('dm2_31_dyb',     nuosc.op_nom['dm2_31'])
         # bundles emitted n× the toy-centred pull; get_pull_defs already
         # removed (n-1)× the nominal-centred one — fix the difference
-        corr += (n - 1) * (((dm2_31_phys - toy_dm2_31) / s) ** 2
+        corr += (n - 1) * (((dm2_31_phys - t_dyb) / s) ** 2
                            - ((dm2_31_phys - c_nom) / s) ** 2)
 
     if bool(getattr(args, 'pull_dm2_31_lbl', False)):
         from .minuit import f_lbl
+        from .. import nuosc
         ordering = "NO" if dm2_31_phys > 0 else "IO"
-        targ = toy_dm2_31 if toy_dm2_31 is not None else args.dm2_31_lbl
+        t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl')
+        targ = t_lbl if t_lbl is not None else args.dm2_31_lbl
+        th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
+        dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
         lbl  = f_lbl(targ, v['sin2_th12'], v['sin2_th13'],
-                     v['dm2_21'] * 1e-5, args.theta23, args.dcp, ordering)
+                     v['dm2_21'] * 1e-5, th23_lbl, dcp_lbl, ordering)
         corr += (n - 1) * ((dm2_31_phys - lbl) / args.dm2_31_lbl_err) ** 2
 
     return corr

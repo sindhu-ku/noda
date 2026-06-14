@@ -18,6 +18,17 @@ from ..noda import *
 from .. import nuosc as nuosc
 
 
+def _aux_dm2_31(toy, which):
+    """Per-pull toy dm²₃₁ central. `toy` may be None, a float (legacy: the same
+    value for whichever pull asks), or a dict {'dyb':…, 'lbl':…} so DYB and LBL
+    constraints can each carry their own sampled auxiliary in combined toys."""
+    if toy is None:
+        return None
+    if isinstance(toy, dict):
+        return toy.get(which)
+    return toy
+
+
 class JUNODetector:
     """
     Builds the JUNO predicted spectrum and returns a chi2 contribution.
@@ -292,7 +303,8 @@ class JUNODetector:
             # To compute the SAME pull from the raw Minuit value we use
             # physical-space central scaled back into Minuit units:
             defs['dm2_31'] = (
-                lambda v, c=nom['dm2_31'] * 1e3, s=nom['dm2_31_err'] * 1e3:
+                lambda v, c=nom.get('dm2_31_dyb', nom['dm2_31']) * 1e3,
+                          s=nom.get('dm2_31_dyb_err', nom['dm2_31_err']) * 1e3:
                     ((v - c) / s) ** 2)
         # me_rho — build_spectrum emits this pull whenever me_rho != 0.0
         defs['me_rho'] = (
@@ -530,21 +542,29 @@ class JUNODetector:
             pulls.append(sin2_13 - nuosc.op_nom['sin2_th13'])
             pull_unc.append(nuosc.op_nom['sin2_th13_err'])
         if bool(args.pull_dm2_31):
-            if toy_dm2_31 is not None:
-                targ_dm2_31  = toy_dm2_31
+            # DYB reactor constraint (no f_lbl projection needed).
+            t_dyb = _aux_dm2_31(toy_dm2_31, 'dyb')
+            if t_dyb is not None:
+                targ_dm2_31  = t_dyb
             else:
-                targ_dm2_31  = nuosc.op_nom['dm2_31']
+                targ_dm2_31  = nuosc.op_nom.get('dm2_31_dyb', nuosc.op_nom['dm2_31'])
             pulls.append(dm2_31 - targ_dm2_31)
-            pull_unc.append(nuosc.op_nom['dm2_31_err'])
+            pull_unc.append(nuosc.op_nom.get('dm2_31_dyb_err',
+                                             nuosc.op_nom['dm2_31_err']))
         if args.pull_dm2_31_lbl:
             from .minuit import f_lbl  # keep f_lbl where it is
             ordering    = "NO" if dm2_31 > 0 else "IO"
-            if toy_dm2_31 is not None:
-                targ_dm2_31  = toy_dm2_31
+            t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl')
+            if t_lbl is not None:
+                targ_dm2_31  = t_lbl
             else:
                 targ_dm2_31  = args.dm2_31_lbl
+            # LBL-projection theta23 / delta_cp are ordering-dependent; take them
+            # from nuosc (op_nom is set to this fit's ordering), config fallback.
+            th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
+            dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
             dm2_31_lbl  = f_lbl(targ_dm2_31, sin2_12, sin2_13,
-                                 dm2_21, args.theta23, args.dcp, ordering)
+                                 dm2_21, th23_lbl, dcp_lbl, ordering)
 
             pulls.append(dm2_31 - dm2_31_lbl)
             pull_unc.append(args.dm2_31_lbl_err)

@@ -277,19 +277,23 @@ def fluctuate_poisson(prediction: np.ndarray, rng: np.random.Generator) -> np.nd
 
 
 def sample_aux_dm2_31(rng, args_juno, true_NO, centre_phys):
-    """Draw the external (auxiliary) dm²₃₁ measurement for one toy.
+    """Draw the external (auxiliary) dm²₃₁ measurement(s) for one toy.
 
-    Returns the sampled physical eV² value the dm²₃₁ pull is constrained to,
-    or None when no dm²₃₁ pull is active. `centre_phys` (signed physical eV²)
-    is the value the measurement fluctuates around — the grid truth for the
-    dm²₃₁ FC scan, the data best fit for the NMO test.
+    Returns {'dyb':…, 'lbl':…} with one entry per *active* pull (or None when
+    neither is on), so DYB and LBL each get their OWN independent sample when
+    run together. `centre_phys` (signed physical eV²) is the value each
+    measurement fluctuates around — grid truth for the dm²₃₁ FC scan, data best
+    fit for the NMO test. DYB centres on the signed value; LBL on |value| (the
+    input that f_lbl then projects to the ordering).
     """
+    out = {}
     if args_juno.pull_dm2_31:
         nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=true_NO)
-        return rng.normal(loc=centre_phys, scale=nuosc.op_nom['dm2_31_err'])
+        sig = nuosc.op_nom.get('dm2_31_dyb_err', nuosc.op_nom['dm2_31_err'])
+        out['dyb'] = rng.normal(loc=centre_phys, scale=sig)
     if args_juno.pull_dm2_31_lbl:
-        return rng.normal(loc=abs(centre_phys), scale=args_juno.dm2_31_lbl_err)
-    return None
+        out['lbl'] = rng.normal(loc=abs(centre_phys), scale=args_juno.dm2_31_lbl_err)
+    return out or None
 
 
 def make_toy_ensp(ensp_nom_juno: dict, toy_obs_array: np.ndarray) -> dict:
