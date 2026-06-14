@@ -72,6 +72,12 @@ def parse():
                    help="True dm²₃₁ in 1e-3 eV² (always positive; sign comes from --true-no)")
     p.add_argument("--true-no",     type=int, choices=(0, 1), default=1)
     p.add_argument("--mode",   choices=("dm31", "nmo", "both"), default="dm31")
+    p.add_argument("--pull_dm2_31",     type=int, choices=(0, 1), default=None,
+                   help="Override the DYB dm2_31 constraint on/off (default: "
+                        "per --mode). Use with --pull_dm2_31_lbl for combined.")
+    p.add_argument("--pull_dm2_31_lbl", type=int, choices=(0, 1), default=None,
+                   help="Override the LBL dm2_31 constraint on/off (default: "
+                        "per --mode).")
     p.add_argument("--output-dir",  required=True)
     p.add_argument("--initial-fits", help="path to initial fits of the grid points")
     p.add_argument("--prefit-cache", help="Path to .npz prefit cache produced")
@@ -171,6 +177,12 @@ def main():
             s['args_juno'].pull_dm2_31     = False
             s['args_juno'].pull_dm2_31_lbl = True
             s['args_juno'].PDG_opt = "NuFitLBL"
+        # Explicit CLI overrides win over the per-mode defaults above, so you can
+        # run e.g. combined DYB+LBL: --mode nmo --pull_dm2_31 1 --pull_dm2_31_lbl 1
+        if cli.pull_dm2_31 is not None:
+            s['args_juno'].pull_dm2_31     = bool(cli.pull_dm2_31)
+        if cli.pull_dm2_31_lbl is not None:
+            s['args_juno'].pull_dm2_31_lbl = bool(cli.pull_dm2_31_lbl)
 
     # LBL projection uses the DATA best-fit SOLAR params (theta12, dm2_21) from
     # the observed fit, fixed across all toys — not nuosc nominal, not each
