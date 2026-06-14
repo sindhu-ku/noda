@@ -128,17 +128,51 @@ def write_param_dbl(name, val):
 def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
     import csv
     from scipy.interpolate import CubicSpline
-    bound = (1.5, 3.5) if NMO_opt else (-3.5, -1.5)
+    full_bound = (1.5, 3.5) if NMO_opt else (-3.5, -1.5)
+
+    # ── optional splitting: scan only one chunk of the dm2_31 range ──────────
+    # Run with --profile_nchunks N --profile_chunk i (0..N-1) --profile_csv path
+    # --profile_make_graph 0 to do a memory-light slice, then combine the CSVs
+    # into the TGraph with combine_profile.py.
+    nchunks = int(getattr(args_juno, 'profile_nchunks', 1) or 1)
+    chunk   = int(getattr(args_juno, 'profile_chunk', 0) or 0)
+    npoints = int(args_juno.profile_points)
+    if nchunks > 1:
+        lo, hi = full_bound
+        w      = (hi - lo) / nchunks
+        bound  = (lo + chunk * w, lo + (chunk + 1) * w)
+        size   = max(2, npoints // nchunks)
+        print(f"Profiling dm2_31 chunk {chunk + 1}/{nchunks} over {bound} "
+              f"({size} pts)")
+    else:
+        bound, size = full_bound, npoints
+
     if conditional:
         # conditional scan: nuisance/oscillation parameters stay fixed at
         # their current best-fit values instead of being re-minimized
         print("Conditional scan of dm2_31 using built-in profile...")
-        res = m.profile("dm2_31", size=int(args_juno.profile_points), bound=bound)
+        res = m.profile("dm2_31", size=size, bound=bound)
     else:
         print("Profiling dm2_31 using built-in mnprofile...")
-        res = m.mnprofile("dm2_31", size=int(args_juno.profile_points), bound=bound)
+        res = m.mnprofile("dm2_31", size=size, bound=bound)
     dm2_scan_vals = res[0]
     chi2_vals     = res[1]
+
+    # ── raw (dm2_31, chi2) -> CSV. RAW chi2 (NOT delta): the global minimum
+    #    subtraction is done by combine_profile.py after all chunks are merged.
+    csv_path = getattr(args_juno, 'profile_csv', '') or ''
+    if csv_path:
+        with open(csv_path, "w", newline="") as f:
+            wtr = csv.writer(f)
+            wtr.writerow(["dm2_31", "chi2"])
+            for xv, cv in zip(dm2_scan_vals, chi2_vals):
+                wtr.writerow([float(xv), float(cv)])
+        print(f"Wrote {len(dm2_scan_vals)} profile points to {csv_path}")
+
+    # ── when splitting, stop here; combine_profile.py builds the TGraph ──────
+    if not bool(getattr(args_juno, 'profile_make_graph', True)):
+        return
+
     delta_chi2    = chi2_vals - np.min(chi2_vals)
     dm2_fine          = np.linspace(dm2_scan_vals.min(), dm2_scan_vals.max(), 500)
     cs                = CubicSpline(dm2_scan_vals, chi2_vals)

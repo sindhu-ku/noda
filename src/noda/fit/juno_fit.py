@@ -556,27 +556,25 @@ class JUNODetector:
             pull_unc.append(nuosc.op_nom.get('dm2_31_dyb_err',
                                              nuosc.op_nom['dm2_31_err']))
         if args.pull_dm2_31_lbl:
-            from .minuit import f_lbl  # keep f_lbl where it is
-            ordering    = "NO" if dm2_31 > 0 else "IO"
-            t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl')
+            ordering = "NO" if dm2_31 > 0 else "IO"
+            # Toy: the LBL central is already projected to each ordering
+            # (lbl_NO / lbl_IO, built in sample_aux_dm2_31 so the TRUE-ordering
+            # fit gets the measurement and the wrong one the f_lbl projection).
+            t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl_NO' if dm2_31 > 0 else 'lbl_IO')
             if t_lbl is not None:
-                targ_dm2_31  = t_lbl
+                dm2_31_lbl = t_lbl
             else:
-                targ_dm2_31  = args.dm2_31_lbl
-            # LBL-projection theta23 / delta_cp are ordering-dependent; take them
-            # from nuosc (op_nom is set to this fit's ordering), config fallback.
-            th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
-            dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
-            # LBL-projection SOLAR params (theta12, dm2_21): use the DATA best
-            # fit, set on args by the FC driver (sin2_th12_lbl / dm2_21_lbl,
-            # physical eV²). Fallback = the current fit values, which converge
-            # to the data best fit in the observed fit itself. NOT nuosc nominal.
-            s12_lbl  = getattr(args, 'sin2_th12_lbl', None)
-            s12_lbl  = s12_lbl if s12_lbl is not None else sin2_12
-            dm21_lbl = getattr(args, 'dm2_21_lbl', None)
-            dm21_lbl = dm21_lbl if dm21_lbl is not None else dm2_21
-            dm2_31_lbl  = f_lbl(targ_dm2_31, s12_lbl, sin2_13,
-                                 dm21_lbl, th23_lbl, dcp_lbl, ordering)
+                # Data path: project the fixed LBL central to this fit ordering.
+                from .minuit import f_lbl
+                th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
+                dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
+                # SOLAR params: data best fit (set on args), else current fit vals.
+                s12_lbl  = getattr(args, 'sin2_th12_lbl', None)
+                s12_lbl  = s12_lbl if s12_lbl is not None else sin2_12
+                dm21_lbl = getattr(args, 'dm2_21_lbl', None)
+                dm21_lbl = dm21_lbl if dm21_lbl is not None else dm2_21
+                dm2_31_lbl = f_lbl(args.dm2_31_lbl, s12_lbl, sin2_13,
+                                   dm21_lbl, th23_lbl, dcp_lbl, ordering)
 
             pulls.append(dm2_31 - dm2_31_lbl)
             pull_unc.append(args.dm2_31_lbl_err)

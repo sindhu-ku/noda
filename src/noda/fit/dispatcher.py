@@ -286,21 +286,22 @@ def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
                            - ((dm2_31_phys - c_nom) / s) ** 2)
 
     if bool(getattr(args, 'pull_dm2_31_lbl', False)):
-        from .minuit import f_lbl
         from .. import nuosc
         ordering = "NO" if dm2_31_phys > 0 else "IO"
-        t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl')
-        targ = t_lbl if t_lbl is not None else args.dm2_31_lbl
-        th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
-        dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
-        # DATA best-fit solar params in the projection (match build_spectrum):
-        # args override (set by the FC driver), else the current fit values.
-        s12_lbl  = getattr(args, 'sin2_th12_lbl', None)
-        s12_lbl  = s12_lbl if s12_lbl is not None else v['sin2_th12']
-        dm21_lbl = getattr(args, 'dm2_21_lbl', None)
-        dm21_lbl = dm21_lbl if dm21_lbl is not None else v['dm2_21'] * 1e-5
-        lbl  = f_lbl(targ, s12_lbl, v['sin2_th13'],
-                     dm21_lbl, th23_lbl, dcp_lbl, ordering)
+        # Toy: per-ordering precomputed LBL central (match build_spectrum).
+        t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl_NO' if dm2_31_phys > 0 else 'lbl_IO')
+        if t_lbl is not None:
+            lbl = t_lbl
+        else:
+            from .minuit import f_lbl
+            th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
+            dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
+            s12_lbl  = getattr(args, 'sin2_th12_lbl', None)
+            s12_lbl  = s12_lbl if s12_lbl is not None else v['sin2_th12']
+            dm21_lbl = getattr(args, 'dm2_21_lbl', None)
+            dm21_lbl = dm21_lbl if dm21_lbl is not None else v['dm2_21'] * 1e-5
+            lbl  = f_lbl(args.dm2_31_lbl, s12_lbl, v['sin2_th13'],
+                         dm21_lbl, th23_lbl, dcp_lbl, ordering)
         corr += (n - 1) * ((dm2_31_phys - lbl) / args.dm2_31_lbl_err) ** 2
 
     return corr

@@ -303,7 +303,26 @@ def sample_aux_dm2_31(rng, args_juno, true_NO, centre_phys):
         out['dyb_NO'] = meas if true_NO else opp
         out['dyb_IO'] = opp  if true_NO else meas
     if args_juno.pull_dm2_31_lbl:
-        out['lbl'] = rng.normal(loc=abs(centre_phys), scale=args_juno.dm2_31_lbl_err)
+        # LBL measures |Dm2_mumu|; its dm2_31 mapping is ordering-dependent via
+        # f_lbl (NO: x ; IO: -x + term). Like DYB, precompute the central PER
+        # fit-ordering so the TRUE-ordering fit gets the measurement (no penalty)
+        # and the WRONG-ordering fit gets the f_lbl-projected value. (The old
+        # single 'lbl' + f_lbl(|meas|, fit_ordering) penalised the true IO fit,
+        # biasing T positive for both orderings.)
+        from ..fit.minuit import f_lbl
+        mag = abs(rng.normal(loc=centre_phys, scale=args_juno.dm2_31_lbl_err))
+        # term = f_lbl NO->IO offset, evaluated with the IO theta23/dcp.
+        nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=False)
+        s13_io  = nuosc.op_nom['sin2_th13']
+        th23_io = nuosc.op_nom.get('theta23', args_juno.theta23)
+        dcp_io  = nuosc.op_nom.get('dcp',     args_juno.dcp)
+        term_io = f_lbl(0.0, s12, s13_io, dm21, th23_io, dcp_io, "IO")
+        nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=true_NO)  # restore
+        # x_ref = the NO-reference value of the measurement (mag if NO-true; for
+        # IO-true the IO measurement -mag corresponds to x_ref = mag + term).
+        x_ref = mag if true_NO else (mag + term_io)
+        out['lbl_NO'] = x_ref
+        out['lbl_IO'] = -x_ref + term_io
     return out or None
 
 
