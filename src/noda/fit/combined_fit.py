@@ -1289,6 +1289,17 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
 
         plt.savefig(f"Plots/corr_{args_juno.file_prefix}", dpi=200)
 
+    # Pin the LBL-projection SOLAR params (theta12, dm2_21) to THIS data fit's
+    # best-fit values, so the observed dm2_31 profile and the NMO-significance
+    # fit use the same fixed solar in f_lbl as the FC toys do — instead of the
+    # per-point floating solar. (f_lbl reads args.sin2_th12_lbl/dm2_21_lbl.)
+    if getattr(args_juno, 'pull_dm2_31_lbl', False):
+        _s12_data  = float(m.values['sin2_th12'])
+        _dm21_data = float(m.values['dm2_21']) * 1e-5     # Minuit -> physical eV²
+        for _b in juno_bundles_all:
+            _b.detector.args.sin2_th12_lbl = _s12_data
+            _b.detector.args.dm2_21_lbl    = _dm21_data
+
     # ── 21. dm²₃₁ profile ────────────────────────────────────────────────
     if args_juno.profile_dm2_31:
         profile_dm2_31(m, args_juno, NMO_opt=bool(args_juno.NMO_opt),

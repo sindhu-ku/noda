@@ -275,7 +275,7 @@ def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
     dm2_31_phys = v['dm2_31'] * 1e-3
     corr = 0.0
 
-    t_dyb = _aux_dm2_31(toy_dm2_31, 'dyb')
+    t_dyb = _aux_dm2_31(toy_dm2_31, 'dyb_NO' if dm2_31_phys > 0 else 'dyb_IO')
     if bool(getattr(args, 'pull_dm2_31', False)) and t_dyb is not None:
         from .. import nuosc
         s     = nuosc.op_nom.get('dm2_31_dyb_err', nuosc.op_nom['dm2_31_err'])
@@ -293,8 +293,14 @@ def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
         targ = t_lbl if t_lbl is not None else args.dm2_31_lbl
         th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
         dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
-        lbl  = f_lbl(targ, v['sin2_th12'], v['sin2_th13'],
-                     v['dm2_21'] * 1e-5, th23_lbl, dcp_lbl, ordering)
+        # DATA best-fit solar params in the projection (match build_spectrum):
+        # args override (set by the FC driver), else the current fit values.
+        s12_lbl  = getattr(args, 'sin2_th12_lbl', None)
+        s12_lbl  = s12_lbl if s12_lbl is not None else v['sin2_th12']
+        dm21_lbl = getattr(args, 'dm2_21_lbl', None)
+        dm21_lbl = dm21_lbl if dm21_lbl is not None else v['dm2_21'] * 1e-5
+        lbl  = f_lbl(targ, s12_lbl, v['sin2_th13'],
+                     dm21_lbl, th23_lbl, dcp_lbl, ordering)
         corr += (n - 1) * ((dm2_31_phys - lbl) / args.dm2_31_lbl_err) ** 2
 
     return corr

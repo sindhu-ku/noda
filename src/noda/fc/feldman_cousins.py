@@ -289,8 +289,19 @@ def sample_aux_dm2_31(rng, args_juno, true_NO, centre_phys):
     out = {}
     if args_juno.pull_dm2_31:
         nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=true_NO)
-        sig = nuosc.op_nom.get('dm2_31_dyb_err', nuosc.op_nom['dm2_31_err'])
-        out['dyb'] = rng.normal(loc=centre_phys, scale=sig)
+        sig  = nuosc.op_nom.get('dm2_31_dyb_err', nuosc.op_nom['dm2_31_err'])
+        meas = rng.normal(loc=centre_phys, scale=sig)   # DYB measurement, true ordering
+        # DYB measures Dm2_ee (ordering-invariant). The dm2_31 it implies in the
+        # OPPOSITE ordering is  -dm2_31_true + 2 sin^2(th12) Dm2_21  (the reactor
+        # offset doesn't flip). Same ordering = the measurement itself. Use the
+        # data best-fit solar params (set on args), else nuosc.
+        s12  = getattr(args_juno, 'sin2_th12_lbl', None)
+        s12  = s12  if s12  is not None else nuosc.op_nom['sin2_th12']
+        dm21 = getattr(args_juno, 'dm2_21_lbl', None)
+        dm21 = dm21 if dm21 is not None else nuosc.op_nom['dm2_21']
+        opp  = -meas + 2.0 * s12 * dm21
+        out['dyb_NO'] = meas if true_NO else opp
+        out['dyb_IO'] = opp  if true_NO else meas
     if args_juno.pull_dm2_31_lbl:
         out['lbl'] = rng.normal(loc=abs(centre_phys), scale=args_juno.dm2_31_lbl_err)
     return out or None

@@ -172,6 +172,19 @@ def main():
             s['args_juno'].pull_dm2_31_lbl = True
             s['args_juno'].PDG_opt = "NuFitLBL"
 
+    # LBL projection uses the DATA best-fit SOLAR params (theta12, dm2_21) from
+    # the observed fit, fixed across all toys — not nuosc nominal, not each
+    # toy's own solar. Same grid_best_fits key the dm2_31 central uses.
+    _free = initial_fits['grid_best_fits'].get(int(cli.true_no))
+    if _free is not None:
+        s12_data  = float(_free['values']['sin2_th12'])
+        dm21_data = float(_free['values']['dm2_21']) * 1e-5   # Minuit -> physical eV²
+        for s in setups:
+            s['args_juno'].sin2_th12_lbl = s12_data
+            s['args_juno'].dm2_21_lbl    = dm21_data
+        print(f"[FC] LBL projection solar (data best fit): "
+              f"sin2_th12={s12_data:.5f}, dm2_21={dm21_data:.3e}", flush=True)
+
     # nominal bundles for the truth prediction (one per phase/shell)
     truth_bundles = [_build_juno_bundle(s) for s in setups]
 

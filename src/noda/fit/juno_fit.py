@@ -542,8 +542,12 @@ class JUNODetector:
             pulls.append(sin2_13 - nuosc.op_nom['sin2_th13'])
             pull_unc.append(nuosc.op_nom['sin2_th13_err'])
         if bool(args.pull_dm2_31):
-            # DYB reactor constraint (no f_lbl projection needed).
-            t_dyb = _aux_dm2_31(toy_dm2_31, 'dyb')
+            # DYB reactor constraint. The toy carries the DYB central already
+            # projected to each ordering (dyb_NO / dyb_IO, built in
+            # sample_aux_dm2_31 with the -dm2_31 + 2 sin^2(th12) Dm2_21 reactor
+            # offset); pick by this fit's ordering. Data path uses the
+            # per-ordering op_nom['dm2_31_dyb'].
+            t_dyb = _aux_dm2_31(toy_dm2_31, 'dyb_NO' if dm2_31 > 0 else 'dyb_IO')
             if t_dyb is not None:
                 targ_dm2_31  = t_dyb
             else:
@@ -563,8 +567,16 @@ class JUNODetector:
             # from nuosc (op_nom is set to this fit's ordering), config fallback.
             th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
             dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
-            dm2_31_lbl  = f_lbl(targ_dm2_31, sin2_12, sin2_13,
-                                 dm2_21, th23_lbl, dcp_lbl, ordering)
+            # LBL-projection SOLAR params (theta12, dm2_21): use the DATA best
+            # fit, set on args by the FC driver (sin2_th12_lbl / dm2_21_lbl,
+            # physical eV²). Fallback = the current fit values, which converge
+            # to the data best fit in the observed fit itself. NOT nuosc nominal.
+            s12_lbl  = getattr(args, 'sin2_th12_lbl', None)
+            s12_lbl  = s12_lbl if s12_lbl is not None else sin2_12
+            dm21_lbl = getattr(args, 'dm2_21_lbl', None)
+            dm21_lbl = dm21_lbl if dm21_lbl is not None else dm2_21
+            dm2_31_lbl  = f_lbl(targ_dm2_31, s12_lbl, sin2_13,
+                                 dm21_lbl, th23_lbl, dcp_lbl, ordering)
 
             pulls.append(dm2_31 - dm2_31_lbl)
             pull_unc.append(args.dm2_31_lbl_err)
