@@ -8,22 +8,44 @@ from noda.fit import combined_fit as minuit_new
 from noda.fit.minuit import load_prefit_cache
 
 def parse():
-    p = argparse.ArgumentParser()
+    # allow_abbrev=False so extra `--key value` config overrides aren't
+    # accidentally matched as prefixes of the known flags below.
+    p = argparse.ArgumentParser(allow_abbrev=False)
     p.add_argument("--config",       required=True,
                    help="Config YAML or multi-phase manifest (as for run_noda)")
+    p.add_argument("--base_path",    default=None,
+                   help="Root of the NODA tree, substituted for ${NODA_BASE} "
+                        "in all config/background paths. Overrides $NODA_BASE "
+                        "and the config base_path key (as for run_noda).")
     p.add_argument("--prefit-cache", required=True)
     p.add_argument("--output",       required=True, help="output NPZ path")
+    p.add_argument("--mode",         choices=("dm31", "nmo", "both"),
+                   default="both",
+                   help="dm31: free + fixed-grid fits; nmo: free fits ONLY "
+                        "(no grid scan) — use this for the LBL NMO test where "
+                        "run_fc_toy only needs the data free-fit dm2_31; "
+                        "both: free + grid (default).")
     p.add_argument("--candidates",   type=float, nargs='+',
                    default=[2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9],
-                   help="Absolute dm²₃₁ candidate values in 1e-3 eV²")
-    return p.parse_args()
+                   help="Absolute dm²₃₁ candidate values in 1e-3 eV² "
+                        "(used by dm31/both modes only)")
+    # Any other --key value pairs are forwarded as config overrides, exactly
+    # like run_noda CLI flags (e.g. --pull_dm2_31_lbl 1 --PDG_opt NuFitLBL).
+    return p.parse_known_args()
 
 def main():
-    cli = parse()
+    cli, extra = parse()
     t0 = datetime.now()
 
-    # Setup is independent of the fit hypothesis, so build it once
-    setups, policy = build_setups(cli.config)
+    # Setup is independent of the fit hypothesis, so build it once. `extra`
+    # carries config overrides (--pull_dm2_31_lbl 1, --PDG_opt NuFitLBL, …)
+    # so the data fit uses the SAME constraints as the matching run_fc_toy run.
+    setups, policy = build_setups(cli.config, base_path=cli.base_path,
+                                  remaining_argv=extra)
+    if extra:
+        print(f"[FC-obs] config overrides: {' '.join(extra)}", flush=True)
+    print(f"[FC-obs] mode={cli.mode}  "
+          f"(grid fits {'OFF' if cli.mode == 'nmo' else 'ON'})", flush=True)
     print(f"[FC-obs] Base setup ready in {datetime.now() - t0} "
           f"({len(setups)} phase/shell dataset(s))", flush=True)
 
@@ -112,6 +134,13 @@ def main():
 
 
         # ── 2. Fixed Grid Fits (Required for dm31 FC scan toys) ──
+        # Skipped entirely in nmo mode: the NMO test only needs the free-fit
+        # (integer-key) dm2_31, which is already stored above.
+        if cli.mode == "nmo":
+            print(f"[FC-obs] nmo mode: skipping fixed-grid fits for "
+                  f"{ordering_name}", flush=True)
+            continue
+
         print(f"[FC-obs] Running fixed grid fits for {ordering_name}...", flush=True)
         for cand in cli.candidates:
             # Apply sign: positive for NO, negative for IO

@@ -515,14 +515,28 @@ def _build_dyb_bundle(setup, dyb_model=None):
 # ─────────────────────────────────────────────────────────────────────────────
 # Multi-bundle path — N JUNO bundles + at most 1 TAO + 1 DYB
 # ─────────────────────────────────────────────────────────────────────────────
-def build_setups(config_path, *, remaining_argv=None, dm2_31=None):
+def build_setups(config_path, *, remaining_argv=None, dm2_31=None,
+                 base_path=None):
     """Manifest → one setup_one_phase() dict per (phase, shell) row, with the
     per-dataset ROOT suffix applied exactly as the main run_noda flow does.
 
     Shared by run_noda (main) and the FC drivers so the setup never drifts
     between the two. `dm2_31` (physical eV², signed) is forwarded to
     setup_one_phase for FC truth-spectrum builds.
+
+    NODA_BASE is resolved and published here (CLI base_path > $NODA_BASE >
+    config `base_path:` > repo root) BEFORE any setup is built, so every
+    ${NODA_BASE} token in the configs expands identically whether the entry
+    point is run_noda or an FC driver — the FC tools no longer depend on the
+    caller exporting NODA_BASE.
     """
+    with open(config_path, 'r') as f:
+        manifest_doc = yaml.safe_load(f) or {}
+    global NODA_BASE
+    NODA_BASE = _resolve_base_path(base_path, manifest_doc)
+    os.environ['NODA_BASE'] = NODA_BASE        # so child modules see it too
+    print(f"[base] NODA_BASE = {NODA_BASE}")
+
     rows = load_manifest(config_path)
     return [setup_one_phase(cfg,
                             phase_label=phase, shell_label=shell,
@@ -615,20 +629,18 @@ def main(argv=None):
     args, remaining_argv = conf_parser.parse_known_args(argv)
 
     # ── load manifest (a plain single-phase YAML is a 1-row manifest) ─────
+    # Needed here for _run_multi_bundle's param policy; build_setups loads it
+    # again internally to resolve NODA_BASE.
     with open(args.config, 'r') as f:
         manifest_doc = yaml.safe_load(f) or {}
-
-    # ── resolve the portable base path and publish it everywhere ─────────
-    global NODA_BASE
-    NODA_BASE = _resolve_base_path(args.base_path, manifest_doc)
-    os.environ['NODA_BASE'] = NODA_BASE        # so child modules see it too
-    print(f"[base] NODA_BASE = {NODA_BASE}")
 
     # CLI overrides apply to every phase (so flags like --use_prefit 1
     # take effect uniformly). Per-phase differences live either in
     # per-phase config files or, with a `common:` + `phases:` manifest,
-    # in the per-phase override blocks.
-    setups = build_setups(args.config, remaining_argv=remaining_argv)
+    # in the per-phase override blocks. build_setups resolves/publishes
+    # NODA_BASE (CLI > env > config base_path > repo root) before building.
+    setups = build_setups(args.config, remaining_argv=remaining_argv,
+                          base_path=args.base_path)
     m = _run_multi_bundle(setups, manifest_doc)
 
     print(f"\nTotal wall time: {datetime.now() - start}")

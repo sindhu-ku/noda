@@ -60,6 +60,10 @@ def parse():
     p = argparse.ArgumentParser()
     p.add_argument("--config",      required=True,
                    help="Config YAML or multi-phase manifest (as for run_noda)")
+    p.add_argument("--base_path",   default=None,
+                   help="Root of the NODA tree, substituted for ${NODA_BASE} "
+                        "in all config/background paths. Overrides $NODA_BASE "
+                        "and the config base_path key (as for run_noda).")
     p.add_argument("--task-id",     type=int, required=True)
     p.add_argument("--n-toys",      type=int, default=50)
     p.add_argument("--seed-base",   type=int, default=0,
@@ -93,17 +97,25 @@ def load_initial_fits(filepath):
 # ─────────────────────────────────────────────────────────────────────────────
 # Setup builder — replicates the relevant parts of main.py
 # ─────────────────────────────────────────────────────────────────────────────
-def build_setups(config_path, dm2_31=None):
+def build_setups(config_path, dm2_31=None, base_path=None, remaining_argv=None):
     """
     Manifest-aware setup: one setup dict per (phase, shell) row plus the
     ParamPolicy, built through the SAME helpers run_noda uses
-    (noda.main.build_setups / build_policy) so the two never drift.
+    (noda.main.build_setups / build_policy) so the two never drift. This
+    includes NODA_BASE resolution (CLI base_path > $NODA_BASE > config
+    base_path > repo root), so FC honours ${NODA_BASE} configs exactly like
+    run_noda without the caller having to export anything.
+
+    `remaining_argv` are extra `--key value` CLI overrides forwarded to the
+    per-phase config parser, so any config option (e.g. --pull_dm2_31_lbl 1
+    --PDG_opt NuFitLBL) can be set from the command line as for run_noda.
     Returns (setups, policy).
     """
     with open(config_path) as f:
         manifest_doc = yaml.safe_load(f) or {}
 
-    setups = _main_build_setups(config_path, dm2_31=dm2_31)
+    setups = _main_build_setups(config_path, dm2_31=dm2_31, base_path=base_path,
+                                remaining_argv=remaining_argv)
     policy = build_policy(setups, manifest_doc)
     return setups, policy
 
@@ -143,7 +155,8 @@ def main():
         dm2_31 = sign * cli.true_dm31 * 1e-3
     else:
         dm2_31 = None
-    setups, policy = build_setups(cli.config, dm2_31=dm2_31)
+    setups, policy = build_setups(cli.config, dm2_31=dm2_31,
+                                  base_path=cli.base_path)
     print(f"[FC] setup built in {datetime.now() - t0} "
           f"({len(setups)} phase/shell dataset(s))", flush=True)
 
