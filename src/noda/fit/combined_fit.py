@@ -944,7 +944,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     # m.hesse() below. This is the main speed lever for the many-parameter
     # multi-shell fit and for FC toys (which don't run hesse at all). Override
     # with `minuit_strategy: 1` (or 2) in the config if convergence regresses.
-    m.strategy = int(getattr(args_juno, 'minuit_strategy', 0))
+    #m.strategy = int(getattr(args_juno, 'minuit_strategy', 0))
 
     if fix_dm2_31_to is not None:
         m.values['dm2_31'] = fix_dm2_31_to

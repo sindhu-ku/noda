@@ -138,7 +138,12 @@ class JUNODetector:
         # ── precompute linearized response matrix in (a, b, c) ────────────────────
         if self._linearize_resp:
             a0, b0, c0 = args.a, args.b, args.c
-            eps_a, eps_b, eps_c = args.a_err, args.b_err, args.c_err
+            # Finite-difference steps for the abc linearization come from the ER
+            # covariance diagonal (theta0_er order: a, b, c, kB, fC, kI, LY),
+            # i.e. each parameter's 1σ prior. In covariance mode (NL != "pull")
+            # the abc prior IS covariance_er, so this needs no separate
+            # a_err/b_err/c_err config keys.
+            eps_a, eps_b, eps_c = np.sqrt(np.diag(self.covariance_er)[:3])
 
             def _R(a, b, c):
                 return CalcRespMatrix_abc(a, b, c, escale=1,
@@ -371,18 +376,34 @@ class JUNODetector:
     #  Internal cached helpers  (identical logic to original run_minuit)
     # ════════════════════════════════════════════════════════════════════════
     def _get_resp_matrix(self, a, b, c):
-        if self._linearize_resp:
-            R = (self._R0
-                 + (a - self._a0) * self._dRda
-                 + (b - self._b0) * self._dRdb
-                 + (c - self._c0) * self._dRdc)
-            return RespMatrix(data=R, ebins=self._R_ebins, pebins=self._R_pebins)
-        # fallback: original full recompute (cached on raw floats — rarely hits)
+        # Cache by (a,b,c) for BOTH the linearized and full-recompute paths.
+        # build_spectrum calls this on every chi2 eval, and migrad's gradient
+        # holds (a,b,c) fixed while it perturbs the ~Nparam nuisances one-by-one,
+        # so the same matrix is requested dozens of times per gradient step.
+        # Even the "cheap" linear combination R0 + Σ Δ·dR materialises a full
+        # fine×fine matrix, so without caching lin_resp=True is SLOWER than the
+        # cached non-linear path. The cache is bounded to the working set
+        # (current point + gradient neighbours) so it can't grow to multi-GB
+        # over a fit or accumulate across FC toys on the persistent truth
+        # bundles.
         key = (a, b, c)
-        if key not in self._resp_matrix_cache:
-            self._resp_matrix_cache[key] = CalcRespMatrix_abc(
-                a, b, c, escale=1, ebins=self.fine_bins, pebins=self.fine_bins)
-        return self._resp_matrix_cache[key]
+        rm = self._resp_matrix_cache.get(key)
+        if rm is None:
+            if self._linearize_resp:
+                R = (self._R0
+                     + (a - self._a0) * self._dRda
+                     + (b - self._b0) * self._dRdb
+                     + (c - self._c0) * self._dRdc)
+                rm = RespMatrix(data=R, ebins=self._R_ebins, pebins=self._R_pebins)
+            else:
+                rm = CalcRespMatrix_abc(
+                    a, b, c, escale=1, ebins=self.fine_bins, pebins=self.fine_bins)
+            self._resp_matrix_cache[key] = rm
+            if len(self._resp_matrix_cache) > 16:
+                for k in list(self._resp_matrix_cache.keys())[:8]:
+                    if k != key:
+                        del self._resp_matrix_cache[k]
+        return rm
     def _get_nuisance_fine(self, nuisance_coarse):
         key = tuple(nuisance_coarse)
         if key not in self._nuisance_fine_cache:
@@ -492,6 +513,10 @@ class JUNODetector:
             bckg  = bckg.GetScaledFit(scale*args.detector_efficiency)
             bckg.Rebin_nonuniform(args.bins_nonuniform)
             self._wr_spectrum_cache[key] = bckg
+            if len(self._wr_spectrum_cache) > 64:
+                for k in list(self._wr_spectrum_cache.keys())[:32]:
+                    if k != key:
+                        del self._wr_spectrum_cache[k]
         return self._wr_spectrum_cache[key]
 
     def _get_snf_noneq(self, snf_noneq_norm):
@@ -511,6 +536,10 @@ class JUNODetector:
                 tot = ensp['snf_final'].GetScaledFit(1 + snf_noneq_norm[0]) \
                     + ensp['noneq_final'].GetScaledFit(1 + snf_noneq_norm[1])
             self._snf_noneq_cache[key] = tot
+            if len(self._snf_noneq_cache) > 64:
+                for k in list(self._snf_noneq_cache.keys())[:32]:
+                    if k != key:
+                        del self._snf_noneq_cache[k]
         return self._snf_noneq_cache[key]
 
     # ════════════════════════════════════════════════════════════════════════

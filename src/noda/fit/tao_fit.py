@@ -157,21 +157,31 @@ class TAODetector:
     # ════════════════════════════════════════════════════════════════════════
 
     def _get_resp_matrix(self, a, b, c):
-        if self._linearize_resp:
-            M = (self._M0
-                 + (a - self._a0) * self._dMda
-                 + (b - self._b0) * self._dMdb
-                 + (c - self._c0) * self._dMdc)
-            return RespMatrix(data=M, ebins=self.fine_bins, pebins=self.fine_bins)
-        # fallback
+        # Cache by (a,b,c) for BOTH paths: migrad holds (a,b,c) fixed while it
+        # perturbs the other nuisances, so even the linearized combination
+        # (which still materialises a full fine×fine matrix) must be cached or
+        # lin_resp=True ends up slower than the cached non-linear path. Bounded
+        # to the working set to avoid multi-GB growth across the fit / FC toys.
         key = (a, b, c)
-        if key not in self._resp_matrix_cache:
-            resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1,
-                                             ebins=self.fine_bins, pebins=self.fine_bins)
-            self._resp_matrix_cache[key] = RespMatrix(
-                data=resp_matrix.data,
-                ebins=self.fine_bins, pebins=self.fine_bins)
-        return self._resp_matrix_cache[key]
+        rm = self._resp_matrix_cache.get(key)
+        if rm is None:
+            if self._linearize_resp:
+                M = (self._M0
+                     + (a - self._a0) * self._dMda
+                     + (b - self._b0) * self._dMdb
+                     + (c - self._c0) * self._dMdc)
+                rm = RespMatrix(data=M, ebins=self.fine_bins, pebins=self.fine_bins)
+            else:
+                resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1,
+                                                 ebins=self.fine_bins, pebins=self.fine_bins)
+                rm = RespMatrix(data=resp_matrix.data,
+                                ebins=self.fine_bins, pebins=self.fine_bins)
+            self._resp_matrix_cache[key] = rm
+            if len(self._resp_matrix_cache) > 16:
+                for k in list(self._resp_matrix_cache.keys())[:8]:
+                    if k != key:
+                        del self._resp_matrix_cache[k]
+        return rm
 
     def _get_nuisance_fine(self, nuisance_coarse):
         key = tuple(nuisance_coarse)
