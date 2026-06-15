@@ -51,7 +51,7 @@ phases:
 
   "AllP/S-15-172":
     detector_efficiency: 0.2307
-    eff_unc: 0.03342206957
+    eff_unc: 0.0266236
     backgrounds_yaml: ${NODA_BASE}/config/240-day_FV165/backgrounds_AllP_15-172m.yaml
     data_spectrum: ${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2-15_June11_clean.root
     data_hist_name: data
@@ -64,14 +64,15 @@ phases:
     kI: 6.079791023109518827e-03
     LY_shared: 1.000257212727742262e+00
     bins_nonuniform:
-      - [0.7, 1.0, 1]
-      - [1.0, 6.6, 56]
-      - [6.6, 7.4, 4]
-      - [7.4, 7.7, 1]
-      - [7.7, 8.1, 1]
-      - [8.1, 8.6, 1]
-      - [8.6, 9.4, 1]
-      - [9.4, 12.0, 1]
+      - [0.7, 0.98, 1]
+      - [0.98, 6.66, 71]
+      - [6.66, 6.82, 1]
+      - [6.82, 7.0, 1]
+      - [7, 7.1, 1]
+      - [7.2, 7.62, 1]
+      - [7.62, 8.12, 1]
+      - [8.12, 12.0, 1]
+
 
 
 # ─── Optional override of systematic-correlation policy ────────────────────

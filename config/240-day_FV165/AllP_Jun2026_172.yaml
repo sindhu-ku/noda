@@ -2,7 +2,7 @@ cd config: ''
 # Fit options configuration
 
 fit_options:
-  is_data: False
+  is_data: True
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
@@ -26,7 +26,7 @@ fit_options:
   profile_points: 1000
   silent_print: false
   geo_spectra: ana
-  pull_dm2_31: false
+  pull_dm2_31: true
   pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
   dm2_31_lbl: 2.517e-03 #0.0025043000
@@ -36,8 +36,8 @@ fit_options:
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
   save_prefit: True
-  use_prefit: False
-  prefit_path: ${NODA_BASE}/prefit_data/240_allP_data.npz
+  use_prefit: True
+  prefit_path: ${NODA_BASE}/prefit_data/240_allP_asimov.npz
   include_tao: True
   include_dyb: True
   geo_fit: true
@@ -63,7 +63,7 @@ fit_options:
   bayes_nprocesses: 16
   ihep_usage: True
   write_output: True
-  file_prefix: 'GroupC_172m_June13-2026_P14_JUNO+DYB+TAO'
+  file_prefix: 'GroupC_data_172m_June13-2026_P14_JUNO+DYB+TAO'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -156,7 +156,7 @@ common_det_inputs:
   noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_CI.yaml
+  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_June2026.yaml
   stat_opt: 207.117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7714 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   eff_unc: 0.03342206957 #rel
@@ -197,7 +197,7 @@ juno_inputs:
   # core_powers: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
   # core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
 
-  Np: 1.442e+33
+  Np: 1.44258e+33
 
   veto: 1.0
   nl_hist_name: J22rc0_positronScintNL
@@ -337,6 +337,7 @@ tao_inputs:
   bckg_hist_name: Bkg_spectrum_FV800
   bckg_scale: 1.0 #0.9827282340500528 # 27.88/28.37 reactor-on/off DAQ livetime ratio (Group A convention)
   bckg_rate_unc: 0.0109
+  bckg_rate: 384.
   IAV_hist: Energy_leakage_FV800
   FV_cov_matrix: FVcut800_covariance
   rebin_nonuniform:  True

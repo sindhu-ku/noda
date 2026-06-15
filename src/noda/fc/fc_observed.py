@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 
 from noda.fc.fc_toy import build_setups
-from noda.fc.feldman_cousins import base_param, build_fit_bundles
+from noda.fc.feldman_cousins import base_param, build_fit_bundles, make_resolver
 from noda.fit import combined_fit as minuit_new
 from noda.fit.minuit import load_prefit_cache
 
@@ -91,34 +91,47 @@ def main():
         if true_no == 1:
             param_names = list(m_free.parameters)
             args0       = setups[0]['args_juno']
-            backgrounds = setups[0]['backgrounds']
 
+            # Shared (cross-dataset) scalar priors.
             nominal_uncertainties["me_rho"]    = args0.me_rho_scale
             nominal_uncertainties["ThU_ratio"] = args0.Th_U_ratio_err
             nominal_uncertainties["Nrea"]      = args0.r2_unc
-            # Per-phase/shell parameters carry a '__p…__s…' suffix; match on
-            # the base name so every dataset's copy gets its uncertainty.
-            for name in param_names:
-                base = base_param(name)
-                if base.startswith('core'):
-                    nominal_uncertainties[name] = args0.core_flux_unc
-                if base.startswith('efiss'):
-                    nominal_uncertainties[name] = args0.efission_err[int(base[-1])]*1e-2
-                if base.startswith('eff'):
-                    nominal_uncertainties[name] = args0.eff_unc
-                if base.startswith('snf'):
-                    nominal_uncertainties[name] = args0.snf_unc
-                if args0.NL == "pull" and base.startswith('NL'):
-                    nominal_uncertainties[name] = (args0.ene_scale_unc
-                                                   if base == 'NL4'
-                                                   else args0.NL_sd)
-                if args0.NL == "pull" and base.startswith('abc'):
-                    nominal_uncertainties[name] = {'abc0': args0.a_err,
-                                                   'abc1': args0.b_err,
-                                                   'abc2': args0.c_err}[base]
-                if base.startswith('bkg_'):
-                    info = backgrounds["JUNO"].get(base[4:], {})
-                    nominal_uncertainties[name] = info.get("rate_unc", 1.0)
+
+            # Per-dataset priors: per-phase/shell parameters carry a
+            # '__p…__s…' suffix. Route each mangled Minuit name to the
+            # (phase, shell) it belongs to and take THAT dataset's own
+            # uncertainties — eff_unc and background rate_unc differ per shell
+            # in a manifest run, so using setups[0] for all would sample the
+            # other shells' nuisances at the wrong width. A shared (correlated)
+            # parameter resolves to the same mangled name from every setup and
+            # is written identically.
+            for s in setups:
+                a       = s['args_juno']
+                bkg     = s['backgrounds']
+                resolve = make_resolver(policy, a.phase, a.shell)
+                for name in param_names:
+                    base = base_param(name)
+                    if resolve(base) != name:
+                        continue            # not this dataset's parameter
+                    if base.startswith('core'):
+                        nominal_uncertainties[name] = a.core_flux_unc
+                    if base.startswith('efiss'):
+                        nominal_uncertainties[name] = a.efission_err[int(base[-1])]*1e-2
+                    if base.startswith('eff'):
+                        nominal_uncertainties[name] = a.eff_unc
+                    if base.startswith('snf'):
+                        nominal_uncertainties[name] = a.snf_unc
+                    if a.NL == "pull" and base.startswith('NL'):
+                        nominal_uncertainties[name] = (a.ene_scale_unc
+                                                       if base == 'NL4'
+                                                       else a.NL_sd)
+                    if a.NL == "pull" and base.startswith('abc'):
+                        nominal_uncertainties[name] = {'abc0': a.a_err,
+                                                       'abc1': a.b_err,
+                                                       'abc2': a.c_err}[base]
+                    if base.startswith('bkg_'):
+                        info = bkg["JUNO"].get(base[4:], {})
+                        nominal_uncertainties[name] = info.get("rate_unc", 1.0)
 
             truncate_below_zero = [
                 p for p in m_free.parameters

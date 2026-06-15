@@ -78,6 +78,12 @@ def parse():
     p.add_argument("--pull_dm2_31_lbl", type=int, choices=(0, 1), default=None,
                    help="Override the LBL dm2_31 constraint on/off (default: "
                         "per --mode).")
+    p.add_argument("--PDG_opt", default=None,
+                   help="Oscillation parameter set for the toys (e.g. NuFitLBL, "
+                        "PDG2024, PDG2025, DYB). Overrides the config value AND "
+                        "the per-mode default for every dataset. MUST match the "
+                        "--PDG_opt used for run_fc_observed so the toy truth and "
+                        "the cached initial fits share the same osc parameters.")
     p.add_argument("--output-dir",  required=True)
     p.add_argument("--initial-fits", help="path to initial fits of the grid points")
     p.add_argument("--prefit-cache", help="Path to .npz prefit cache produced")
@@ -183,6 +189,10 @@ def main():
             s['args_juno'].pull_dm2_31     = bool(cli.pull_dm2_31)
         if cli.pull_dm2_31_lbl is not None:
             s['args_juno'].pull_dm2_31_lbl = bool(cli.pull_dm2_31_lbl)
+        # --PDG_opt overrides both the config value and the nmo-mode NuFitLBL
+        # default; leave it unset to keep those.
+        if cli.PDG_opt is not None:
+            s['args_juno'].PDG_opt = cli.PDG_opt
 
     # LBL projection uses the DATA best-fit SOLAR params (theta12, dm2_21) from
     # the observed fit, fixed across all toys — not nuosc nominal, not each

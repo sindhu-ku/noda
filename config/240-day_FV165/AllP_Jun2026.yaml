@@ -6,7 +6,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: DYB #PDG2025 #DYB #PDG option
+  PDG_opt: NuFitLBL #PDG2025 #DYB #PDG option
   NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
@@ -24,14 +24,20 @@ fit_options:
   profile_dm2_31: true
   profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
   profile_points: 1000
+  # --- profile splitting (memory): scan one chunk per job, write raw CSV, ---
+  #     then merge into the TGraph with combine_profile.py. Defaults = no split.
+  profile_nchunks: 1        # number of dm2_31 sub-ranges to split the scan into
+  profile_chunk: 0          # which chunk this job does (0 .. nchunks-1)
+  profile_csv: ''           # raw (dm2_31,chi2) output CSV for this chunk
+  profile_make_graph: true  # set 0 in chunk jobs (graph built by combine step)
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: true
   pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
   dm2_31_lbl: 2.517e-03 #0.0025043000
-  theta23: 43.279
-  dcp: 212.0
+  theta23: 48.6
+  dcp:  285.0
   lin_resp: False
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
@@ -62,8 +68,8 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
-  write_output: True
-  file_prefix: 'GroupC_June13-2026'
+  write_output: False
+  file_prefix: 'GroupC_lbl_June14-2026'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -156,7 +162,7 @@ common_det_inputs:
   noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_June2026_weekavg.yaml #June2026.yaml
+  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_June2026.yaml #June2026.yaml
   stat_opt: 207.117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.7048 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   eff_unc: 0.01938200364 #rel

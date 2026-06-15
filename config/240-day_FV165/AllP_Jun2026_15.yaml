@@ -14,7 +14,7 @@ fit_options:
   plot_minuit_matrix: false
   plot_correlation: true
   plot_minuit_profiles: false
-  plot_spectra: true
+  plot_spectra: false
   print_minuit_correlation: false
   run_hesse: True
   solar_contour: false
@@ -30,13 +30,13 @@ fit_options:
   pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
   dm2_31_lbl: 2.517e-03 #0.0025043000
-  theta23: 43.279
-  dcp: 212.0
+  theta23: 48.6
+  dcp: 285
   lin_resp: False
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
   save_prefit: True
-  use_prefit: False
+  use_prefit: True
   prefit_path: ${NODA_BASE}/prefit_data/240_allP_data.npz
   include_tao: True
   include_dyb: True
@@ -62,8 +62,8 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
-  write_output: True
-  file_prefix: 'GroupC_data_15m_June13-2026_P14_JUNO+DYB+TAO'
+  write_output: False
+  file_prefix: 'GroupC_15m_June14-2026_P14_JUNO+DYB+TAO'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -326,20 +326,20 @@ tao_inputs:
 
   min_ene: 0.0 #0.7
   max_ene: 12.0 #8.0
-  stat_opt: 27.88days # time period for sensitivity studies # time period for sensitivity studies
+  stat_opt: 31.3305days # time period for sensitivity studies # time period for sensitivity studies
   FORCE_CALC_ENE_LEAK: False
   NL: pull
   NL_sd: 1.0
-  data_file: ${NODA_BASE}/data/TAOInputs_2026_6_5.root
-  NL_data_file: ${NODA_BASE}/data/energy_nl.root
-  data_spectrum: ${NODA_BASE}/data/TAOInputs_2026_6_5.root
-  data_hist_name: IBD_spectrum_bkg_not_subtracted_FV800
-  bckg_hist_name: Bkg_spectrum_FV800
-  bckg_scale: 1.0 #0.9827282340500528 # 27.88/28.37 reactor-on/off DAQ livetime ratio (Group A convention)
-  bckg_rate_unc: 0.0109
-  bckg_rate: 384
-  IAV_hist: Energy_leakage_FV800
-  FV_cov_matrix: FVcut800_covariance
+  data_file: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
+  NL_data_file: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
+  data_spectrum: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
+  data_hist_name: IBD_Spectra/IBD_spectrum_bkg_not_subtracted_FV800
+  bckg_hist_name: IBD_Spectra/Bkg_spectrum_FV800
+  bckg_scale: 0.93711878 #0.9827282340500528 # 27.88/28.37 reactor-on/off DAQ livetime ratio (Group A convention)
+  bckg_rate_unc: 0.009
+  bckg_rate: 419
+  IAV_hist: Detector_Response/Energy_leakage_FV800
+  FV_cov_matrix: Detector_Response/FVcut800_RelativeCovariance
   rebin_nonuniform:  True
   bins_nonuniform:
     - [0.8, 0.94, 1]
@@ -347,24 +347,23 @@ tao_inputs:
     - [7.44, 7.8, 9]
     - [7.8, 8.2, 4]
     - [8.2, 12, 1]
-  U235_scale: 0.561
+  U235_scale: 0.568
   U238_scale: 0.077
-  Pu239_scale: 0.318
-  Pu241_scale: 0.044
+  Pu239_scale: 0.308
+  Pu241_scale: 0.047
 
   core_powers: [4.14]
-  core_baselines: [44]
+  core_baselines: [43.2]
   Np: 2.0070463252814688e+29
   detector_efficiency: 0.405
-  eff_unc: 0.2
+  eff_unc: 0.10729614
   veto: 1.0
-  nl_hist_name: positron_NL_curve
-  nl_pull_hist_name: positron_NL_pulls/positron_NL_pull_key
-  a: 0.007288
-  a_err: 0.01202
-  b: 0.01977
-  b_err: 0.002467
-  c: 0.02004
-  c_err: 0.001813
-
-  ene_scale_unc: 0.005
+  nl_hist_name: Detector_Response/positronNL
+  nl_pull_hist_name: Detector_Response/positronNLpullkey
+  a: 0.0257965
+  a_err: 0.0038323
+  b: 0.0103571
+  b_err: 0.0032674
+  c: 0.0147691
+  c_err: 0.0005788
+  ene_scale_unc: 0.006

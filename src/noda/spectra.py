@@ -188,10 +188,14 @@ def _load_nonlinearity(ensp, args, detector):
     if args.NL != "pull":
         return
 
+    if detector == "TAO":
+        np=5
+    else:
+        np=4
     ensp["scintNL"] = GetSpectrumFromROOT(args.NL_data_file, args.nl_hist_name)
     ensp["NL_pull"] = [
         GetSpectrumFromROOT(args.NL_data_file, f"{args.nl_pull_hist_name.replace('key', str(k))}")
-        for k in range(4)
+        for k in range(np)
     ]
 
     # new_nonl = Spectrum(bins=ensp['scintNL'].bins,
@@ -794,15 +798,18 @@ def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None,
     export (<det>/response/<stage>/nl_positron): Geant4 model anchored to the
     2.224589 MeV gamma.  Parameters default to the pre-fit nominals.
 
-    In pull mode, *NL_pulls* = [p0, p1, p2, p3, LY_pull] gives the post-fit
+    In pull mode, *NL_pulls* = [p0, …, p_{k-1}, LY_pull] gives the post-fit
     curve: nominal + Σ pᵢ·(pullᵢ − nominal), scaled by (1 + LY_pull) — the
-    same construction as build_spectrum()."""
+    same construction as build_spectrum().  The number of shape pulls k is
+    inferred from len(NL_pulls)−1, so this handles both JUNO (4 shape + LY)
+    and TAO (5 shape + LY); the last element is always the LY pull."""
     if args.NL == "pull":
         e = 0.5 * (ensp["scintNL"].bins[:-1] + ensp["scintNL"].bins[1:])
         nom = ensp["scintNL"].bin_cont
         if NL_pulls is not None:
+            n_shape = len(NL_pulls) - 1          # last element is the LY pull
             ratio = (nom + sum(NL_pulls[i] * (ensp["NL_pull"][i].bin_cont - nom)
-                               for i in range(4))) * (1 + NL_pulls[4])
+                               for i in range(n_shape))) * (1 + NL_pulls[-1])
         else:
             ratio = nom
     else:
@@ -832,16 +839,37 @@ def _build_resolution_graph(a, b, c):
     return graph
 
 
+# Map NODA shell labels to the ORSA-convention top-level JUNO directory name.
+# Extend this when new shells are added.
+_ORSA_JUNO_DIR = {'S-15': 'juno_inner', 'S-15-172': 'juno_outer'}
+
+
+def juno_output_dirname(args):
+    """Top-level JUNO ROOT directory for this dataset.
+
+    A single-shell run keeps the legacy bare ``juno``.  A multi-shell run maps
+    each shell to its own self-contained top-level folder following the ORSA
+    convention (``juno_inner`` / ``juno_outer``), falling back to
+    ``juno_<shell>`` for shell labels not in the map.  The multi-shell signal
+    is the per-dataset ``root_suffix`` carrying a shell component (``__s``)."""
+    sfx = getattr(args, 'root_suffix', '')
+    if '__s' not in sfx:
+        return 'juno'
+    shell = str(getattr(args, 'shell', ''))
+    return _ORSA_JUNO_DIR.get(shell, f"juno_{shell}")
+
+
 def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     from .fit.minuit import write_param_dbl
     tag = f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root"
-    sfx = getattr(args, 'root_suffix', '')      # per shell/phase, '' if single
+    jdir = juno_output_dirname(args)            # 'juno' | 'juno_inner' | 'juno_outer'
     output_file = ROOT.TFile(tag, "update")
 
-    # get-or-create: with multiple phases/shells these dirs already exist from
-    # an earlier dataset's write, and TDirectory.mkdir() returns null for an
-    # existing directory (which previously crashed on the 2nd shell).
-    juno_dir = output_file.GetDirectory("juno") or output_file.mkdir("juno")
+    # Each shell writes its OWN top-level juno_<shell> directory (ORSA layout)
+    # with bare object names. get-or-create: in "update" mode the dir may
+    # already exist from a previous write, and TDirectory.mkdir() returns null
+    # for an existing directory (which would crash on .cd()).
+    juno_dir = output_file.GetDirectory(jdir) or output_file.mkdir(jdir)
     juno_dir.cd()
     write_param_dbl("LivetimeDays", ndays)
 
@@ -854,32 +882,32 @@ def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
         xsec_graph = ROOT.TGraph(len(enu),
                                  np.ascontiguousarray(enu, dtype=float),
                                  np.ascontiguousarray(xsec_vals, dtype=float))
-        xsec_graph.Write(f"xsec{sfx}", ROOT.TObject.kOverwrite)
+        xsec_graph.Write("xsec", ROOT.TObject.kOverwrite)
 
     dir_resp = juno_dir.GetDirectory("response") or juno_dir.mkdir("response")
     dir_resp.cd()
     dir_resp_prefit = dir_resp.GetDirectory("prefit") or dir_resp.mkdir('prefit')
     dir_resp_prefit.cd()
-    g_nl = _build_nl_graph(ensp, args);  g_nl.SetName(f"nl_positron{sfx}")
+    g_nl = _build_nl_graph(ensp, args);  g_nl.SetName("nl_positron")
     g_nl.Write("", ROOT.TObject.kOverwrite)
     g_res = _build_resolution_graph(args.a, args.b, args.c)
-    g_res.SetName(f"resolution{sfx}");   g_res.Write("", ROOT.TObject.kOverwrite)
+    g_res.SetName("resolution");   g_res.Write("", ROOT.TObject.kOverwrite)
     force_vector_streamers(output_file)
     output_file.Close()
 
-    ensp["ribd"].WritetoROOT(f"unosc{sfx}", tag, "juno/prefit")
-    ensp["rosc"].WritetoROOT(f"osc{sfx}", tag, "juno/prefit")
+    ensp["ribd"].WritetoROOT("unosc", tag, f"{jdir}/prefit")
+    ensp["rosc"].WritetoROOT("osc", tag, f"{jdir}/prefit")
     if "rosc_wcorr" in ensp:
-        ensp["rosc_wcorr"].WritetoROOT(f"osc_wcorr{sfx}", tag, "juno/prefit")
-    ensp["rvis_nonl_temp"].WritetoROOT(f"unosc_dep{sfx}", tag, "juno/prefit")
-    ensp["rvis_nonl"].WritetoROOT(f"dep{sfx}", tag, "juno/prefit")
-    ensp["rvis"].WritetoROOT(f"vis{sfx}", tag, "juno/prefit")
-    ensp["rdet_fine"].WritetoROOT(f"rec{sfx}", tag, "juno/prefit")
-    ensp["rdet"].WritetoROOT(f"reactor{sfx}", tag, "juno/prefit")
-    ensp["rtot"].WritetoROOT(f"totalpred{sfx}", tag, "juno/prefit")
+        ensp["rosc_wcorr"].WritetoROOT("osc_wcorr", tag, f"{jdir}/prefit")
+    ensp["rvis_nonl_temp"].WritetoROOT("unosc_dep", tag, f"{jdir}/prefit")
+    ensp["rvis_nonl"].WritetoROOT("dep", tag, f"{jdir}/prefit")
+    ensp["rvis"].WritetoROOT("vis", tag, f"{jdir}/prefit")
+    ensp["rdet_fine"].WritetoROOT("rec", tag, f"{jdir}/prefit")
+    ensp["rdet"].WritetoROOT("reactor", tag, f"{jdir}/prefit")
+    ensp["rtot"].WritetoROOT("totalpred", tag, f"{jdir}/prefit")
     for key in backgrounds["JUNO"]:
-        ensp[key].WritetoROOT(f"{key}{sfx}", tag, "juno/prefit")
-    if args.is_data: ensp["data"].WritetoROOT(f"data{sfx}", tag, "juno")
+        ensp[key].WritetoROOT(f"{key}", tag, f"{jdir}/prefit")
+    if args.is_data: ensp["data"].WritetoROOT("data", tag, jdir)
 
 
 

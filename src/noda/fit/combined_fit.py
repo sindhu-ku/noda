@@ -146,13 +146,18 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
         output_file = (f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}"
                            f"_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root")
         if detector_label == "JUNO":
-            s_signal.WritetoROOT(f"reactor{root_suffix}",
-                             f"{output_file}",
-                             directory="juno/postfit")
-
-        s_tot.WritetoROOT(f"totalpred{root_suffix}",
-                             f"{output_file}",
-                             directory=f"{detector_label.lower()}/postfit")
+            # Per-shell top-level folder (ORSA layout: juno_inner / juno_outer),
+            # bare object names instead of a per-object shell suffix.
+            from ..spectra import juno_output_dirname
+            jdir = juno_output_dirname(args)
+            s_signal.WritetoROOT("reactor", f"{output_file}",
+                                 directory=f"{jdir}/postfit")
+            s_tot.WritetoROOT("totalpred", f"{output_file}",
+                              directory=f"{jdir}/postfit")
+        else:
+            s_tot.WritetoROOT(f"totalpred{root_suffix}",
+                                 f"{output_file}",
+                                 directory=f"{detector_label.lower()}/postfit")
 
     os.makedirs("Plots", exist_ok=True)
     bin_centers  = s_tot.bins
@@ -216,8 +221,8 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
                          where='post', color=colors[i % len(colors)], lw=1,
                          label=f'{key}: {cpd:.2f} cpd')
                 if write_output and name_to_key.get(key):
-                    spec.WritetoROOT(f"{name_to_key.get(key)}{root_suffix}",
-                                     f"{output_file}", "juno/postfit")
+                    spec.WritetoROOT(name_to_key.get(key),
+                                     f"{output_file}", f"{jdir}/postfit")
         if detector_label == "TAO":
                 cpd = bckgs.GetIntegral() / ndays if ndays else 0.0
                 ax1.step(bin_centers, np.append(bckgs.bin_cont, bckgs.bin_cont[-1]),
@@ -309,6 +314,185 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
         output_name=output_name,
     )
 
+def plot_postfit_summed(shell_results, args,
+                        *,
+                        detector_label="JUNO",
+                        signal_label=None,
+                        chi2_value=None,
+                        ndf=None,
+                        write_output=False,
+                        output_name=""):
+    """
+    Plot the post-fit spectra *summed over multiple shells* (one figure for
+    the whole detector instead of one per shell).
+
+    This is deliberately a separate function from ``plot_fit_residuals_all``:
+    it consumes the per-shell post-fit spectra already computed in the replay
+    loop and stacks them onto a common reco grid.
+
+    shell_results : list of dicts, one per shell bundle, each holding
+        {'s_tot', 's_obs', 's_signal', 'bckgs', 'cm', 'ndays',
+         'phase', 'shell'}
+        as returned by the JUNO best-fit replay.  All shells are assumed to
+        share the same reco binning (they do in the AllP configs); any shell
+        whose bins differ from the first is skipped with a warning.
+    chi2_value : total fit χ² shown in the textbox (defaults to FULL_CHI2).
+    """
+    if not shell_results:
+        print("[plot] plot_postfit_summed: no shell results — nothing to do")
+        return
+    if chi2_value is None:
+        chi2_value = FULL_CHI2
+
+    default_sig_label = {
+        "JUNO": r"Reactor $\bar{\nu}_e$ expectation",
+        "TAO":  r"TAO reactor $\bar{\nu}_e$",
+        "DYB":  r"Daya Bay reactor $\bar{\nu}_e$",
+    }
+    if signal_label is None:
+        signal_label = default_sig_label.get(detector_label,
+                                             f"{detector_label} signal")
+
+    # ── reference grid from the first shell ──────────────────────────────
+    ref          = shell_results[0]
+    ref_bins     = ref['s_tot'].bins
+    n_bins       = len(ref['s_tot'].bin_cont)
+    bin_centers  = ref_bins
+    bin_centers2 = 0.5 * (ref_bins[:-1] + ref_bins[1:])
+
+    # ── accumulators ─────────────────────────────────────────────────────
+    # Shells differ in livetime, so cpd (counts/day) cannot be recovered from
+    # the summed counts with a single ndays — accumulate cpd per shell as
+    # Σ(counts_shell / ndays_shell), while the plotted Events are summed counts.
+    obs_vals = np.zeros(n_bins)
+    fit_vals = np.zeros(n_bins)
+    sig_vals = np.zeros(n_bins)
+    cov_sum  = np.zeros((n_bins, n_bins))
+    bckg_sum = {}                       # key -> summed bin_cont
+    fit_cpd  = 0.0
+    sig_cpd  = 0.0
+    bckg_cpd = {}                       # key -> summed cpd
+    used     = 0
+
+    for r in shell_results:
+        bins = r['s_tot'].bins
+        if (len(bins) != len(ref_bins)
+                or not np.allclose(bins, ref_bins, rtol=0, atol=1e-9)):
+            print(f"[plot] plot_postfit_summed: skipping shell "
+                  f"{r.get('phase')}/{r.get('shell')} — reco binning "
+                  f"differs from reference, cannot sum")
+            continue
+        nd = r['ndays']
+        obs_vals += r['s_obs'].bin_cont
+        fit_vals += r['s_tot'].bin_cont
+        fit_cpd  += np.sum(r['s_tot'].bin_cont) / nd if nd else 0.0
+        if r.get('s_signal') is not None:
+            sig_vals += r['s_signal'].bin_cont
+            sig_cpd  += np.sum(r['s_signal'].bin_cont) / nd if nd else 0.0
+        if r.get('cm') is not None:
+            cov_sum += r['cm'].data
+        for key, spec in (r.get('bckgs') or {}).items():
+            bckg_sum.setdefault(key, np.zeros(n_bins))
+            bckg_sum[key] += spec.bin_cont
+            bckg_cpd[key] = bckg_cpd.get(key, 0.0) + (
+                np.sum(spec.bin_cont) / nd if nd else 0.0)
+        used += 1
+
+    if used == 0:
+        print("[plot] plot_postfit_summed: no shells shared the reference "
+              "binning — nothing plotted")
+        return
+
+    # data error: summed shell covariance + Poisson on the summed counts
+    obs_err = np.sqrt(np.maximum(np.diag(cov_sum), 0.0))
+    if detector_label != "DYB":
+        obs_err = obs_err + np.sqrt(np.maximum(obs_vals, 1e-12))
+    obs_err = np.maximum(obs_err, 1e-12)
+
+    residuals = (obs_vals - fit_vals) / obs_err
+    chi2_bin  = (obs_vals - fit_vals) ** 2 / obs_err ** 2
+    if ndf is None:
+        ndf = max(1, n_bins - FREE_PARAM)
+    chi2_ndf = float(chi2_value) / ndf
+
+    os.makedirs("Plots", exist_ok=True)
+    fig, (ax1, ax2) = plt.subplots(
+        2, 1, sharex=True, figsize=(8, 7),
+        gridspec_kw={'height_ratios': [3, 1]})
+
+    # ── top panel: summed data + fit + signal + backgrounds ──────────────
+    ax1.errorbar(bin_centers2, obs_vals, yerr=obs_err, fmt='o', color='black',
+                 markersize=3, label=f'{detector_label} data (Σ shells)')
+    ax1.step(bin_centers, np.append(fit_vals, fit_vals[-1]),
+             where='post', color='blue', lw=1.5,
+             label=f'Total Fit: {fit_cpd:.2f} cpd')
+    if np.any(sig_vals):
+        ax1.step(bin_centers, np.append(sig_vals, sig_vals[-1]),
+                 where='post', color='red', lw=1.2,
+                 label=f'{signal_label}: {sig_cpd:.2f} cpd')
+
+    colors = plt.cm.tab10.colors
+    for i, (key, cont) in enumerate(bckg_sum.items()):
+        ax1.step(bin_centers, np.append(cont, cont[-1]),
+                 where='post', color=colors[i % len(colors)], lw=1,
+                 label=f'{key}: {bckg_cpd.get(key, 0.0):.2f} cpd')
+
+    ax1.set_ylabel("Events")
+    ax1.set_title(f"{detector_label} — summed over {used} shell(s)",
+                  fontsize=10)
+    leg = ax1.legend(fontsize=9, loc="upper right", frameon=True,
+                     edgecolor="black")
+    leg.get_frame().set_linewidth(1.0)
+    ax1.grid(True, alpha=0.3)
+    ax1.set_xlim(bin_centers[0], bin_centers[-1])
+
+    shells_txt = ", ".join(f"{r.get('phase')}/{r.get('shell')}"
+                           for r in shell_results)
+    textstr = (f"{detector_label} (Σ {used} shells)\n"
+               f"χ²/ndf = {chi2_value:.2f}/{ndf} = {chi2_ndf:.2f}\n"
+               f"shells: {shells_txt}")
+    ax1.text(0.02, 0.88, textstr, transform=ax1.transAxes, fontsize=8,
+             va='center', ha='left',
+             bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+
+    # ── residuals panel ──────────────────────────────────────────────────
+    ax2.errorbar(bin_centers2, residuals, yerr=np.ones_like(residuals),
+                 fmt='o', color='blue', markersize=3)
+    ax2.step(bin_centers, np.append(residuals, residuals[-1]),
+             where='post', color='blue', lw=1)
+    ax2.axhline(0, color='k', lw=1)
+    for nsigma, alpha in zip([1, 2, 3], [0.25, 0.15, 0.1]):
+        ax2.fill_between(bin_centers, -nsigma, nsigma, color='blue', alpha=alpha)
+    ax2.set_ylabel("Residuals [σ]")
+    ax2.set_ylim(-5.0, 5.0)
+    ax2.grid(True, alpha=0.3)
+    ax2.set_xlabel("Reconstructed Energy [MeV]")
+
+    plt.tight_layout()
+    if output_name:
+        figname = f"Plots/{output_name}.png"
+    else:
+        figname = (f"Plots/postfit_summed_{args.file_prefix}_"
+                   f"{detector_label}.png")
+    plt.savefig(figname, dpi=200)
+    plt.close(fig)
+    print(f"[plot] saved {figname}  (summed over {used} shells)")
+
+    if write_output:
+        output_file = (f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}"
+                       f"_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root")
+        # The whole-detector sum is a NODA-only diagnostic with no ORSA
+        # equivalent; keep it in a clearly-named top-level folder so it does
+        # not collide with the per-shell juno_inner / juno_outer dirs.
+        sum_dir = "juno_summed" if detector_label == "JUNO" else detector_label.lower()
+        s_tot_sum = Spectrum(bin_cont=fit_vals, bins=ref_bins)
+        s_tot_sum.WritetoROOT("totalpred", output_file,
+                              directory=f"{sum_dir}/postfit")
+        if np.any(sig_vals):
+            s_sig_sum = Spectrum(bin_cont=sig_vals, bins=ref_bins)
+            s_sig_sum.WritetoROOT("reactor", output_file,
+                                  directory=f"{sum_dir}/postfit")
+
 def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                        args_juno, args_dyb, args_tao, ndays_dyb, ndays_tao, dyb_exp, tao_exp, ibd_prefit):
     """
@@ -340,7 +524,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         if tao_det is not None:
             (chi2_tao, _, _s, _st, _, _) = tao_det.chi2_contribution(
                 Nrea_tao=tao_params_dict['Nrea_tao'],
-                NL_tao=[tao_params_dict[f'NL_tao{i}'] for i in range(5)],
+                NL_tao=[tao_params_dict[f'NL_tao{i}'] for i in range(6)],
                 snf_noneq_norm_tao=[tao_params_dict[f'snf_noneq_norm_tao{i}']
                                     for i in range(2)],
                 abc_tao=[tao_params_dict['abc_tao0'],
@@ -402,7 +586,7 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
     if tao_det is not None:
         (chi2_tao, _, s_obs_tao, s_tot_tao, bckg, cm_tao) = tao_det.chi2_contribution(
             Nrea_tao=m_pre.values['Nrea_tao'],
-            NL_tao=[m_pre.values[f'NL_tao{i}'] for i in range(5)],
+            NL_tao=[m_pre.values[f'NL_tao{i}'] for i in range(6)],
             snf_noneq_norm_tao=[m_pre.values[f'snf_noneq_norm_tao{i}']
                                 for i in range(2)],
             abc_tao=[m_pre.values['abc_tao0'],
@@ -754,6 +938,14 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     apply_shared_limits(m, args_juno, n_shape_bins=n_shape)
     apply_all_limits(m, bundles, routing)
 
+    # Minuit strategy 0 = fewest chi² evaluations during minimisation (no
+    # careful numerical Hessian between steps). The minimum location is
+    # unchanged; accurate parameter errors still come from the explicit
+    # m.hesse() below. This is the main speed lever for the many-parameter
+    # multi-shell fit and for FC toys (which don't run hesse at all). Override
+    # with `minuit_strategy: 1` (or 2) in the config if convergence regresses.
+    m.strategy = int(getattr(args_juno, 'minuit_strategy', 0))
+
     if fix_dm2_31_to is not None:
         m.values['dm2_31'] = fix_dm2_31_to
         m.fixed['dm2_31']  = True
@@ -847,20 +1039,30 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
 
     # ── 19. ROOT output (postfit) ────────────────────────────────────────
     output_file = None
-    dir_nuis = dir_post = dir_post_dyb = None
+    # Per-JUNO-bundle ROOT folders: id(bundle) -> (juno_dir, nuisances, postfit).
+    # Each shell gets its OWN self-contained top-level juno_<shell> folder
+    # (ORSA layout) carrying the FULL nuisance set, so shared parameters are
+    # duplicated with identical values across shells.
+    juno_shell_dirs = {}
+    from ..spectra import juno_output_dirname
     if args_juno.write_output:
         output_file = ROOT.TFile(
             f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
             f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root",
             "update")
-        juno_dir = output_file.GetDirectory("juno") or output_file.mkdir("juno")
-        juno_dir.cd()
-        write_param_dbl("chi2/ndof", m.fval/len(b_first.detector.ensp_nom['rdet'].bins) -4)
-        # "update" mode reuses an existing Postfit file, so these subdirs may
+        chi2_ndof_val = (m.fval / len(b_first.detector.ensp_nom['rdet'].bins) - 4
+                         if b_first is not None else 0.0)
+        # "update" mode reuses an existing Postfit file, so these dirs may
         # already exist from a previous run — mkdir() returns nullptr in that
         # case, which later crashes on .cd(). Reuse the existing dir if present.
-        dir_nuis = juno_dir.GetDirectory("nuisances") or juno_dir.mkdir("nuisances")
-        dir_post = juno_dir.GetDirectory("postfit") or juno_dir.mkdir("postfit")
+        for b in juno_bundles_all:
+            jname = juno_output_dirname(b.args)
+            jd = output_file.GetDirectory(jname) or output_file.mkdir(jname)
+            jd.cd()
+            write_param_dbl("chi2/ndof", chi2_ndof_val)
+            nd = jd.GetDirectory("nuisances") or jd.mkdir("nuisances")
+            pd = jd.GetDirectory("postfit") or jd.mkdir("postfit")
+            juno_shell_dirs[id(b)] = (jd, nd, pd)
     try:
         if not args_juno.silent_print:
             print("************Other parameter fit results************")
@@ -868,13 +1070,11 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 print(f"{m.parameters[i]}: {m.values[i]} +/- {m.errors[i]}")
 
             # ── Background rates per JUNO bundle ─────────────────────────────
-            # `written_nuis` dedups the ROOT nuisance writes: a nuisance that is
-            # correlated across phase/shell resolves to a single mangled Minuit
-            # name and is written once (no suffix); an uncorrelated one has a
-            # distinct mangled name per bundle and is written with the
-            # phase/shell suffix (e.g. `acc__sFV1`, `eff_pull__pP25C__sFV1`).
+            # Each shell's full nuisance set is written into its OWN
+            # juno_<shell>/nuisances folder with bare names; shared parameters
+            # (same mangled Minuit name across bundles) are duplicated into
+            # every shell folder with identical values (ORSA convention).
             print("************Background rates************")
-            written_nuis: set[str] = set()
             for b in juno_bundles_all:
                 tag_pre = (f"[{b.phase}/{b.shell}] "
                            if len(juno_bundles_all) > 1 else "")
@@ -901,14 +1101,13 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     print(f"{tag_pre}{key}: {rate_fit:.4f} ± {rate_err:.4f} cpd "
                           f"(rel unc: {rate_err/rate_fit:.3%}; "
                           f"deviation: {deviation_sigma:.2f} σ)")
-                    if args_juno.write_output and mangled not in written_nuis:
-                        written_nuis.add(mangled)
-                        suffix = mangled[len(f'bkg_{key}'):]   # '' if shared, else '__sFV1' / '__pP25C…'
+                    if args_juno.write_output:
+                        _, dir_nuis, _ = juno_shell_dirs[id(b)]
                         dir_nuis.cd()
                         if rate_unc != 0.0:
-                            write_parameter(f"{key}{suffix}", nuis/rate_unc, nuis_err/rate_unc)
+                            write_parameter(f"{key}", nuis/rate_unc, nuis_err/rate_unc)
                         else:
-                            write_parameter(f"{key}{suffix}", nuis, nuis_err)
+                            write_parameter(f"{key}", nuis, nuis_err)
 
             # ── Normalization parameters per JUNO bundle ─────────────────────
             print("************Normalization parameters************")
@@ -922,13 +1121,10 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                       f"{b.args.detector_efficiency * (1 + m.values[e_name])} "
                       f"+/- {b.args.detector_efficiency * m.errors[e_name]}")
                 if args_juno.write_output:
+                    _, dir_nuis, _ = juno_shell_dirs[id(b)]
                     dir_nuis.cd()
-                    if n_name not in written_nuis:
-                        written_nuis.add(n_name)
-                        write_parameter(f"Rflux{n_name[len('Nrea'):]}", m.values[n_name]/b.detector.args.r2_unc, m.errors[n_name]/b.detector.args.r2_unc)
-                    if e_name not in written_nuis:
-                        written_nuis.add(e_name)
-                        write_parameter(f"eff_pull{e_name[len('eff_nuis'):]}", m.values[e_name]/b.detector.args.eff_unc, m.errors[e_name]/b.detector.args.eff_unc)
+                    write_parameter("Rflux", m.values[n_name]/b.detector.args.r2_unc, m.errors[n_name]/b.detector.args.r2_unc)
+                    write_parameter("eff_pull", m.values[e_name]/b.detector.args.eff_unc, m.errors[e_name]/b.detector.args.eff_unc)
 
             # ── Shared (osc + me_rho) ────────────────────────────────────────
             print("************Shared parameters************")
@@ -978,64 +1174,71 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         pass    # cached prefit — m_pre unavailable; skip
 
             # ── ROOT writes for JUNO response ────────────────────────────────
+            # One full block per shell, into that shell's own nuisances folder.
+            # Response (a,b,c,kB,fC,kI,LY) is free per shell so each bundle's
+            # routing yields its own values; me_rho/ratio/cores are shared and
+            # therefore duplicated with identical values across shells.
             if args_juno.write_output and b_first is not None:
-                dir_nuis.cd()
-                sigma_prior = np.sqrt(np.diag(b_first.detector.covariance_er))
-
                 det_params = [("a","abc0"), ("b","abc1"), ("c","abc2"),
                               ("kB","NL0"), ("fC","NL1"), ("kI","NL2"), ("LY","NL3")]
 
-                for i, (tag, base) in enumerate(det_params):
-                    name    = juno_param(base)
-                    nominal = m.init_params[name].value
-                    dev     = (m.values[name] - nominal) / sigma_prior[i]   # element0 (pull)
-                    rel_unc =  m.errors[name]            / sigma_prior[i]   # element1 (err in σ units)
-                    write_parameter(tag, dev, rel_unc)
+                for b in juno_bundles_all:
+                    _, dir_nuis, _ = juno_shell_dirs[id(b)]
+                    dir_nuis.cd()
+                    mp = routing[id(b)]
+                    sigma_prior = np.sqrt(np.diag(b.detector.covariance_er))
 
-                write_parameter('me_rho', (m.values['me_rho'] - b_first.detector.args.me_rho) / b_first.detector.args.me_rho_scale, m.errors['me_rho']/b_first.detector.args.me_rho_scale)
-                write_parameter('ratio', (m.values['ThU_ratio'] - b_first.detector.args.Th_U_ratio) / b_first.detector.args.Th_U_ratio_err, m.errors['ThU_ratio']/b_first.detector.args.Th_U_ratio_err)
-                core_names = b_first.detector.core_names
-                if core_names is None:
-                    core_names = [f"core{i}" for i in range(b_first.detector.n_cores)]
-                for i, core_name in enumerate(core_names):
-                    tag  = _core_display_tag(core_name)
-                    name = juno_param(f"core_power{i}")
-                    write_parameter(tag, m.values[name]/b_first.detector.args.core_flux_unc, m.errors[name]/b_first.detector.args.core_flux_unc)
+                    for i, (tag, base) in enumerate(det_params):
+                        name    = mp[base]
+                        nominal = m.init_params[name].value
+                        dev     = (m.values[name] - nominal) / sigma_prior[i]   # element0 (pull)
+                        rel_unc =  m.errors[name]            / sigma_prior[i]   # element1 (err in σ units)
+                        write_parameter(tag, dev, rel_unc)
+
+                    write_parameter('me_rho', (m.values['me_rho'] - b.detector.args.me_rho) / b.detector.args.me_rho_scale, m.errors['me_rho']/b.detector.args.me_rho_scale)
+                    write_parameter('ratio', (m.values['ThU_ratio'] - b.detector.args.Th_U_ratio) / b.detector.args.Th_U_ratio_err, m.errors['ThU_ratio']/b.detector.args.Th_U_ratio_err)
+                    core_names = b.detector.core_names
+                    if core_names is None:
+                        core_names = [f"core{i}" for i in range(b.detector.n_cores)]
+                    for i, core_name in enumerate(core_names):
+                        tag  = _core_display_tag(core_name)
+                        name = mp[f"core_power{i}"]
+                        write_parameter(tag, m.values[name]/b.detector.args.core_flux_unc, m.errors[name]/b.detector.args.core_flux_unc)
 
 
-        if args_juno.write_output and output_file is not None:
-            dir_post.cd()
-            # eff_nuis is uncorrelated per (phase, shell), so the Minuit name is
-            # mangled (e.g. eff_nuis__pAllP__sS_15) — route through b_first
-            # rather than the bare 'eff_nuis' key, which doesn't exist.
-            if b_first is not None:
+        if args_juno.write_output and output_file is not None and b_first is not None:
+            from ..spectra import _build_nl_graph, _build_resolution_graph
+            # Per-shell post-fit Efficiency + NL/resolution curves, into each
+            # shell's own juno_<shell>/{postfit,response/postfit}. eff_nuis and
+            # the response params are uncorrelated per (phase, shell), so route
+            # each through that bundle's own mapping.
+            for b in juno_bundles_all:
+                jd, _, dir_post = juno_shell_dirs[id(b)]
+                mp = routing[id(b)]
+                dir_post.cd()
                 write_param_dbl("Efficiency",
-                                b_first.args.detector_efficiency
-                                * (1 + m.values[juno_param('eff_nuis')]))
+                                b.args.detector_efficiency
+                                * (1 + m.values[mp['eff_nuis']]))
 
-            # post-fit NL / resolution curves, same convention as
-            # juno/response/prefit/{nl_positron,resolution}
-            if b_first is not None:
-                from ..spectra import _build_nl_graph, _build_resolution_graph
-                resp_dir = juno_dir.GetDirectory("response") or juno_dir.mkdir("response")
+                resp_dir = jd.GetDirectory("response") or jd.mkdir("response")
                 resp_post = resp_dir.GetDirectory("postfit") or resp_dir.mkdir("postfit")
                 resp_post.cd()
                 if args_juno.NL == "pull":
                     nl_graph = _build_nl_graph(
-                        b_first.detector.ensp_nom, args_juno,
-                        NL_pulls=[m.values[juno_param(f'NL{i}')] for i in range(5)])
+                        b.detector.ensp_nom, b.args,
+                        NL_pulls=[m.values[mp[f'NL{i}']] for i in range(5)])
                 else:
                     nl_graph = _build_nl_graph(
-                        None, args_juno,
-                        kB=m.values[juno_param('NL0')],
-                        fC=m.values[juno_param('NL1')],
-                        kI=m.values[juno_param('NL2')],
-                        LY_shared=m.values[juno_param('NL3')])
+                        None, b.args,
+                        kB=m.values[mp['NL0']],
+                        fC=m.values[mp['NL1']],
+                        kI=m.values[mp['NL2']],
+                        LY_shared=m.values[mp['NL3']])
                 nl_graph.Write("", ROOT.TObject.kOverwrite)
                 _build_resolution_graph(
-                    m.values[juno_param('abc0')],
-                    m.values[juno_param('abc1')],
-                    m.values[juno_param('abc2')]).Write("", ROOT.TObject.kOverwrite)
+                    m.values[mp['abc0']],
+                    m.values[mp['abc1']],
+                    m.values[mp['abc2']]).Write("", ROOT.TObject.kOverwrite)
 
             # ── TAO post-fit response curves (tao/response/postfit) ─────────
             # In combined mode the TAO parameters live in the JUNO Minuit object
@@ -1052,7 +1255,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         return m_pre.values[pname]
                     return None    # cached prefit — best-fit values unavailable
 
-                tao_NL  = [tao_val(f"NL_tao{i}") for i in range(5)]
+                tao_NL  = [tao_val(f"NL_tao{i}") for i in range(6)]
                 tao_abc = [tao_val(f"abc_tao{i}") for i in range(3)]
                 if None not in tao_NL and None not in tao_abc:
                     tao_dir = (output_file.GetDirectory("tao")
@@ -1140,6 +1343,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         # Replay each JUNO bundle's chi2_contribution at the best-fit point
         # to obtain spectra and feed plot_fit_residuals.
         values_best = {n: m.values[n] for n in m.parameters}
+        juno_shell_results = []   # per-shell spectra for the summed plot
         for b in juno_bundles_all:
             mapping = routing[id(b)]
             def gv(base): return values_best[mapping[base]]
@@ -1193,6 +1397,27 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 eff=b.detector.args.detector_efficiency*(1+gv('eff_nuis')),
                 root_suffix=root_suffix)
 
+            # stash spectra for the summed-over-shells plot below
+            juno_shell_results.append({
+                's_tot':    s_tot_juno,
+                's_obs':    sp_obs,
+                's_signal': s_juno,
+                'bckgs':    fit_bckgs,
+                'cm':       cm_juno,
+                'ndays':    b.detector.ndays,
+                'phase':    b.phase,
+                'shell':    b.shell,
+            })
+
+        # ── summed post-fit spectrum over all JUNO shells ────────────────
+        if len(juno_shell_results) > 1:
+            plot_postfit_summed(
+                juno_shell_results, args_juno,
+                detector_label="JUNO",
+                chi2_value=m.fval,
+                ndf=len(juno_shell_results[0]['s_obs'].bins) - 4,
+                write_output=args_juno.write_output)
+
         # ── TAO / DYB replay at the best-fit point (combined mode) ───────
         # In the prefit modes these outputs are produced by
         # run_dyb_tao_prefit; in combined mode the bundles stay in the main
@@ -1205,7 +1430,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             (chi2_tao, _, s_obs_tao, s_tot_tao,
              bckg_tao, cm_tao) = tao_bundle.detector.chi2_contribution(
                 Nrea_tao=gv_tao('Nrea_tao'),
-                NL_tao=[gv_tao(f'NL_tao{i}') for i in range(5)],
+                NL_tao=[gv_tao(f'NL_tao{i}') for i in range(6)],
                 abc_tao=[gv_tao('abc_tao0'), gv_tao('abc_tao1'),
                          gv_tao('abc_tao2')],
                 snf_noneq_norm_tao=[gv_tao(f'snf_noneq_norm_tao{i}')
@@ -1385,6 +1610,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         apply_shared_limits(m_opp, args_juno, n_shape_bins=n_shape,
                             nmo_opt=not bool(args_juno.NMO_opt))
         apply_all_limits(m_opp, bundles, routing_opp)
+        m_opp.strategy = int(getattr(args_juno, 'minuit_strategy', 0))
         if args_juno.fit_type != 'PMOP_combined' or fit_mode == 'prefit_wosegs':
             for i in range(n_shape):
                 m_opp.fixed[f'nuis{i}'] = True

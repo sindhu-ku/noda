@@ -155,7 +155,7 @@ def call_detector_chi2(b: DetectorBundle, mapping: dict[str, str],
     if b.kind == 'tao':
         return float(b.detector.chi2_contribution(
             Nrea_tao = g('Nrea_tao'),
-            NL_tao   = [g(f'NL_tao{i}') for i in range(5)],
+            NL_tao   = [g(f'NL_tao{i}') for i in range(6)],
             abc_tao  = [g('abc_tao0'), g('abc_tao1'), g('abc_tao2')],
             snf_noneq_norm_tao = [g(f'snf_noneq_norm_tao{i}') for i in range(2)],
             core_power_tao = g('core_power_tao'),
@@ -201,8 +201,14 @@ def pull_dedup_correction(values_by_mangled: dict[str, float],
             # still get their shared pulls deduplicated correctly.
             continue
         for base, fn in b.detector.get_pull_defs().items():
-            mangled = routing[id(b)].get(base)
-            if mangled is None: continue
+            # Shared oscillation params (sin2_th13, dm2_31, me_rho) are NOT in
+            # get_param_names()/routing — they live in the shared Minuit block
+            # and always resolve to their bare name. build_spectrum still emits
+            # one pull per JUNO bundle, so with >1 shell/phase they MUST be
+            # deduped here; fall back to `base` (their bare mangled name) so the
+            # (N-1) over-count is removed. All other bases are in routing.
+            mangled = routing[id(b)].get(base, base)
+            if mangled not in values_by_mangled: continue
             by_mangled.setdefault(mangled, []).append((b, base, fn))
 
     correction = 0.0

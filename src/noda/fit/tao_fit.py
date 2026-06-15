@@ -101,7 +101,7 @@ class TAODetector:
     def get_param_names(self):
         """TAO-specific Minuit parameter names."""
         # NL pull: 5 parameters (same as JUNO pull mode: NL0-NL3 + LY)
-        NL_names  = [f"NL_tao{i}" for i in range(5)]
+        NL_names  = [f"NL_tao{i}" for i in range(6)]
         abc_names = ["abc_tao0", "abc_tao1", "abc_tao2"]
         return (
             ["Nrea_tao"]
@@ -117,7 +117,7 @@ class TAODetector:
     def get_start_values(self):
         """Start values matching get_param_names() order."""
         args = self.args
-        NL_start  = [0.0] * 5
+        NL_start  = [0.0] * 6
         abc_start = [args.a, args.b, args.c]
         return (
             [0.0]        # Nrea_tao
@@ -135,7 +135,7 @@ class TAODetector:
             m.limits[p] = [-1, None]
         # NL pull params: unconstrained below (pull penalty handles it)
         #for i in range(5):
-        m.limits[f"NL_tao4"] = [-1, None]
+        m.limits[f"NL_tao5"] = [-1, None]
 
         # abc: unconstrained (individual pull penalties)
         # no explicit limits needed beyond [-inf, inf]
@@ -144,7 +144,7 @@ class TAODetector:
         """Parameters to fix in the first Minuit stage."""
         return (
             ["Nrea_tao"]
-            + [f"NL_tao{i}" for i in range(5)]
+            + [f"NL_tao{i}" for i in range(6)]
             + ["abc_tao0", "abc_tao1", "abc_tao2"]
             + [f"snf_noneq_norm_tao{i}" for i in range(2)]
             + ["core_power_tao"]
@@ -231,18 +231,20 @@ class TAODetector:
                                              tf2name=args.pos_ene_TF2).ApplyDetResp(self.ene_leak, pecrop=args.ene_crop)
 
         # ── NL: always pull mode ─────────────────────────────────────────────
-        # NL_tao = [pull0, pull1, pull2, pull3, LY_pull]  (5 params)
+        # NL_tao = [pull0, pull1, pull2, pull3, pull4, LY_pull]  (6 params:
+        # 5 shape pulls + shared LY pull at index 5)
         new_nonl = Spectrum(bins=ensp['scintNL'].bins,
                             bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
         new_nonl.bin_cont = (ensp['scintNL'].bin_cont
             + NL_tao[0] * (ensp['NL_pull'][0].bin_cont - ensp['scintNL'].bin_cont)
             + NL_tao[1] * (ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)
             + NL_tao[2] * (ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont)
-            + NL_tao[3] * (ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont))
+            + NL_tao[3] * (ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont)
+            + NL_tao[4] * (ensp['NL_pull'][4].bin_cont - ensp['scintNL'].bin_cont))
         s_tao = s_tao.GetWithModifiedEnergy(mode='spectrum',
-                                             spectrum=new_nonl, LY_shared=NL_tao[4])
-        pulls.extend([NL_tao[0], NL_tao[1], NL_tao[2], NL_tao[3], NL_tao[4]])
-        pull_unc.extend([args.NL_sd] * 4)
+                                             spectrum=new_nonl, LY_shared=NL_tao[5])
+        pulls.extend([NL_tao[0], NL_tao[1], NL_tao[2], NL_tao[3],NL_tao[4], NL_tao[5]])
+        pull_unc.extend([args.NL_sd] * 5)
         pull_unc.append(args.ene_scale_unc)
 
         # ── detector response with individual abc pull penalties ──────────────
