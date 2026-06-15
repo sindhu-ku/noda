@@ -103,7 +103,8 @@ class JUNODetector:
 
         # ── per-call caches ─────────────────────────────────────────────────
         self._resp_matrix_cache    = {}
-        self._osc_cache            = {}
+        self._osc_cache            = {}   # post-positron flux, keyed by osc_key
+        self._nl_cache             = {}   # post-NL flux, keyed by (osc_key, NL)
         self._nuisance_fine_cache  = {}
         self._chi2_penalty_er_cache = {}
         self._geo_spectrum_cache   = {}
@@ -710,6 +711,14 @@ class JUNODetector:
         # (positron-energy shift now folded into the osc cache above)
 
         # ── non-linearity ────────────────────────────────────────────────────
+        # The energy-axis remap (GetWithModifiedEnergy) is ~29% of a call; it is
+        # a pure function of (post-positron flux = osc_key, NL params), so cache
+        # it by (osc_key, NL). new_nonl, the NL pulls and the ER penalty are
+        # cheap and computed UNCONDITIONALLY — new_nonl feeds the geo-pull
+        # background and the pulls/penalty feed the total chi2 — so only the
+        # expensive remap itself is skipped on a hit (every perturbation that
+        # leaves osc/core/efission/segment AND NL params unchanged: backgrounds,
+        # eff, Nrea, snf, abc, ThU).
         if NL:
             if args.NL == "pull":
                 new_nonl = Spectrum(bins=ensp['scintNL'].bins,
@@ -719,25 +728,47 @@ class JUNODetector:
                     + NL[1] * (ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)
                     + NL[2] * (ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont)
                     + NL[3] * (ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont))
-                s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum',
-                                                      spectrum=new_nonl, LY_shared=NL[4])
                 pulls.extend([NL[0], NL[1], NL[2], NL[3], NL[4]])
                 pull_unc.extend([args.NL_sd] * 4)
                 pull_unc.append(args.ene_scale_unc)
+                # Exact floats (not rounded): a non-NL perturbation passes the
+                # identical NL value, so exact equality still hits, and the
+                # cached spectrum then reproduces the no-cache result bit-for-bit.
+                nl_tag = ('pull', NL[0], NL[1], NL[2], NL[3], NL[4])
             else:
                 kB = NL[0]; fC = NL[1]; kI = NL[2]; LY_shared = NL[3]
-                s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=kB, fC=fC,
-                                                      kI=kI, LY_shared=LY_shared)
                 chi2_penalty_er = self._get_chi2_penalty_er(
                     abc[0], abc[1], abc[2], kB, fC, kI, LY_shared)
+                new_nonl = None
+                nl_tag = ('g4', kB, fC, kI, LY_shared)
         else:
-            if args.NL == "pull":
-                s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum',
-                                                      spectrum=ensp['scintNL'])
-            else:
-                s_juno = s_juno.GetWithModifiedEnergy(mode='G4',
-                    kB=args.kB, fC=args.fC, kI=args.kI, LY_shared=args.LY_shared)
             new_nonl = None  # not used below in the NL=="pull" geo branch
+            nl_tag = ('pull_nom',) if args.NL == "pull" else ('g4_nom',)
+
+        nl_key = (osc_key, nl_tag)
+        cached_nl = self._nl_cache.get(nl_key)
+        if cached_nl is not None:
+            s_juno = Spectrum(bins=cached_nl.bins, bin_cont=cached_nl.bin_cont.copy())
+        else:
+            if NL:
+                if args.NL == "pull":
+                    s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum',
+                                                          spectrum=new_nonl, LY_shared=NL[4])
+                else:
+                    s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=NL[0], fC=NL[1],
+                                                          kI=NL[2], LY_shared=NL[3])
+            else:
+                if args.NL == "pull":
+                    s_juno = s_juno.GetWithModifiedEnergy(mode='spectrum',
+                                                          spectrum=ensp['scintNL'])
+                else:
+                    s_juno = s_juno.GetWithModifiedEnergy(mode='G4', kB=args.kB, fC=args.fC,
+                                                          kI=args.kI, LY_shared=args.LY_shared)
+            if len(self._nl_cache) > 200:
+                for k in list(self._nl_cache.keys())[:100]:
+                    del self._nl_cache[k]
+            self._nl_cache[nl_key] = Spectrum(bins=s_juno.bins,
+                                              bin_cont=s_juno.bin_cont.copy())
 
         # ── detector response ────────────────────────────────────────────────
         if abc:
