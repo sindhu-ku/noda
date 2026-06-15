@@ -691,6 +691,15 @@ class JUNODetector:
                         dm2_21=dm2_21, dm2_31=dm2_31,
                         core_powers=list(core_powers_new),
                         me_rho=rho, ene_mode='true', opp=opp, args=self.args)
+            # Positron-energy mapping is a pure function of the oscillated flux,
+            # so fold it INTO the osc cache (store the post-positron spectrum).
+            # The scipy IBD positron mapping is the single biggest per-call cost
+            # (~40%); caching it here skips it on every osc-cache hit — i.e. all
+            # perturbations that leave osc/core/efission/segment params unchanged
+            # (backgrounds, eff, Nrea, NL, abc, snf), which is most gradient evals.
+            s_juno = s_juno.GetWithPositronEnergy(inputfile=args.input_data_file,
+                                                  s_ibd=self.s_ibd,
+                                                  tf2name=args.pos_ene_TF2)
             if len(self._osc_cache) > 200:
                 # FIFO eviction; Python dicts keep insertion order
                 for k in list(self._osc_cache.keys())[:100]:
@@ -698,9 +707,7 @@ class JUNODetector:
             self._osc_cache[osc_key] = Spectrum(bins=s_juno.bins,
                                                 bin_cont=s_juno.bin_cont.copy())
         #print("osc", s_juno.GetIntegral())
-        # ── positron energy shift ────────────────────────────────────────────
-        s_juno = s_juno.GetWithPositronEnergy(inputfile=args.input_data_file,s_ibd=self.s_ibd,
-                                               tf2name=args.pos_ene_TF2)
+        # (positron-energy shift now folded into the osc cache above)
 
         # ── non-linearity ────────────────────────────────────────────────────
         if NL:
