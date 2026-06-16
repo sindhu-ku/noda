@@ -44,6 +44,22 @@ def load_all(input_dir: str) -> pd.DataFrame:
         raise SystemExit(f"No fc_task_*.csv found in {input_dir}")
     print(f"[FC] reading {len(files)} files from {input_dir}")
     df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
+    # Coerce every non-'mode' column to numeric. A single malformed cell (empty
+    # / 'nan' / partial write from a crashed toy) otherwise makes the whole
+    # column object-dtype, which blows up np.isfinite ("ufunc 'isfinite' not
+    # supported"). errors='coerce' turns bad cells into NaN so the downstream
+    # isfinite/valid filters simply drop them.
+    bad_before = {}
+    for c in df.columns:
+        if c == 'mode':
+            continue
+        coerced = pd.to_numeric(df[c], errors='coerce')
+        n_bad = int(coerced.isna().sum() - df[c].isna().sum())
+        if n_bad > 0:
+            bad_before[c] = n_bad
+        df[c] = coerced
+    if bad_before:
+        print(f"[FC] WARNING: non-numeric cells coerced to NaN (dropped): {bad_before}")
     print(f"[FC] loaded {len(df)} rows; modes: {df['mode'].unique()}")
     return df
 
@@ -94,6 +110,22 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
         best_idx = int(np.argmin(ts_int))
         best_dm31 = float(x_fine[best_idx])
 
+        # ===== parabolic refinement of the minimum (match pedro.py) ==========
+        # Fit a parabola through the 3 points around the discrete min and take
+        # its vertex, for a sub-grid-precise best fit. Falls back to the
+        # discrete min at the edges or if degenerate.
+        i = best_idx
+        if 0 < i < len(x_fine) - 1:
+            x1, x2, x3 = x_fine[i-1], x_fine[i], x_fine[i+1]
+            y1, y2, y3 = ts_int[i-1], ts_int[i], ts_int[i+1]
+            denom = (x1 - x2) * (x1 - x3) * (x2 - x3)
+            if denom != 0:
+                A = (x3*(y2-y1) + x2*(y1-y3) + x1*(y3-y2)) / denom
+                B = (x3*x3*(y1-y2) + x2*x2*(y3-y1) + x1*x1*(y2-y3)) / denom
+                if A != 0:
+                    best_dm31 = float(-B / (2*A))
+        # ====================================================================
+
         print(f"\n  {label} hypothesis: best fit = {best_dm31:.4f} × 1e-3 eV²")
 
         if no:
@@ -105,7 +137,7 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
         x_lo, x_hi = sign * 2.1, sign * 2.9
 
         fig, ax = plt.subplots(figsize=(5, 4))
-        axins = ax.inset_axes([0.65, 0.6, 0.3, 0.3])
+        axins = ax.inset_axes([0.55, 0.6, 0.3, 0.3])
 
         # ── helper: find connected crossing interval around best fit ─────────
         def find_interval(x, ts_shifted, best_x):
@@ -136,8 +168,10 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
         print(c)
         for cl, ls in zip(cls, ['-']):
             col = f'crit_{int(cl*1e4):04d}'
+            avg_crit = float(np.mean(c[col]))   # mean FC critical chi2 over the scan
             ax.plot(c['true_dm31'], c[col], color='black', linestyle=':', marker='o',
-                    markersize=3, label=f'FC crit. {cl*100:.2f}%')
+                    markersize=3,
+                    label=fr'FC crit. {cl*100:.2f}% ($\langle\chi^2\rangle$={avg_crit:.2f})')
             axins.plot(c['true_dm31'], c[col], color='black', linestyle=':', marker='o',
                        markersize=3)
 
@@ -319,12 +353,65 @@ def analyze_nmo_significance(df: pd.DataFrame, out_dir: str, T_obs: float = None
     print(f"Current crossings: {crossings}/{len(T_IO)}")
     print(f"Estimated toys needed for 100 crossings: {toys_for_100}")
     print(f"Estimated jobs still needed: {max(0, toys_for_100 - len(T_IO)) // 50}")
+def plot_nmo_gaussian_comparison(df: pd.DataFrame, out_dir: str):
+    """
+    Overlay a Gaussian (built from each distribution's own median and width)
+    on the two NMO test-statistic histograms, purely to show that the T|NO
+    and T|IO distributions are NOT Gaussian / symmetric.
+
+    Deliberately minimal: just the two histograms and their matching
+    Gaussians — no median lines, no T_obs, no significance numbers.
+    """
+    from scipy.stats import norm
+
+    sub = df[df['mode'] == 'nmo'].copy()
+    valid = sub[(sub['NO_valid'] == 1) & (sub['IO_valid'] == 1)
+                & np.isfinite(sub['chi2_NO']) & np.isfinite(sub['chi2_IO'])].copy()
+    if valid.empty:
+        print("[FC] no valid NMO toys — skipping gaussian comparison")
+        return
+
+    valid['T_signed'] = valid['chi2_IO'] - valid['chi2_NO']
+    T_NO = valid.loc[valid['true_NO'] == 1, 'T_signed'].values
+    T_IO = valid.loc[valid['true_NO'] == 0, 'T_signed'].values
+    if not len(T_NO) or not len(T_IO):
+        print("[FC] need toys under BOTH orderings — skipping gaussian comparison")
+        return
+
+    lo  = min(T_NO.min(), T_IO.min())
+    hi  = max(T_NO.max(), T_IO.max())
+    bins = np.linspace(lo, hi, 70)
+    x    = np.linspace(lo, hi, 500)
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+    for T, color, label in ((T_NO, 'C0', 'True NO'),
+                            (T_IO, 'C3', 'True IO')):
+        # Gaussian uses the distribution's OWN median (location) and width.
+        mu    = float(np.median(T))
+        sigma = float(np.std(T))
+        ax.hist(T, bins=bins, density=True, alpha=0.4, color=color, label=label)
+        if sigma > 0:
+            ax.plot(x, norm.pdf(x, mu, sigma), color=color, lw=2)
+
+    ax.set_title(r'NMO Test Statistic ($T = \chi^2_{IO} - \chi^2_{NO}$)')
+    ax.set_xlabel(r'$T$')
+    ax.set_ylabel('Density')
+    ax.legend(loc='upper right', fontsize=10)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "fc_nmo_gaussian_comparison.png"), dpi=300)
+    plt.close(fig)
+    print(f"[FC] saved {os.path.join(out_dir, 'fc_nmo_gaussian_comparison.png')}")
+
+
 def main():
     args = parse()
     os.makedirs(args.output_dir, exist_ok=True)
     cls = [float(x) for x in args.cls.split(',')]
     df = load_all(args.input_dir)
 
+    if 'nmo' in df['mode'].unique():
+        plot_nmo_gaussian_comparison(df, args.output_dir)
     if args.t_obs_nmo:
         analyze_nmo_significance(df, args.output_dir, T_obs=args.t_obs_nmo)
     if args.observed_root:
