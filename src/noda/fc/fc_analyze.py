@@ -51,7 +51,7 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
     # 1. Filter valid toys
     sub = df[df['mode'] == 'dm31'].copy()
     valid = sub[(sub['free_valid'] == 1) & (sub['fix_valid'] == 1)
-                & np.isfinite(sub['TS_dm31']) & (sub['TS_dm31'] >= 0)]
+                 & (sub['TS_dm31'] >= 0)]
     if valid.empty:
         return
     print(f"Valid toys: {len(valid)}/{len(sub)}")
@@ -71,7 +71,7 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
     crit = pd.DataFrame(crit_rows).sort_values(['true_NO', 'true_dm31'])
 
     # 3. Load the fine data profile directly from the ROOT file
-    with uproot.open(f"{observed_root}:profiles/dm2_31") as graph:
+    with uproot.open(f"{observed_root}:profiles/chi2_profile") as graph:
         x_vals, y_vals = graph.values()
         obs = pd.DataFrame({'true_dm31': x_vals, 'TS_obs': y_vals})
         obs['true_NO'] = obs['true_dm31'].mean() > 0
@@ -98,12 +98,14 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
 
         if no:
             sign = 1.0
+            color='steelblue'
         else:
             sign = -1.0
+            color='brown'
         x_lo, x_hi = sign * 2.1, sign * 2.9
 
         fig, ax = plt.subplots(figsize=(5, 4))
-        #axins = ax.inset_axes([0.65, 0.6, 0.3, 0.3])
+        axins = ax.inset_axes([0.65, 0.6, 0.3, 0.3])
 
         # ── helper: find connected crossing interval around best fit ─────────
         def find_interval(x, ts_shifted, best_x):
@@ -134,46 +136,46 @@ def plot_fc_interval(df: pd.DataFrame, observed_root: str, cls, out_dir: str):
         print(c)
         for cl, ls in zip(cls, ['-']):
             col = f'crit_{int(cl*1e4):04d}'
-            ax.plot(c['true_dm31'], c[col], color='steelblue', linestyle=':', marker='o',
+            ax.plot(c['true_dm31'], c[col], color='black', linestyle=':', marker='o',
                     markersize=3, label=f'FC crit. {cl*100:.2f}%')
-            # axins.plot(c['true_dm31'], c[col], color='steelblue', linestyle=':', marker='o',
-            #            markersize=3)
+            axins.plot(c['true_dm31'], c[col], color='black', linestyle=':', marker='o',
+                       markersize=3)
 
             crit_int = np.interp(x_fine, c['true_dm31'], c[col])
             lo_fc, hi_fc = find_interval(x_fine, ts_int - crit_int, best_dm31)
 
             if lo_fc is not None and hi_fc is not None:
-                ax.axvspan(lo_fc, hi_fc, color='darkred', alpha=0.06)
-                #axins.axvspan(lo_fc, hi_fc, color='darkred', alpha=0.06)
+                ax.axvspan(lo_fc, hi_fc, color=color, alpha=0.06)
+                axins.axvspan(lo_fc, hi_fc, color=color, alpha=0.06)
 
                 up_err  = np.round(hi_fc - best_dm31, 4)
                 low_err = np.round(best_dm31 - lo_fc, 4)
                 print(f"    FC {cl*100:.2f}% CL: [{lo_fc:.4f}, {hi_fc:.4f}]   "
                       f"(+{up_err:.4f}/-{low_err:.4f})")
-                ax.axvline(best_dm31, color='darkred', ls='-', lw=1,
+                ax.axvline(best_dm31, color=color, ls='-', lw=1,
                            label=fr"best fit = {best_dm31:.3f}$^{{+{up_err:.3f}}}_{{-{low_err:.3f}}}$")
-                #axins.axvline(best_dm31, color='darkred', ls='-', lw=1)
+                axins.axvline(best_dm31, color=color, ls='-', lw=1)
             elif lo_fc is None:
                 print(f"    FC {cl*100:.2f}% CL: no left crossing found")
             else:
                 print(f"    FC {cl*100:.2f}% CL: no right crossing found")
 
         # ── observed profile ──────────────────────────────────────────────────
-        ax.plot(o['true_dm31'], o['TS_obs'], '-', color='darkred', lw=2,
+        ax.plot(o['true_dm31'], o['TS_obs'], '-', color=color, lw=2,
                 label='observed profile')
-        # axins.plot(o['true_dm31'], o['TS_obs'], '-', color='darkred', lw=2)
+        axins.plot(o['true_dm31'], o['TS_obs'], '-', color=color, lw=2)
 
-        # # ── inset formatting ──────────────────────────────────────────────────
-        # axins.set_xlim(x_lo, x_hi)
-        # axins.set_ylim(0, 5)
-        # axins.tick_params(labelsize=6)
-        # axins.grid(alpha=0.3)
+        # ── inset formatting ──────────────────────────────────────────────────
+        axins.set_xlim(x_lo, x_hi)
+        axins.set_ylim(0, 2)
+        axins.tick_params(labelsize=6)
+        axins.grid(alpha=0.3)
 
         ax.set_xlabel(fr'$\Delta m^2_{{31}}\ (\times 10^{{-3}}\ \mathrm{{eV}}^2)$')
         ax.set_ylabel(fr'$\Delta\chi^2$')
         ax.set_title(f'FC interval — {label} hypothesis')
-        #ax.set_xlim(x_lo, x_hi)
-        #ax.set_ylim(0, 50)
+        ax.set_xlim(x_lo, x_hi)
+        ax.set_ylim(0, 50)
         ax.legend(loc='upper left', fontsize=9)
         ax.grid(alpha=0.3)
         fig.tight_layout()
@@ -187,8 +189,8 @@ def analyze_nmo_significance(df: pd.DataFrame, out_dir: str, T_obs: float = None
     from scipy.stats import norm
 
     sub = df[df['mode'] == 'nmo'].copy()
-    valid = sub[(sub['NO_valid'] == 1) & (sub['IO_valid'] == 1)
-                & np.isfinite(sub['chi2_NO']) & np.isfinite(sub['chi2_IO'])].copy()
+    valid = sub[(sub['NO_valid'] == 1) & (sub['IO_valid'] == 1)]
+       #         & np.isfinite(sub['chi2_NO']) & np.isfinite(sub['chi2_IO'])].copy()
     
     if valid.empty:
         print("[FC] no valid NMO toys")
