@@ -314,6 +314,34 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
         output_name=output_name,
     )
 
+# Post-fit background display-name -> short histogram key (matches the per-shell
+# names written by plot_fit_residuals_all).
+_BCKG_NAME_TO_KEY = {
+    "Accidentals": "acc", "Geoneutrinos": "geo",
+    r"$^{9}$Li / $^{8}$He": "lihe", "Fast neutrons": "fastn",
+    "Double neutrons": "doublen",
+    r"$^{13}$C ($\alpha$, n) $^{16}$O": "alphan",
+    "Atmospheric neutrinos": "atm", "World reactor neutrinos": "wr",
+    r"$^{214}$Bi": "bipo",
+}
+
+
+def _rebin_to(coarse_edges, fine_edges, fine_cont):
+    """Sum fine-bin contents into a coarser (aligned, subset-edge) grid.
+
+    Each fine bin is assigned to the coarse bin containing its centre, so this
+    works for non-uniform binnings as long as the coarse edges are (close to) a
+    subset of the fine edges. Returns an array of len(coarse_edges)-1."""
+    coarse_edges = np.asarray(coarse_edges, float)
+    centers = 0.5 * (np.asarray(fine_edges, float)[:-1] + np.asarray(fine_edges, float)[1:])
+    idx = np.searchsorted(coarse_edges, centers, side='right') - 1
+    out = np.zeros(len(coarse_edges) - 1)
+    for i, c in zip(idx, np.asarray(fine_cont, float)):
+        if 0 <= i < len(out):
+            out[i] += c
+    return out
+
+
 def plot_postfit_summed(shell_results, args,
                         *,
                         detector_label="JUNO",
@@ -485,13 +513,83 @@ def plot_postfit_summed(shell_results, args,
         # equivalent; keep it in a clearly-named top-level folder so it does
         # not collide with the per-shell juno_inner / juno_outer dirs.
         sum_dir = "juno_summed" if detector_label == "JUNO" else detector_label.lower()
-        s_tot_sum = Spectrum(bin_cont=fit_vals, bins=ref_bins)
-        s_tot_sum.WritetoROOT("totalpred", output_file,
-                              directory=f"{sum_dir}/postfit")
-        if np.any(sig_vals):
-            s_sig_sum = Spectrum(bin_cont=sig_vals, bins=ref_bins)
-            s_sig_sum.WritetoROOT("reactor", output_file,
-                                  directory=f"{sum_dir}/postfit")
+
+        # Shells can sit on different reco grids (e.g. inner finer than outer).
+        # Pick the COARSEST grid and rebin every (finer) shell down to it, so the
+        # shells sum without double counting. This is what makes the summed
+        # totalpred/reactor/backgrounds true inner+outer sums rather than the
+        # first shell only.
+        coarse = min((r['s_tot'].bins for r in shell_results), key=len)
+
+        def _sum_shells(getter):
+            tot = np.zeros(len(coarse) - 1)
+            for r in shell_results:
+                spec = getter(r)
+                if spec is None:
+                    continue
+                b = spec.bins
+                if len(b) == len(coarse) and np.allclose(b, coarse, rtol=0, atol=1e-9):
+                    tot = tot + spec.bin_cont
+                else:
+                    tot = tot + _rebin_to(coarse, b, spec.bin_cont)
+            return tot
+
+        Spectrum(bin_cont=_sum_shells(lambda r: r['s_tot']), bins=coarse).WritetoROOT(
+            "totalpred", output_file, directory=f"{sum_dir}/postfit")
+        if any(r.get('s_signal') is not None for r in shell_results):
+            Spectrum(bin_cont=_sum_shells(lambda r: r.get('s_signal')), bins=coarse).WritetoROOT(
+                "reactor", output_file, directory=f"{sum_dir}/postfit")
+        # Summed observed data at {sum_dir}/data (mirrors the per-shell
+        # juno_<shell>/data location); only when fitting real data, as per shell.
+        if getattr(args, 'is_data', False):
+            Spectrum(bin_cont=_sum_shells(lambda r: r.get('s_obs')), bins=coarse).WritetoROOT(
+                "data", output_file, directory=sum_dir)
+
+        # Summed background components, written like totalpred/reactor. JUNO only
+        # (its bckgs is a {display-name: Spectrum} dict; TAO/DYB differ).
+        if detector_label == "JUNO":
+            bkeys = []
+            for r in shell_results:
+                for k in (r.get('bckgs') or {}):
+                    if k not in bkeys:
+                        bkeys.append(k)
+            n_written = 0
+            for k in bkeys:
+                short = _BCKG_NAME_TO_KEY.get(k)
+                if not short:
+                    continue
+                cont = _sum_shells(lambda r, k=k: (r.get('bckgs') or {}).get(k))
+                Spectrum(bin_cont=cont, bins=coarse).WritetoROOT(
+                    short, output_file, directory=f"{sum_dir}/postfit")
+                n_written += 1
+            print(f"[write] {sum_dir}/postfit: summed totalpred, reactor + "
+                  f"{n_written} backgrounds on the {len(coarse) - 1}-bin grid")
+
+            # Combined livetime + efficiency into juno_summed (mirrors the
+            # per-shell juno_<shell>/LivetimeDays and postfit/Efficiency). The
+            # shells share the SAME livetime (same exposure), so it is taken
+            # once -- not summed. Each shell's efficiency is its fraction of the
+            # whole detector, so the combined detector efficiency is their SUM.
+            lts  = [r['ndays'] for r in shell_results if r.get('ndays')]
+            effs = [r['eff_postfit'] for r in shell_results
+                    if r.get('eff_postfit') is not None]
+            wf = ROOT.TFile(output_file, "update")
+            d  = wf.GetDirectory(sum_dir) or wf.mkdir(sum_dir)
+            if lts:
+                lt = lts[0]
+                if not all(abs(x - lt) < 1e-6 for x in lts):
+                    print(f"[write] WARNING: shells have different livetimes "
+                          f"{lts}; storing the first in {sum_dir}/LivetimeDays")
+                d.cd()
+                write_param_dbl("LivetimeDays", float(lt))
+            if effs:
+                dpost = d.GetDirectory("postfit") or d.mkdir("postfit")
+                dpost.cd()
+                write_param_dbl("Efficiency", float(sum(effs)))
+            force_vector_streamers(wf)
+            wf.Close()
+            print(f"[write] {sum_dir}: LivetimeDays={lts[0] if lts else '--'}, "
+                  f"postfit Efficiency={sum(effs) if effs else '--'}")
 
 def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                        args_juno, args_dyb, args_tao, ndays_dyb, ndays_tao, dyb_exp, tao_exp, ibd_prefit):
@@ -1407,6 +1505,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 'ndays':    b.detector.ndays,
                 'phase':    b.phase,
                 'shell':    b.shell,
+                'eff_postfit': b.detector.args.detector_efficiency * (1 + gv('eff_nuis')),
             })
 
         # ── summed post-fit spectrum over all JUNO shells ────────────────

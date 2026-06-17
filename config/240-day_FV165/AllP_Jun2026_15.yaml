@@ -24,6 +24,10 @@ fit_options:
   profile_dm2_31: true
   profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
   profile_points: 1000
+  profile_nchunks: 1        # number of dm2_31 sub-ranges to split the scan into
+  profile_chunk: 0          # which chunk this job does (0 .. nchunks-1)
+  profile_csv: ''           # raw (dm2_31,chi2) output CSV for this chunk
+  profile_make_graph: true  # set 0 in chunk jobs (graph built by combine step)
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: true

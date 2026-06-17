@@ -211,7 +211,7 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
         n_points = len(dm2_fine)
         graph    = ROOT.TGraph(n_points,
                                dm2_fine.astype(float),
-                               delta_chi2_smooth.astype(float))
+                               chi2_smooth.astype(float))
         graph.SetName("chi2_profile" if conditional else "dm2_31")
         graph.SetMarkerStyle(2)
         out_file = ROOT.TFile(
