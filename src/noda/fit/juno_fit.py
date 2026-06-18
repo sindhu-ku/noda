@@ -400,8 +400,8 @@ class JUNODetector:
                 rm = CalcRespMatrix_abc(
                     a, b, c, escale=1, ebins=self.fine_bins, pebins=self.fine_bins)
             self._resp_matrix_cache[key] = rm
-            if len(self._resp_matrix_cache) > 16:
-                for k in list(self._resp_matrix_cache.keys())[:8]:
+            if len(self._resp_matrix_cache) > 6:
+                for k in list(self._resp_matrix_cache.keys())[:3]:
                     if k != key:
                         del self._resp_matrix_cache[k]
         return rm
@@ -592,22 +592,16 @@ class JUNODetector:
             # fit gets the measurement and the wrong one the f_lbl projection).
             t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl_NO' if dm2_31 > 0 else 'lbl_IO')
             if t_lbl is not None:
-                dm2_31_lbl = t_lbl
+                dm2_31_lbl, lbl_err = t_lbl, args.dm2_31_lbl_err
             else:
-                # Data path: project the fixed LBL central to this fit ordering.
-                from .minuit import f_lbl
-                th23_lbl = nuosc.op_nom.get('theta23', args.theta23)
-                dcp_lbl  = nuosc.op_nom.get('dcp',     args.dcp)
-                # SOLAR params: data best fit (set on args), else current fit vals.
-                s12_lbl  = getattr(args, 'sin2_th12_lbl', None)
-                s12_lbl  = s12_lbl if s12_lbl is not None else sin2_12
-                dm21_lbl = getattr(args, 'dm2_21_lbl', None)
-                dm21_lbl = dm21_lbl if dm21_lbl is not None else dm2_21
-                dm2_31_lbl = f_lbl(args.dm2_31_lbl, s12_lbl, sin2_13,
-                                   dm21_lbl, th23_lbl, dcp_lbl, ordering)
+                # Data path: direct IO measurement if configured, else project
+                # the fixed LBL central to this fit ordering (see lbl_pull_target).
+                from .minuit import lbl_pull_target
+                dm2_31_lbl, lbl_err = lbl_pull_target(
+                    args, ordering, sin2_12, sin2_13, dm2_21)
 
             pulls.append(dm2_31 - dm2_31_lbl)
-            pull_unc.append(args.dm2_31_lbl_err)
+            pull_unc.append(lbl_err)
 
         # ── core powers ─────────────────────────────────────────────────────
         if len(core_powers_delta):

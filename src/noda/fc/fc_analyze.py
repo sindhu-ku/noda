@@ -324,7 +324,8 @@ def analyze_nmo_significance(df: pd.DataFrame, out_dir: str, T_obs: float = None
                 f"Reject NO: {s1_exp_IO:.2f}σ / {s2_exp_IO:.2f}σ")
     if T_obs is not None:
         sig_text += (f"\n\nObserved Significance:\n"
-                     f"Reject IO: {s1_obs_IO:.2f}σ / {s2_obs_IO:.2f}σ")
+                     f"Reject IO: {s1_obs_IO:.2f}σ / {s2_obs_IO:.2f}σ\n"
+                     f"Reject NO: {s1_obs_NO:.2f}σ / {s2_obs_NO:.2f}σ")
     
     ax.text(0.02, 0.97, sig_text, transform=ax.transAxes, verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8), fontsize=9)

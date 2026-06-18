@@ -177,8 +177,8 @@ class TAODetector:
                 rm = RespMatrix(data=resp_matrix.data,
                                 ebins=self.fine_bins, pebins=self.fine_bins)
             self._resp_matrix_cache[key] = rm
-            if len(self._resp_matrix_cache) > 16:
-                for k in list(self._resp_matrix_cache.keys())[:8]:
+            if len(self._resp_matrix_cache) > 6:
+                for k in list(self._resp_matrix_cache.keys())[:3]:
                     if k != key:
                         del self._resp_matrix_cache[k]
         return rm

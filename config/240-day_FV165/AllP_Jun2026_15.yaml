@@ -6,7 +6,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: DYB #PDG option
+  PDG_opt: NuFitLBL #PDG option
   NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
@@ -31,9 +31,15 @@ fit_options:
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: true
-  pull_dm2_31_lbl: false #false
+  pull_dm2_31_lbl: true #false
   dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
   dm2_31_lbl: 2.517e-03 #0.0025043000
+  # Optional: independent NuFit IO best-fit |dm2_31| for the DATA fit. When set,
+  # the IO hypothesis uses this directly instead of projecting dm2_31_lbl via
+  # f_lbl; comment both out to revert to the projection. (NO always uses
+  # dm2_31_lbl above.) FC toys are unaffected.
+  dm2_31_lbl_IO: 2.408e-03
+  dm2_31_lbl_err_IO: 0.0275e-03
   theta23: 48.6
   dcp: 285
   lin_resp: True

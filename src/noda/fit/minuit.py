@@ -108,6 +108,31 @@ def f_lbl(dm2_31, sin2_12, sin2_13, dm2_21, theta23, dcp, ordering):
         return -dm2_31 + term
 
 
+def lbl_pull_target(args, ordering, sin2_12, sin2_13, dm2_21):
+    """(center, sigma) for the LBL dm2_31 Gaussian pull, in SIGNED dm2_31.
+
+    NO -> configured dm2_31_lbl (positive), error dm2_31_lbl_err.
+    IO -> if an independent IO measurement is configured (dm2_31_lbl_IO, and
+          optionally dm2_31_lbl_err_IO) use it DIRECTLY as -|value| with that
+          error; otherwise PROJECT the NO central onto IO via f_lbl (legacy
+          behaviour), keeping dm2_31_lbl_err. theta23/dcp and the LBL solar
+          params come from args / nuosc.op_nom (the data best-fit solar set on
+          args when available). Data-fit path only; FC toys keep their own
+          per-ordering precomputed centrals."""
+    err = args.dm2_31_lbl_err
+    if ordering == "IO":
+        direct = getattr(args, 'dm2_31_lbl_IO', None)
+        if direct is not None:
+            return -abs(direct), (getattr(args, 'dm2_31_lbl_err_IO', None) or err)
+    th23 = nuosc.op_nom.get('theta23', args.theta23)
+    dcp  = nuosc.op_nom.get('dcp',     args.dcp)
+    s12  = getattr(args, 'sin2_th12_lbl', None)
+    s12  = s12 if s12 is not None else sin2_12
+    dm21 = getattr(args, 'dm2_21_lbl', None)
+    dm21 = dm21 if dm21 is not None else dm2_21
+    return f_lbl(args.dm2_31_lbl, s12, sin2_13, dm21, th23, dcp, ordering), err
+
+
 def write_parameter(name, val, err):
     vec    = ROOT.TVectorD(2)
     vec[0] = val
