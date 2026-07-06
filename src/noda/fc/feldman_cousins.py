@@ -483,36 +483,69 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
                     initial_fits: dict,
                     prefit_cache: dict) -> dict:
     """
-    One toy for the NMO test. Toy generated under `true_NO`. JUNO is then fit
+    One toy for the NMO test (DocDB 12937 procedure). Toy generated under
+    `true_NO` at the combined (JUNO+DYB) data best fit stored in
+    `initial_fits`: dm²₃₁ AND all other parameters start from the free-fit
+    values under the true ordering, with nuisances sampled around them
+    (shape nuisances via the prefit covariance, the rest via their nominal
+    priors) before Poisson-fluctuating the observation. JUNO is then fit
     once with NO and once with IO. T = chi²_IO - chi²_NO (> 0 favours NO).
 
-    The auxiliary dm²₃₁ pull is fluctuated around the *data* best fit under
-    `true_NO` (from `initial_fits`), not the Asimov/PDG truth.
+    The auxiliary dm²₃₁ pull(s) fluctuate around the same data best fit;
+    the wrong-ordering pull centres are projected via f_dyb/f_lbl inside
+    sample_aux_dm2_31.
     """
     fits_start = datetime.now()
 
     rng = np.random.default_rng(seed)
     args_juno_truth = setups[0]['args_juno']
     nuosc.SetOscillationParameters(opt=args_juno_truth.PDG_opt, NO=true_NO)
-    true_phys = nuosc.op_nom['dm2_31']   # physical eV², signed by NMO below
 
-    # Asimov-based toys (no nuisance sampling needed for NMO sensitivity)
+    # Combined data best fit under the true ordering (free-fit value stored by
+    # fc_observed; 'true_dm31' is signed, in Minuit 1e-3 eV² units). This is
+    # the toy-generation truth AND the centre of the aux dm²₃₁ pulls.
+    fit_data          = initial_fits['grid_best_fits'][int(true_NO)]
+    central_values    = fit_data['values']
+    data_bestfit_phys = fit_data['true_dm31'] * 1e-3   # signed physical eV²
+
+    shape_param_names     = get_shape_nuis_names(n_shape_of(args_juno_truth))
+    nominal_uncertainties = initial_fits['nominal_uncertainties']
+    for name in initial_fits['param_names']:
+        base = base_param(name)
+        if base.startswith('efiss'):
+            nominal_uncertainties[name] = args_juno_truth.efission_err[int(base[-1])]*1e-2
+
+    sample = sample_nuisances(
+        rng,
+        central=central_values,
+        param_names=initial_fits['param_names'],
+        prefit_cov=prefit_cache.get('nuis_cov') if prefit_cache else None,
+        shape_param_names=shape_param_names,
+        truncate_below_zero=initial_fits['truncate_below_zero'],
+        truncate_below_mone=initial_fits['truncate_below_mone'],
+        nominal_uncertainties=nominal_uncertainties)
+
+    # ── one toy observation per phase/shell, from the SAME sample ────────────
     toy_obs_list = []
     for b in truth_bundles:
-        asimov = build_juno_asimov(
-            b.detector, b.args, b.backgrounds,
-            true_dm2_31=true_phys, true_NO=true_NO)
-        toy_obs_list.append(fluctuate_poisson(asimov, rng))
+        resolve = make_resolver(policy, b.phase, b.shell)
+        if b.args.NL == "real":
+            er_sample = sample_er_nuisances(rng, central_values,
+                                            b.detector.covariance_er, resolve)
+            sample.update(er_sample)
+        pred = build_juno_from_sampled(
+            b.detector, b.args, b.backgrounds, sample,
+            true_dm2_31=data_bestfit_phys, true_NO=true_NO, resolve=resolve)
+        toy_obs_list.append(fluctuate_poisson(pred, rng))
 
-    # Auxiliary dm²₃₁ measurement fluctuates around the data best fit under the
-    # true ordering (free-fit value stored by fc_observed, in Minuit 1e-3 eV²).
-    data_bestfit_phys = initial_fits['grid_best_fits'][int(true_NO)]['true_dm31'] * 1e-3
+    # Auxiliary dm²₃₁ pull centres: true-ordering value sampled from a Gaussian
+    # around the data best fit; wrong-ordering value projected via f_dyb/f_lbl.
     toy_dm2_31 = sample_aux_dm2_31(rng, args_juno_truth, true_NO,
                                    centre_phys=data_bestfit_phys)
 
-    # True physical dm²₃₁ for each ordering (scan centre)
-    true_phys_NO = +abs(true_phys)
-    true_phys_IO = -abs(true_phys)
+    # Scan centre for maybe_refit, one per fit ordering
+    true_phys_NO = +abs(data_bestfit_phys)
+    true_phys_IO = -abs(data_bestfit_phys)
 
     # ── IO fit + refit ────────────────────────────────────────────────────────
     fit_IO, cost_fn_IO = run_one_toy_fit(
