@@ -65,7 +65,12 @@ def SetOscFormula(opt='default'):
   print(" # Oscillation formula set to '{}'".format(opt))
 
 # ─── module-level rebin caches ───────────────────────────────────────────
-_REBIN_MATRIX_CACHE = {}
+# Bounded LRU: energy-scale/NL nuisances shift the input bin edges, so in a
+# fit/MCMC almost every eval produces NEW keys (~4 x 1.4 MB matrices/eval);
+# unbounded this leaks ~5 MB per chi2 eval.
+from collections import OrderedDict
+_REBIN_MATRIX_CACHE = OrderedDict()
+_REBIN_MATRIX_CACHE_MAX = 64
 _NONUNIFORM_BINS_CACHE = {}
 
 def _build_rebin_matrix(in_bins, out_bins):
@@ -90,6 +95,10 @@ def _build_rebin_matrix(in_bins, out_bins):
         overlap    = np.clip(overlap_hi - overlap_lo, 0.0, None)
         W = overlap / in_w[None, :]
         _REBIN_MATRIX_CACHE[key] = W
+        while len(_REBIN_MATRIX_CACHE) > _REBIN_MATRIX_CACHE_MAX:
+            _REBIN_MATRIX_CACHE.popitem(last=False)
+    else:
+        _REBIN_MATRIX_CACHE.move_to_end(key)
     return W
 
 

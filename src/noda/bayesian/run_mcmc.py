@@ -441,6 +441,7 @@ def main(argv=None):
         pool = mp.get_context('fork').Pool(cli.ncores, maxtasksperchild=400)
 
         _nbatch = [0]
+        _next_rss = [0.0]
 
         def _rss_mb(pid):
             try:
@@ -454,7 +455,8 @@ def main(argv=None):
 
         def map_fn(_f, xs):
             _nbatch[0] += 1
-            if _nbatch[0] % 200 == 1:      # memory growth curve for the logs
+            if time.time() >= _next_rss[0]:  # memory growth curve for the logs
+                _next_rss[0] = time.time() + 300
                 w = [_rss_mb(p.pid) for p in pool._pool]
                 print(f"[MCMC] rss MB after {_nbatch[0]-1} batches: "
                       f"parent={_rss_mb(os.getpid())} workers={sum(w)} "
