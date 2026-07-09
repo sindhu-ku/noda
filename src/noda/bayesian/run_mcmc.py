@@ -43,6 +43,23 @@ os.environ.setdefault('OMP_NUM_THREADS', '1')
 # avoids ncores x ncores oversubscription while the pool samples
 os.environ.setdefault('NUMBA_NUM_THREADS', '1')
 
+# Every chi2 eval allocates and frees ~10-30 MB of large numpy temporaries
+# (fine x fine response-matrix combinations). glibc's dynamic mmap threshold
+# migrates those onto the brk heap, where small long-lived cache entries pin
+# the freed blocks: each pool worker's RSS then ratchets by MBs per eval and
+# the condor cgroup counts every freed-but-held page (observed: 102 GB on a
+# 5-core CNAF job in ~5 min of sampling). Pinning M_MMAP_THRESHOLD makes all
+# >128 KB allocations mmap-backed so free() returns them to the OS; the
+# mmap/page-fault cost is negligible against a >=60 ms eval. Set before the
+# pool fork so every worker inherits it.
+try:
+    import ctypes
+    _libc = ctypes.CDLL("libc.so.6", use_errno=True)
+    _libc.mallopt(-3, 131072)    # M_MMAP_THRESHOLD (also disables dynamic adj)
+    _libc.mallopt(-1, 131072)    # M_TRIM_THRESHOLD
+except Exception:
+    pass
+
 import argparse
 import multiprocessing as mp
 import time
@@ -408,9 +425,40 @@ def main(argv=None):
     pool = None
     map_fn = None
     if cli.ncores > 1:
-        pool = mp.get_context('fork').Pool(cli.ncores)
+        # CPython dirties COW pages just by *reading* inherited objects
+        # (refcounts + GC header bits), so each fork worker slowly privatises
+        # the ~GB fit image. Freeze the fully-built heap into the permanent
+        # generation so the cyclic GC never walks (and never dirties) it —
+        # workers keep GC for their own new allocations.
+        import gc
+        gc.collect()
+        gc.freeze()
+        # maxtasksperchild: hard upper bound on per-worker RSS growth from
+        # glibc heap ratcheting (each eval frees ~10-30 MB of large numpy
+        # temporaries that malloc may keep; the freed-but-held pages count
+        # against the condor cgroup). Recycling re-forks from the parent
+        # image, so respawn is cheap and only the worker caches go cold.
+        pool = mp.get_context('fork').Pool(cli.ncores, maxtasksperchild=400)
+
+        _nbatch = [0]
+
+        def _rss_mb(pid):
+            try:
+                with open(f"/proc/{pid}/status") as f:
+                    for line in f:
+                        if line.startswith("VmRSS:"):
+                            return int(line.split()[1]) // 1024
+            except OSError:
+                pass
+            return 0
 
         def map_fn(_f, xs):
+            _nbatch[0] += 1
+            if _nbatch[0] % 200 == 1:      # memory growth curve for the logs
+                w = [_rss_mb(p.pid) for p in pool._pool]
+                print(f"[MCMC] rss MB after {_nbatch[0]-1} batches: "
+                      f"parent={_rss_mb(os.getpid())} workers={sum(w)} "
+                      f"(max {max(w) if w else 0})", flush=True)
             return pool.map(_eval_loglike, xs,
                             chunksize=max(1, len(xs) // (4 * cli.ncores)))
 

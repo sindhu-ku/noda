@@ -184,10 +184,18 @@ class TAODetector:
         return rm
 
     def _get_nuisance_fine(self, nuisance_coarse):
+        # Bounded like _resp_matrix_cache: Minuit's working set is one point
+        # plus its gradient neighbours, so a few hundred entries preserves
+        # every hit. Unbounded, an MCMC chain (every eval a fresh nuisance
+        # vector) accumulates one fine array per eval in each pool worker.
         key = tuple(nuisance_coarse)
         if key not in self._nuisance_fine_cache:
             self._nuisance_fine_cache[key] = expand_nuisances_to_fine(
                 self.E_segments, self.fine_bins, nuisance_coarse)
+            if len(self._nuisance_fine_cache) > 256:
+                for k in list(self._nuisance_fine_cache.keys())[:128]:
+                    if k != key:
+                        del self._nuisance_fine_cache[k]
         return self._nuisance_fine_cache[key]
     # ════════════════════════════════════════════════════════════════════════
     #  Main spectrum builder

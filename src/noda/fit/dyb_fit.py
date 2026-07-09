@@ -116,6 +116,12 @@ class DYBDetector:
             )
 
         self._chi2_cache[key] = chi2_dyb
+        # single key while shape nuisances are fixed (prefit_wosegs); bounded
+        # so a floating-nuisance MCMC can't grow it one entry per eval
+        if len(self._chi2_cache) > 256:
+            for k in list(self._chi2_cache.keys())[:128]:
+                if k != key:
+                    del self._chi2_cache[k]
         return chi2_dyb, [], []
 
     def _get_dyb_spectrum(self, nuisance_coarse, E_segments):
@@ -130,6 +136,10 @@ class DYBDetector:
         if self.is_cpc: s_dyb = s_dyb.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=self.args_juno.input_data_file, tf2name=self.args_juno.pos_ene_TF2)
         s_dyb = s_dyb.ApplyDetResp(self.rm_dyb, pecrop=self.args_dyb.ene_crop)
         self._dyb_spec_cache[key] = (s_dyb, rfis_param_dyb)
+        if len(self._dyb_spec_cache) > 64:
+            for k in list(self._dyb_spec_cache.keys())[:32]:
+                if k != key:
+                    del self._dyb_spec_cache[k]
         return s_dyb, rfis_param_dyb
 
     # ════════════════════════════════════════════════════════════════════════
