@@ -366,7 +366,8 @@ class SimulatedTempering:
         m_full = np.concatenate(([mean_logL[0]], mean_logL))
 
         # Trapezoid weights
-        log_Z = float(np.trapz(m_full, b_full))
+        trapezoid = getattr(np, 'trapezoid', None) or np.trapz  # numpy 2 rename
+        log_Z = float(trapezoid(m_full, b_full))
 
         # Per-interval contributions for a rough error bar
         contribs = 0.5 * (m_full[1:] + m_full[:-1]) * np.diff(b_full)

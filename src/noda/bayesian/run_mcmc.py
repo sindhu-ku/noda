@@ -502,23 +502,31 @@ def main(argv=None):
                       progress_every=max(1, (cli.nsweeps + burnin) // 20))
 
     # ── 7. evidence + NMO odds ───────────────────────────────────────────
-    logZ, mean_ll = PTSampler.log_evidence(res['logl_all'], res['betas'])
-    flat31 = res['chain'][:, :, j31].ravel()
-    f_no = float(np.mean(flat31 > 0))
-    print(f"\n[MCMC] TI log-evidence = {logZ:.3f} "
-          f"(needs --beta-min ~1e-3 and more temps to be accurate)")
-    if both:
-        print(f"[MCMC] P(NO|data) = {f_no:.4f}   P(IO|data) = {1-f_no:.4f}")
-        if 0 < f_no < 1:
-            bf = f_no / (1 - f_no)
-            # with equal prior volume per ordering, posterior odds = Bayes
-            # factor; 2 ln B is on the same scale as the frequentist dchi2
-            print(f"[MCMC] posterior odds NO/IO = {bf:.3g}   "
-                  f"2 ln(B) = {2*np.log(bf):.2f}")
-        signs = res['chain'][:, :, j31] > 0
-        flips = int(np.sum(signs[1:] != signs[:-1]))
-        print(f"[MCMC] cold-chain NO<->IO transitions: {flips} "
-              f"(want >~100 for a stable Bayes factor)")
+    # Never let a summary-stat failure lose the chain: anything that breaks
+    # here is recomputable from the saved npz by noda_mcmc_results.
+    logZ, mean_ll, f_no = float('nan'), np.full(sampler.ntemps, np.nan), float('nan')
+    try:
+        logZ, mean_ll = PTSampler.log_evidence(res['logl_all'], res['betas'])
+        flat31 = res['chain'][:, :, j31].ravel()
+        f_no = float(np.mean(flat31 > 0))
+        print(f"\n[MCMC] TI log-evidence = {logZ:.3f} "
+              f"(needs --beta-min ~1e-3 and more temps to be accurate)")
+        if both:
+            print(f"[MCMC] P(NO|data) = {f_no:.4f}   P(IO|data) = {1-f_no:.4f}")
+            if 0 < f_no < 1:
+                bf = f_no / (1 - f_no)
+                # with equal prior volume per ordering, posterior odds = Bayes
+                # factor; 2 ln B is on the same scale as the frequentist dchi2
+                print(f"[MCMC] posterior odds NO/IO = {bf:.3g}   "
+                      f"2 ln(B) = {2*np.log(bf):.2f}")
+            signs = res['chain'][:, :, j31] > 0
+            flips = int(np.sum(signs[1:] != signs[:-1]))
+            print(f"[MCMC] cold-chain NO<->IO transitions: {flips} "
+                  f"(want >~100 for a stable Bayes factor)")
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        print("[MCMC] summary stats failed; saving chain anyway", flush=True)
 
     # ── 8. save ──────────────────────────────────────────────────────────
     meta_values = {('NO' if tn else 'IO'): {p: float(m.values[p]) for p in names_all}

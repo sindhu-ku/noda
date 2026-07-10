@@ -345,4 +345,5 @@ class PTSampler:
         order = np.argsort(betas)
         b = np.concatenate(([0.0], betas[order]))
         m = np.concatenate(([mean_ll[order][0]], mean_ll[order]))
-        return float(np.trapz(m, b)), mean_ll
+        trapezoid = getattr(np, 'trapezoid', None) or np.trapz  # numpy 2 rename
+        return float(trapezoid(m, b)), mean_ll
