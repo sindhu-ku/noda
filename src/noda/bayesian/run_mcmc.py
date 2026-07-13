@@ -148,13 +148,44 @@ def build_all_bundles(setups, force_NO):
     return bundles, args_fit
 
 
-def seed_fit(setups, policy, prefit, force_NO):
+def seed_fit(setups, policy, prefit, force_NO, scan_n=0):
     """Migrad seed for one ordering: best-fit values (fixed-nuisance base
-    vector + walker init), limits, and the chi2 closure itself."""
+    vector + walker init), limits, and the chi2 closure itself.
+
+    scan_n > 0 adds a conditional dm2_31 profile scan: after the free fit,
+    dm2_31 is fixed and walked over an scan_n-point grid across its Minuit
+    window (each migrad warm-starts from the previous point), and the free
+    fit is redone from the deepest grid point. Protects fits without a
+    DYB/LBL dm2_31 pull from seeding the MCMC in a secondary wiggle
+    minimum."""
     bundles, args_fit = build_all_bundles(setups, force_NO)
     m, cost = minuit_new.run_minuit_bundled(
         bundles, policy, args_fit, prefit_cache=prefit,
         toy_quiet=True, return_cost_fn=True)
+    if scan_n:
+        free_val  = float(m.fval)
+        free_dm31 = float(m.values['dm2_31'])
+        lo, hi = m.limits['dm2_31']
+        m.fixed['dm2_31'] = True
+        best_g, best_val = free_dm31, free_val
+        scan = []
+        for g in np.linspace(lo, hi, int(scan_n)):
+            m.values['dm2_31'] = g
+            m.migrad()
+            scan.append((float(g), float(m.fval)))
+            if m.fmin.is_valid and m.fval < best_val - 1e-4:
+                best_g, best_val = float(g), float(m.fval)
+        print(f"[MCMC] dm2_31 conditional scan "
+              f"({'NO' if force_NO else 'IO'}): "
+              + "  ".join(f"{g:+.3f}:{v:.2f}" for g, v in scan), flush=True)
+        m.values['dm2_31'] = best_g
+        m.migrad()                       # re-converge nuisances at best point
+        m.fixed['dm2_31'] = False
+        m.migrad()                       # release dm2_31 from that basin
+        if best_val < free_val - 1e-3:
+            print(f"[MCMC]   scan re-seeded the fit: chi2 {m.fval:.3f} @ "
+                  f"dm2_31={m.values['dm2_31']:+.4f}  (free fit had "
+                  f"{free_val:.3f} @ {free_dm31:+.4f})", flush=True)
     op_snap = dict(nuosc.op_nom)     # per-ordering pull centres
     return m, cost, op_snap, bundles
 
@@ -204,6 +235,13 @@ def parse():
                         "without DYB/LBL constraints)")
     p.add_argument("--ncores",    type=int, default=max(1, (os.cpu_count() or 2) // 2))
     p.add_argument("--seed",      type=int, default=0)
+    p.add_argument("--seed-scan", type=int, default=0,
+                   help="N>0: after each ordering's free seed fit, profile "
+                        "dm2_31 over an N-point grid across its window "
+                        "(warm-started conditional fits) and re-seed from "
+                        "the global conditional minimum. Use ~25-41 for "
+                        "fits without DYB/LBL pulls, where the free fit "
+                        "can land in a secondary wiggle minimum")
     p.add_argument("--bound-nsig", type=float, default=10.0,
                    help="half-width, in seed-fit sigma, of the synthesised "
                         "flat prior for params without Minuit limits")
@@ -305,7 +343,8 @@ def main(argv=None):
         name = 'NO' if true_no else 'IO'
         print(f"[MCMC] seed fit ({name}) ...", flush=True)
         m, cost, op_snap, bundles = seed_fit(setups, policy, prefit,
-                                             force_NO=true_no)
+                                             force_NO=true_no,
+                                             scan_n=cli.seed_scan)
         print(f"[MCMC]   {name}: chi2_min={m.fval:.3f}  "
               f"dm2_31={m.values['dm2_31']:+.4f}", flush=True)
         seeds.append((m, cost, op_snap))

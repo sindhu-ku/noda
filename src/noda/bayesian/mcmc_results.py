@@ -46,6 +46,9 @@ def parse():
                    help='comma list of params for the corner plot '
                         '(default: shared osc params present, else first 8)')
     p.add_argument('--prefix', default='')
+    p.add_argument('--annotate', default='',
+                   help='optional text drawn top-right of the dm2_31 '
+                        'marginal (e.g. "w/ DYB and NuFit-LBL const.")')
     return p.parse_args()
 
 
@@ -195,14 +198,62 @@ def main():
 
     # ── dm2_31 marginal ──────────────────────────────────────────────────
     x31 = flat[:, j31]
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    ax.hist(x31, bins=300, density=True, histtype='stepfilled', alpha=0.7)
-    ax.set_xlabel(_label('dm2_31'), fontsize=13)
-    ax.set_ylabel('posterior density', fontsize=13)
-    ax.set_yscale('log')
-    ax.grid(alpha=0.3)
-    if both:
-        ax.axvline(0, color='k', lw=0.5)
+    x_io, x_no = x31[x31 < 0], x31[x31 > 0]
+    if both and len(x_io) >= 10 and len(x_no) >= 10:
+        # broken-axis style (as in the ReactorNuPWG Bayesian comparison):
+        # IO panel left, NO panel right, common normalisation so the two
+        # areas are the posterior ordering probabilities
+        fig, (axL, axR) = plt.subplots(
+            1, 2, sharey=True, figsize=(9, 4.5),
+            gridspec_kw={'wspace': 0.06})
+        n_tot = len(x31)
+        for ax, xs, color, lab in ((axL, x_io, '#c1554d', 'MCMC IO'),
+                                   (axR, x_no, '#4c72b0', 'MCMC NO')):
+            p_lo, p_hi = np.percentile(xs, [0.05, 99.95])
+            pad = 0.25 * (p_hi - p_lo)
+            edges = np.linspace(p_lo - pad, p_hi + pad, 81)
+            bw = edges[1] - edges[0]
+            ax.hist(xs, bins=edges, weights=np.full(len(xs), 1 / (n_tot * bw)),
+                    histtype='stepfilled', color=color, alpha=0.85,
+                    edgecolor=color, label=lab)
+            ax.set_xlim(edges[0], edges[-1])
+            ax.legend(frameon=False, fontsize=12, loc='upper left'
+                      if ax is axL else 'upper right')
+            ax.set_xlabel(_label('dm2_31'), fontsize=13)
+            ax.tick_params(direction='in', top=True)
+        axL.set_ylabel('Posterior Prob.', fontsize=13)
+        axL.set_ylim(bottom=0)
+        # axis-break marks
+        axL.spines['right'].set_visible(False)
+        axR.spines['left'].set_visible(False)
+        axR.tick_params(left=False)
+        d = 0.02
+        kw = dict(transform=axL.transAxes, color='k', clip_on=False, lw=1)
+        axL.plot((1 - d, 1 + d), (-d, +d), **kw)
+        axL.plot((1 - d, 1 + d), (1 - d, 1 + d), **kw)
+        kw['transform'] = axR.transAxes
+        axR.plot((-d, +d), (-d, +d), **kw)
+        axR.plot((-d, +d), (1 - d, 1 + d), **kw)
+        # Bayes factor in the middle
+        if 0 < f_no < 1:
+            two_lnk = 2 * np.log(f_no / (1 - f_no))
+            fig.text(0.5, 0.62,
+                     "Bayes factor\n"
+                     r"$2\ln\kappa = 2\ln\frac{P(NO)}{P(IO)}"
+                     rf" = {two_lnk:.2f}$",
+                     ha='center', va='center', fontsize=14)
+        if cli.annotate:
+            fig.text(0.985, 0.97, cli.annotate, ha='right', va='top',
+                     fontsize=12)
+    else:
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.hist(x31, bins=300, density=True, histtype='stepfilled', alpha=0.7)
+        ax.set_xlabel(_label('dm2_31'), fontsize=13)
+        ax.set_ylabel('posterior density', fontsize=13)
+        ax.set_yscale('log')
+        ax.grid(alpha=0.3)
+        if both:
+            ax.axvline(0, color='k', lw=0.5)
     path = os.path.join(cli.outdir, f"{pre}_dm2_31_marginal.png")
     fig.savefig(path, dpi=200, bbox_inches='tight')
     plt.close(fig)
