@@ -297,7 +297,10 @@ def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
         # Toy: per-ordering precomputed LBL central (match build_spectrum).
         t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl_NO' if dm2_31_phys > 0 else 'lbl_IO')
         if t_lbl is not None:
-            lbl, lbl_err = t_lbl, args.dm2_31_lbl_err
+            lbl_err = args.dm2_31_lbl_err
+            if ordering == "IO":
+                lbl_err = getattr(args, 'dm2_31_lbl_err_IO', None) or lbl_err
+            lbl = t_lbl
         else:
             # direct IO measurement if configured, else f_lbl projection
             from .minuit import lbl_pull_target

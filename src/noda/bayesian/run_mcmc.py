@@ -574,6 +574,23 @@ def main(argv=None):
                    for tn, (m, _, _) in zip(orderings, seeds)}
     meta_fval   = {('NO' if tn else 'IO'): float(m.fval)
                    for tn, (m, _, _) in zip(orderings, seeds)}
+    # everything noda_mcmc_results --add-pull needs to reweight this chain
+    # with DYB/LBL dm2_31 pulls posthumously (all centres in eV^2)
+    i_pri = (orderings.index(1 if bool(a0.NMO_opt) else 0)
+             if len(seeds) == 2 else 0)
+    m_pri = seeds[i_pri][0]
+    pull_meta = {
+        'op': {('NO' if tn else 'IO'):
+               {k: op.get(k) for k in ('dm2_31_dyb', 'dm2_31_dyb_err',
+                                       'dm2_31', 'dm2_31_err',
+                                       'theta23', 'dcp')}
+               for tn, (_, _, op) in zip(orderings, seeds)},
+        'lbl': {k: getattr(a0, k, None) for k in
+                ('dm2_31_lbl', 'dm2_31_lbl_err', 'dm2_31_lbl_IO',
+                 'dm2_31_lbl_err_IO', 'theta23', 'dcp')},
+        'solar_pin': {'sin2_th12': float(m_pri.values['sin2_th12']),
+                      'dm2_21':    float(m_pri.values['dm2_21']) * 1e-5},
+    }
     os.makedirs(os.path.dirname(cli.output) or '.', exist_ok=True)
     np.savez_compressed(
         cli.output,
@@ -588,6 +605,7 @@ def main(argv=None):
         log_prior_const=log_prior_const,
         ordering=cli.ordering, both_mode=both,
         logZ_TI=logZ, mean_logl_per_temp=mean_ll, f_NO=f_no,
+        pull_meta=np.array([pull_meta], dtype=object),
         seed_values=np.array([meta_values], dtype=object),
         seed_errors=np.array([meta_errors], dtype=object),
         seed_fval=np.array([meta_fval], dtype=object),

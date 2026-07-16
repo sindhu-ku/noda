@@ -313,7 +313,10 @@ def sample_aux_dm2_31(rng, args_juno, true_NO, centre_phys):
         # single 'lbl' + f_lbl(|meas|, fit_ordering) penalised the true IO fit,
         # biasing T positive for both orderings.)
         from ..fit.minuit import f_lbl
-        mag = abs(rng.normal(loc=centre_phys, scale=args_juno.dm2_31_lbl_err))
+        lbl_sig = args_juno.dm2_31_lbl_err
+        if not true_NO:
+            lbl_sig = getattr(args_juno, 'dm2_31_lbl_err_IO', None) or lbl_sig
+        mag = abs(rng.normal(loc=centre_phys, scale=lbl_sig))
         # term = f_lbl NO->IO offset, evaluated with the IO theta23/dcp.
         nuosc.SetOscillationParameters(opt=args_juno.PDG_opt, NO=False)
         s13_io  = nuosc.op_nom['sin2_th13']

@@ -603,7 +603,10 @@ class JUNODetector:
             # fit gets the measurement and the wrong one the f_lbl projection).
             t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl_NO' if dm2_31 > 0 else 'lbl_IO')
             if t_lbl is not None:
-                dm2_31_lbl, lbl_err = t_lbl, args.dm2_31_lbl_err
+                lbl_err = args.dm2_31_lbl_err
+                if ordering == "IO":
+                    lbl_err = getattr(args, 'dm2_31_lbl_err_IO', None) or lbl_err
+                dm2_31_lbl = t_lbl
             else:
                 # Data path: direct IO measurement if configured, else project
                 # the fixed LBL central to this fit ordering (see lbl_pull_target).
