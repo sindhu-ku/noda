@@ -2,6 +2,7 @@ import argparse, os
 from datetime import datetime
 import numpy as np
 
+from noda import nuosc
 from noda.fc.fc_toy import build_setups
 from noda.fc.feldman_cousins import base_param, build_fit_bundles, make_resolver
 from noda.fit import combined_fit as minuit_new
@@ -66,6 +67,7 @@ def main():
     truncate_below_zero = []
     truncate_below_mone = []
     param_names = []  # Initialize global parameter names array
+    prior_central_values = {}  # a-priori (prefit) nuisance centres (Group A mode)
 
     # Loop over both Normal (1) and Inverted (0) Orderings
     for true_no in [1, 0]:
@@ -133,6 +135,49 @@ def main():
                         info = bkg["JUNO"].get(base[4:], {})
                         nominal_uncertainties[name] = info.get("rate_unc", 1.0)
 
+            # ---- a-priori (prefit) nuisance centres (for --nuis-center prior) ----
+            # Group A / "a-priori Highland-Cousins": generate toys with nuisances
+            # centred at their PREFIT values instead of the profiled best fit.
+            # Constrained pulls -> prior mean (0); physics params -> nominal;
+            # unconstrained backgrounds (rate_unc == 0, e.g. geo) kept at the data
+            # best fit (Group A generates geo at its post-fit rate). WIDTHS are
+            # unchanged (still prefit) — only the centre differs from the default.
+            nuosc.SetOscillationParameters(opt=args0.PDG_opt, NO=True)
+            nom = nuosc.op_nom
+            prior_central_values = {p: float(m_free.values[p]) for p in param_names}
+            prior_central_values['sin2_th12'] = float(nom['sin2_th12'])
+            prior_central_values['sin2_th13'] = float(nom['sin2_th13'])
+            prior_central_values['dm2_21']    = float(nom['dm2_21'] * 1e5)
+            for s in setups:
+                a       = s['args_juno']
+                bkg     = s['backgrounds']
+                resolve = make_resolver(policy, a.phase, a.shell)
+                for name in param_names:
+                    base = base_param(name)
+                    if resolve(base) != name:
+                        continue
+                    if base == 'me_rho':
+                        prior_central_values[name] = float(a.me_rho)
+                    elif base == 'ThU_ratio':
+                        prior_central_values[name] = float(a.Th_U_ratio)
+                    elif base == 'Nrea' or base.startswith(('eff', 'snf', 'core', 'nuis')):
+                        prior_central_values[name] = 0.0
+                    elif base.startswith('efiss'):
+                        prior_central_values[name] = float(a.efission[int(base[-1])] * 1e-2)
+                    elif base.startswith('abc'):
+                        prior_central_values[name] = float(
+                            {'abc0': a.a, 'abc1': a.b, 'abc2': a.c}[base]
+                            if a.NL == 'real' else 0.0)
+                    elif base.startswith('NL'):
+                        prior_central_values[name] = float(
+                            {'NL0': a.kB, 'NL1': a.fC, 'NL2': a.kI, 'NL3': a.LY_shared}[base]
+                            if a.NL == 'real' else 0.0)
+                    elif base.startswith('bkg_'):
+                        info = bkg["JUNO"].get(base[4:], {})
+                        if info.get("rate_unc", 0.0) and info["rate_unc"] > 0:
+                            prior_central_values[name] = 0.0
+                        # unconstrained background (e.g. geo): keep the data best fit
+
             truncate_below_zero = [
                 p for p in m_free.parameters
                 if m_free.limits[p] is not None
@@ -181,6 +226,7 @@ def main():
         truncate_below_zero=np.array(truncate_below_zero, dtype=str),
         truncate_below_mone=np.array(truncate_below_mone, dtype=str),
         nominal_uncertainties=np.array([nominal_uncertainties], dtype=object),
+        prior_central_values=np.array([prior_central_values], dtype=object),
         param_names=np.array(param_names, dtype=str)
     )
 

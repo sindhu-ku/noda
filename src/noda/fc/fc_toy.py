@@ -87,6 +87,14 @@ def parse():
     p.add_argument("--output-dir",  required=True)
     p.add_argument("--initial-fits", help="path to initial fits of the grid points")
     p.add_argument("--prefit-cache", help="Path to .npz prefit cache produced")
+    p.add_argument("--nuis-center", choices=("profiled", "prior"),
+                   default="profiled",
+                   help="Nuisance CENTRES for toy generation. 'profiled' "
+                        "(default): conditional best-fit values (profiled FC, the "
+                        "current behaviour). 'prior': prefit nominal centres with "
+                        "constrained pulls at 0 = a-priori Highland-Cousins (the "
+                        "Group A method). Both modes use prefit WIDTHS. 'prior' "
+                        "needs an initial-fits NPZ from the updated run_fc_observed.")
     return p.parse_args()
 
 def load_initial_fits(filepath):
@@ -102,6 +110,8 @@ def load_initial_fits(filepath):
         'truncate_below_zero': data['truncate_below_zero'].tolist(),
         'truncate_below_mone': data['truncate_below_mone'].tolist(),
         'nominal_uncertainties': data['nominal_uncertainties'][0],
+        'prior_central_values': (data['prior_central_values'][0]
+                                 if 'prior_central_values' in data.files else None),
         'param_names': data['param_names'].tolist()
     }
 
@@ -161,6 +171,14 @@ def main():
     cli = parse()
     t0 = datetime.now()
     initial_fits = load_initial_fits(cli.initial_fits)
+
+    if cli.nuis_center == "prior" and initial_fits.get('prior_central_values') is None:
+        raise SystemExit(
+            "[FC] --nuis-center prior requires 'prior_central_values' in the "
+            "initial-fits NPZ; regenerate it with run_fc_observed (updated).")
+    print(f"[FC] nuisance centres: {cli.nuis_center} "
+          f"({'a-priori Highland-Cousins / Group A' if cli.nuis_center == 'prior' else 'profiled FC'})",
+          flush=True)
 
     if cli.mode == "dm31":
         sign   = +1.0 if bool(cli.true_no) else -1.0
@@ -245,7 +263,8 @@ def main():
                     policy=policy,
                     truth_bundles=truth_bundles,
                     initial_fits=initial_fits,
-                    prefit_cache=prefit)
+                    prefit_cache=prefit,
+                    nuis_center=cli.nuis_center)
                 r['mode'] = 'dm31'
                 writer.writerow(r); fh.flush(); n_written += 1
 
@@ -257,7 +276,8 @@ def main():
                     policy=policy,
                     truth_bundles=truth_bundles,
                     initial_fits=initial_fits,
-                    prefit_cache=prefit)
+                    prefit_cache=prefit,
+                    nuis_center=cli.nuis_center)
                 r['mode'] = 'nmo'
                 writer.writerow(r); fh.flush(); n_written += 1
 

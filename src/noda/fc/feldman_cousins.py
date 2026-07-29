@@ -56,6 +56,28 @@ def n_shape_of(args_juno) -> int:
     return len(args_juno.seg_bins_nonuniform) - 1
 
 
+def _resolve_gen_central(initial_fits, central_values, nuis_center):
+    """Pick the nuisance CENTRES used to *generate* the toy.
+
+    'profiled' -> conditional best-fit values (profiled FC / current default).
+    'prior'    -> prefit nominal centres (a-priori Highland-Cousins, i.e. the
+                  Group A method), precomputed by run_fc_observed and stored in
+                  the initial-fits NPZ as 'prior_central_values'.
+
+    Both modes draw with the *prefit* widths — only the centre changes.
+    """
+    if nuis_center == 'profiled':
+        return central_values
+    if nuis_center == 'prior':
+        pc = initial_fits.get('prior_central_values')
+        if pc is None:
+            raise ValueError(
+                "nuis_center='prior' needs 'prior_central_values' in the "
+                "initial-fits NPZ; regenerate it with the updated run_fc_observed.")
+        return pc
+    raise ValueError(f"unknown nuis_center={nuis_center!r}")
+
+
 def build_fit_bundles(setups, *, force_NO, toy_obs_list=None):
     """
     One JUNO DetectorBundle per setup, with the toy observation (if given)
@@ -138,7 +160,9 @@ def build_juno_asimov(juno_det, args_juno, backgrounds: Dict[str, Any],
                       true_dm2_31: float, true_NO: bool,
                       true_sin2_12: Optional[float] = None,
                       true_sin2_13: Optional[float] = None,
-                      true_dm2_21: Optional[float] = None) -> np.ndarray:
+                      true_dm2_21: Optional[float] = None,
+                      nuisance: Optional[np.ndarray] = None,
+                      bkg_pulls: Optional[Dict[str, float]] = None) -> np.ndarray:
     """
     Total predicted JUNO spectrum (signal + bkgs) at the requested truth point,
     all nuisances at zero. Returns a numpy array (bin_cont).
@@ -157,9 +181,14 @@ def build_juno_asimov(juno_det, args_juno, backgrounds: Dict[str, Any],
     n_rea  = sum(1 for p in pn if p.startswith("snf_noneq_norm"))
     n_core = sum(1 for p in pn if p.startswith("core_power"))
 
+    # Background pulls default to their prior centres (0). `bkg_pulls` sets
+    # chosen ones elsewhere — intended for UNCONSTRAINED backgrounds
+    # (rate_unc = 0, e.g. geo), where the data best-fit rate can be injected
+    # without breaking the exact chi2 = 0 closure (no prior term to pay).
     bckgs = {}
     for k, info in backgrounds["JUNO"].items():
-        bckgs[k] = {"pull": 0.0, "sigma": info["rate_unc"],
+        bckgs[k] = {"pull": float((bkg_pulls or {}).get(k, 0.0)),
+                    "sigma": info["rate_unc"],
                     "b2b": info["b2b_unc"], "name": info["name"],
                     "b2b_scale": info['b2b_scale']}
 
@@ -178,7 +207,10 @@ def build_juno_asimov(juno_det, args_juno, backgrounds: Dict[str, Any],
         ThU_ratio=args_juno.Th_U_ratio,
         core_powers_delta=[0.0] * n_core,
         efission=list(np.array(args_juno.efission) * 1e-2),
-        nuisance=np.zeros(n_nuis),
+        # shape nuisances default to zero; pass the prefit centres (nuis_best)
+        # for an Asimov consistent with prefit-mode priors -> exact chi2 = 0
+        nuisance=(np.zeros(n_nuis) if nuisance is None
+                  else np.asarray(nuisance)[:n_nuis]),
         opp=False)
 
     s_tot = out[1]
@@ -382,7 +414,8 @@ def run_one_toy_fit(*, setups, policy,
 def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
                      setups, policy, truth_bundles,
                      initial_fits: dict,
-                     prefit_cache: dict) -> dict:
+                     prefit_cache: dict,
+                     nuis_center: str = 'profiled') -> dict:
     """
     One toy for the dm²₃₁ FC scan. Both fits are at the same NMO (true_NO),
     so one prefit cache (matching that NMO) is sufficient.
@@ -405,10 +438,11 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
     central_values    = fit_data['values']
 
     nominal_uncertainties = initial_fits['nominal_uncertainties']
+    gen_central = _resolve_gen_central(initial_fits, central_values, nuis_center)
 
     sample = sample_nuisances(
         rng,
-        central=central_values,
+        central=gen_central,
         param_names=initial_fits['param_names'],
         prefit_cov=prefit_cache.get('nuis_cov') if prefit_cache else None,
         shape_param_names=shape_param_names,
@@ -426,7 +460,7 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
     for b in truth_bundles:
         resolve = make_resolver(policy, b.phase, b.shell)
         if b.args.NL == "real":
-            er_sample = sample_er_nuisances(rng, central_values,
+            er_sample = sample_er_nuisances(rng, gen_central,
                                             b.detector.covariance_er, resolve)
             sample.update(er_sample)
         pred = build_juno_from_sampled(
@@ -484,7 +518,8 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
 def run_one_toy_nmo(*, seed: int, true_NO: bool,
                     setups, policy, truth_bundles,
                     initial_fits: dict,
-                    prefit_cache: dict) -> dict:
+                    prefit_cache: dict,
+                    nuis_center: str = 'profiled') -> dict:
     """
     One toy for the NMO test (DocDB 12937 procedure). Toy generated under
     `true_NO` at the combined (JUNO+DYB) data best fit stored in
@@ -518,9 +553,11 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
         if base.startswith('efiss'):
             nominal_uncertainties[name] = args_juno_truth.efission_err[int(base[-1])]*1e-2
 
+    gen_central = _resolve_gen_central(initial_fits, central_values, nuis_center)
+
     sample = sample_nuisances(
         rng,
-        central=central_values,
+        central=gen_central,
         param_names=initial_fits['param_names'],
         prefit_cov=prefit_cache.get('nuis_cov') if prefit_cache else None,
         shape_param_names=shape_param_names,
@@ -533,7 +570,7 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
     for b in truth_bundles:
         resolve = make_resolver(policy, b.phase, b.shell)
         if b.args.NL == "real":
-            er_sample = sample_er_nuisances(rng, central_values,
+            er_sample = sample_er_nuisances(rng, gen_central,
                                             b.detector.covariance_er, resolve)
             sample.update(er_sample)
         pred = build_juno_from_sampled(
