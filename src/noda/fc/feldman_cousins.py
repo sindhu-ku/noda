@@ -56,25 +56,71 @@ def n_shape_of(args_juno) -> int:
     return len(args_juno.seg_bins_nonuniform) - 1
 
 
-def _resolve_gen_central(initial_fits, central_values, nuis_center):
+def build_prior_central(central_values, param_names, setups, policy, true_NO):
+    """Prefit (a-priori) nuisance centres, built straight from the config/args the
+    way a fresh run_noda fit initialises its parameters — so nothing extra has to
+    be stored in (or read back from) the initial-fits NPZ.
+
+    Starts from the profiled ``central_values`` (so the POI dm2_31 and any
+    *unconstrained* background such as geo keep the data best fit that Group A
+    uses for generation), then overrides:
+      * physics parameters -> their nominal values (osc from nuosc, rest from args)
+      * constrained pulls  -> their prior mean (0)
+    Widths are unchanged (still prefit); only the centre differs.
+    """
+    args0 = setups[0]['args_juno']
+    nuosc.SetOscillationParameters(opt=args0.PDG_opt, NO=bool(true_NO))
+    nom = nuosc.op_nom
+    pc = dict(central_values)
+    if 'sin2_th12' in pc: pc['sin2_th12'] = float(nom['sin2_th12'])
+    if 'sin2_th13' in pc: pc['sin2_th13'] = float(nom['sin2_th13'])
+    if 'dm2_21'   in pc: pc['dm2_21']    = float(nom['dm2_21'] * 1e5)
+    for s in setups:
+        a       = s['args_juno']
+        bkg     = s['backgrounds']
+        resolve = make_resolver(policy, a.phase, a.shell)
+        for name in param_names:
+            base = base_param(name)
+            if resolve(base) != name:
+                continue
+            if base == 'me_rho':
+                pc[name] = float(a.me_rho)
+            elif base == 'ThU_ratio':
+                pc[name] = float(a.Th_U_ratio)
+            elif base == 'Nrea' or base.startswith(('eff', 'snf', 'core', 'nuis')):
+                pc[name] = 0.0
+            elif base.startswith('efiss'):
+                pc[name] = float(a.efission[int(base[-1])] * 1e-2)
+            elif base.startswith('abc'):
+                pc[name] = float({'abc0': a.a, 'abc1': a.b, 'abc2': a.c}[base]
+                                 if a.NL == 'real' else 0.0)
+            elif base.startswith('NL'):
+                pc[name] = float({'NL0': a.kB, 'NL1': a.fC, 'NL2': a.kI,
+                                  'NL3': a.LY_shared}[base]
+                                 if a.NL == 'real' else 0.0)
+            elif base.startswith('bkg_'):
+                info = bkg["JUNO"].get(base[4:], {})
+                if info.get("rate_unc", 0.0) and info["rate_unc"] > 0:
+                    pc[name] = 0.0
+                # unconstrained background (e.g. geo): keep the data best fit
+    return pc
+
+
+def _resolve_gen_central(nuis_center, central_values, param_names,
+                         setups, policy, true_NO):
     """Pick the nuisance CENTRES used to *generate* the toy.
 
     'profiled' -> conditional best-fit values (profiled FC / current default).
-    'prior'    -> prefit nominal centres (a-priori Highland-Cousins, i.e. the
-                  Group A method), precomputed by run_fc_observed and stored in
-                  the initial-fits NPZ as 'prior_central_values'.
+    'prior'    -> prefit nominal centres (a-priori Highland-Cousins = Group A),
+                  built on the fly from config/args by build_prior_central() so no
+                  re-run of run_fc_observed is needed.
 
     Both modes draw with the *prefit* widths — only the centre changes.
     """
     if nuis_center == 'profiled':
         return central_values
     if nuis_center == 'prior':
-        pc = initial_fits.get('prior_central_values')
-        if pc is None:
-            raise ValueError(
-                "nuis_center='prior' needs 'prior_central_values' in the "
-                "initial-fits NPZ; regenerate it with the updated run_fc_observed.")
-        return pc
+        return build_prior_central(central_values, param_names, setups, policy, true_NO)
     raise ValueError(f"unknown nuis_center={nuis_center!r}")
 
 
@@ -438,7 +484,9 @@ def run_one_toy_dm31(*, seed: int, true_dm2_31_minuit: float, true_NO: bool,
     central_values    = fit_data['values']
 
     nominal_uncertainties = initial_fits['nominal_uncertainties']
-    gen_central = _resolve_gen_central(initial_fits, central_values, nuis_center)
+    gen_central = _resolve_gen_central(nuis_center, central_values,
+                                        initial_fits['param_names'],
+                                        setups, policy, true_NO)
 
     sample = sample_nuisances(
         rng,
@@ -553,7 +601,9 @@ def run_one_toy_nmo(*, seed: int, true_NO: bool,
         if base.startswith('efiss'):
             nominal_uncertainties[name] = args_juno_truth.efission_err[int(base[-1])]*1e-2
 
-    gen_central = _resolve_gen_central(initial_fits, central_values, nuis_center)
+    gen_central = _resolve_gen_central(nuis_center, central_values,
+                                        initial_fits['param_names'],
+                                        setups, policy, true_NO)
 
     sample = sample_nuisances(
         rng,
