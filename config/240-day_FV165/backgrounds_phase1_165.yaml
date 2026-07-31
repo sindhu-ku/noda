@@ -1,0 +1,101 @@
+# background_rates.yaml
+
+JUNO:
+  lihe:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root" #lihe_spectrum.root"
+    histname: "prefit/lihe" #Li9BkgHistogramAD"
+    rate: 1.2729
+    rate_unc: 1.30
+    b2b_unc: 0.3
+    b2b_scale: 0.04
+    name: "$^{9}$Li / $^{8}$He"
+    correlate_phase: true
+    correlate_shell: true
+
+  geo:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root"
+    histname: "prefit/geo" #GeoNuHistogramAD"
+    rate:  1.75 #1.2209750 #1.4831250 #1.239 #1.147
+    rate_unc: 0.0
+    b2b_unc: 0.05
+    b2b_scale: 0.0
+    name: "Geoneutrinos"
+    correlate_phase: true
+    correlate_shell: true
+
+  wr:
+    rootfile: "${NODA_BASE}/data/WR_new.root"
+    histname: "wreac" #spectrum_nom" #OtherReactorSpectrum_L300km"
+    rate: 1.26 # 0.87910200  #886 #1.185
+    rate_unc: 0.1
+    b2b_unc: 0.05
+    b2b_scale: 0.0
+    name: "World reactor neutrinos"
+    correlate_phase: true
+    correlate_shell: true
+
+  bipo:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root"
+    histname: "prefit/bipo" #OtherReactorSpectrum_L300km"
+    rate: 0.25
+    rate_unc: 0.703
+    b2b_unc: 0.05
+    b2b_scale: 0.04
+    name: "$^{214}$Bi"
+    correlate_phase: false
+    correlate_shell: false
+
+  acc:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root"
+    histname: "prefit/acc" #AccBkgHistogramAD"
+    rate: 0.16680
+    rate_unc: 0.0055
+    b2b_unc: 0.03
+    b2b_scale: 0.04
+    name: "Accidentals"
+    correlate_phase: true
+    correlate_shell: true
+
+  doublen:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root"
+    histname: "prefit/doublen" #FnBkgHistogramAD"
+    rate: 0.05
+    rate_unc: 1.0
+    b2b_unc: 0.15
+    b2b_scale: 0.04
+    name: "Double neutrons"
+    correlate_phase: true
+    correlate_shell: false
+
+  atm:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root"
+    histname: "prefit/atm" #AtmosphericNeutrinoModelGENIE2"
+    rate:  0.15 #0.10465500
+    rate_unc: 0.5
+    b2b_unc: 0.5
+    b2b_scale: 0.0
+    name: "Atmospheric neutrinos"
+    correlate_phase: true
+    correlate_shell: true
+
+  alphan:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root" #${NODA_BASE}/data/GeoneutrinoCommonInputs.root" #"${NODA_BASE}/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
+    histname: "prefit/alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
+    rate: 0.03201109049
+    rate_unc: 0.25
+    b2b_unc: 0.25
+    b2b_scale: 0.0
+    name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
+    correlate_phase: true
+    correlate_shell: false
+
+  fastn:
+    rootfile: "${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root"
+    histname: "prefit/fastn" #FnBkgHistogramAD"
+    rate: 0.08
+    rate_unc: 1.0
+    b2b_unc: 0.15
+    b2b_scale: 0.04
+    name: "Fast neutrons"
+    correlate_phase: true
+    correlate_shell: true

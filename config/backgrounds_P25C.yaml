@@ -2,7 +2,7 @@
 
 JUNO:
   lihe:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" #lihe_spectrum.root"
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root" #lihe_spectrum.root"
     histname: "prefit/lihe" #Li9BkgHistogramAD"
     rate: 1.92
     rate_unc: 1.30
@@ -13,7 +13,7 @@ JUNO:
     correlate_shell: true
 
   geo:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/geo" #GeoNuHistogramAD"
     rate: 1.75 #1.2554280 #1.239 #1.147
     rate_unc: 0.0
@@ -22,9 +22,9 @@ JUNO:
     name: "Geoneutrinos"
     correlate_phase: true
     correlate_shell: true
-    
+
   wr:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/WR.root" 
+    rootfile: "${NODA_BASE}/data/WR.root"
     histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
     rate: 1.26 #0.90390814  #886 #1.185
     rate_unc: 0.1
@@ -33,9 +33,9 @@ JUNO:
     name: "World reactor neutrinos"
     correlate_phase: true
     correlate_shell: true
-    
+
   bipo:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" 
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/bipo" #OtherReactorSpectrum_L300km"
     rate: 0.25
     rate_unc: 0.5
@@ -44,9 +44,9 @@ JUNO:
     name: "$^{214}$Bi"
     correlate_phase: false
     correlate_shell: false
-    
+
   acc:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/acc" #AccBkgHistogramAD"
     rate: 0.17
     rate_unc: 0.0071
@@ -55,9 +55,9 @@ JUNO:
     name: "Accidentals"
     correlate_phase: false
     correlate_shell: false
-   
+
   doublen:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/doublen" #FnBkgHistogramAD"
     rate: 0.05
     rate_unc: 1.0
@@ -68,7 +68,7 @@ JUNO:
     correlate_shell: false
 
   atm:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/atm" #AtmosphericNeutrinoModelGENIE2"
     rate: 0.15 #0.10760811
     rate_unc: 0.5
@@ -79,7 +79,7 @@ JUNO:
     correlate_shell: true
 
   alphan:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root" #/junofs/users/sindhu/NODA/noda/data/GeoneutrinoCommonInputs.root" #"/junofs/users/sindhu/NODA/noda/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root" #${NODA_BASE}/data/GeoneutrinoCommonInputs.root" #"${NODA_BASE}/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
     histname: "prefit/alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
     rate: 0.037
     rate_unc: 0.25
@@ -88,9 +88,9 @@ JUNO:
     name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
     correlate_phase: false
     correlate_shell: false
-    
+
   fastn:
-    rootfile: "/junofs/users/sindhu/NODA/noda/data/GroupC_spectra_march13_P25C_Mar25.root"
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
     histname: "prefit/fastn" #FnBkgHistogramAD"
     rate: 0.006
     rate_unc: 1.0
