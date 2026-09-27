@@ -43,7 +43,7 @@ JUNO:
     b2b_scale: 0.04
     name: "$^{214}$Bi"
     correlate_phase: false
-    correlate_shell: false
+    correlate_shell: true   # BiPo correlated across shells (same model)
 
   acc:
     rootfile: "${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV15_Aug31_40keV.root"

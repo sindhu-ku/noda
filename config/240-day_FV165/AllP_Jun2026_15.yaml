@@ -65,14 +65,14 @@ fit_options:
   # When False, the SNF flux correction is removed entirely from the TAO model
   # spectrum (only the non-equilibrium correction is kept). Override per run with
   # --tao_snf_corr False.
-  tao_snf_corr: True
+  tao_snf_corr: False
   # Efficiency-correlation split across shells. When True, the per-shell
   # detection-efficiency prior is decomposed into a SHARED "target proton"
   # part (eff_corr, prior eff_corr_unc, correlated across shells) and a
   # per-shell UNCORRELATED remainder (eff_nuis, prior
   # sqrt(eff_unc^2 - eff_corr_unc^2)). Total per-shell prior unchanged.
   # Override per run with --eff_corr_split True.
-  eff_corr_split: False
+  eff_corr_split: True
   eff_corr_unc: 0.01
   include_dyb: True
   geo_fit: true

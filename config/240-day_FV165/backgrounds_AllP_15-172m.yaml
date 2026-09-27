@@ -38,12 +38,12 @@ JUNO:
     rootfile: "${NODA_BASE}/data//Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV17.2-15_Aug31_40keV.root"
     histname: "prefit/bipo" #OtherReactorSpectrum_L300km"
     rate: 0.16
-    rate_unc: 0.141
+    rate_unc: 0.703   # common shared BiPo prior (= inner shell value)
     b2b_unc: 0.05
     b2b_scale: 0.04
     name: "$^{214}$Bi"
     correlate_phase: false
-    correlate_shell: false
+    correlate_shell: true   # BiPo correlated across shells (same model)
 
   acc:
     rootfile: "${NODA_BASE}/data//Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV17.2-15_Aug31_40keV.root"
