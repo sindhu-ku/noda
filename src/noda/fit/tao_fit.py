@@ -98,10 +98,27 @@ class TAODetector:
     #  Nuisance parameter interface
     # ════════════════════════════════════════════════════════════════════════
 
+    @property
+    def _nl_in_leak(self):
+        """When True, the NL is baked into the energy-leakage matrix, so TAO
+        applies no separate NL curve and carries no NL fit nuisances."""
+        return getattr(self.args, "nl_in_leak", False)
+
+    @property
+    def _tao_snf(self):
+        """When False (config fit_options.tao_snf_corr: False), the SNF flux
+        correction is dropped from the TAO model spectrum entirely — only the
+        non-equilibrium correction is kept. The snf nuisance stays in the
+        parameter set but, multiplying nothing, simply relaxes to its prior."""
+        return getattr(self.args, "tao_snf_corr", True)
+
     def get_param_names(self):
-        """TAO-specific Minuit parameter names."""
-        # NL pull: 5 parameters (same as JUNO pull mode: NL0-NL3 + LY)
-        NL_names  = [f"NL_tao{i}" for i in range(6)]
+        """TAO-specific Minuit parameter names.
+
+        The NL pull block (5 shape pulls + shared LY at index 5) is included
+        only when NL is NOT baked into the leakage matrix (nl_in_leak False).
+        """
+        NL_names  = [] if self._nl_in_leak else [f"NL_tao{i}" for i in range(6)]
         abc_names = ["abc_tao0", "abc_tao1", "abc_tao2"]
         return (
             ["Nrea_tao"]
@@ -117,7 +134,7 @@ class TAODetector:
     def get_start_values(self):
         """Start values matching get_param_names() order."""
         args = self.args
-        NL_start  = [0.0] * 6
+        NL_start  = [] if self._nl_in_leak else [0.0] * 6
         abc_start = [args.a, args.b, args.c]
         return (
             [0.0]        # Nrea_tao
@@ -134,17 +151,18 @@ class TAODetector:
         for p in ["Nrea_tao", "core_power_tao", "eff_nuis_tao", "snf_noneq_norm_tao0", "snf_noneq_norm_tao1", "bckg_rate"]:
             m.limits[p] = [-1, None]
         # NL pull params: unconstrained below (pull penalty handles it)
-        #for i in range(5):
-        m.limits[f"NL_tao5"] = [-1, None]
+        if not self._nl_in_leak:
+            m.limits[f"NL_tao5"] = [-1, None]
 
         # abc: unconstrained (individual pull penalties)
         # no explicit limits needed beyond [-inf, inf]
 
     def get_first_fix(self):
         """Parameters to fix in the first Minuit stage."""
+        NL_names = [] if self._nl_in_leak else [f"NL_tao{i}" for i in range(6)]
         return (
             ["Nrea_tao"]
-            + [f"NL_tao{i}" for i in range(6)]
+            + NL_names
             + ["abc_tao0", "abc_tao1", "abc_tao2"]
             + [f"snf_noneq_norm_tao{i}" for i in range(2)]
             + ["core_power_tao"]
@@ -202,8 +220,9 @@ class TAODetector:
     # ════════════════════════════════════════════════════════════════════════
 
     def build_spectrum(self,
-                       Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao,
-                       core_power_tao, eff_nuis_tao, bckg_rate, nuisance):
+                       Nrea_tao, abc_tao, snf_noneq_norm_tao,
+                       core_power_tao, eff_nuis_tao, bckg_rate, nuisance,
+                       NL_tao=None):
         """
         Builds the TAO predicted spectrum.
 
@@ -248,22 +267,25 @@ class TAODetector:
         s_tao = s_tao.GetWithPositronEnergy(s_ibd=self.s_ibd,inputfile=args.input_data_file,
                                              tf2name=args.pos_ene_TF2).ApplyDetResp(self.ene_leak, pecrop=args.ene_crop)
 
-        # ── NL: always pull mode ─────────────────────────────────────────────
-        # NL_tao = [pull0, pull1, pull2, pull3, pull4, LY_pull]  (6 params:
-        # 5 shape pulls + shared LY pull at index 5)
-        new_nonl = Spectrum(bins=ensp['scintNL'].bins,
-                            bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
-        new_nonl.bin_cont = (ensp['scintNL'].bin_cont
-            + NL_tao[0] * (ensp['NL_pull'][0].bin_cont - ensp['scintNL'].bin_cont)
-            + NL_tao[1] * (ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)
-            + NL_tao[2] * (ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont)
-            + NL_tao[3] * (ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont)
-            + NL_tao[4] * (ensp['NL_pull'][4].bin_cont - ensp['scintNL'].bin_cont))
-        s_tao = s_tao.GetWithModifiedEnergy(mode='spectrum',
-                                             spectrum=new_nonl, LY_shared=NL_tao[5])
-        pulls.extend([NL_tao[0], NL_tao[1], NL_tao[2], NL_tao[3],NL_tao[4], NL_tao[5]])
-        pull_unc.extend([args.NL_sd] * 5)
-        pull_unc.append(args.ene_scale_unc)
+        # ── NL: pull mode, unless it is baked into the leakage matrix ────────
+        # When nl_in_leak is set (new-style TAO inputs), the energy-leakage
+        # matrix applied above already carries the nominal non-linearity, so
+        # NL_tao is not a fit parameter and this block is skipped entirely.
+        # Otherwise NL_tao = [pull0..pull4, LY_pull]: 5 shape pulls + shared LY.
+        if NL_tao is not None:
+            new_nonl = Spectrum(bins=ensp['scintNL'].bins,
+                                bin_cont=np.zeros(len(ensp['scintNL'].bin_cont)))
+            new_nonl.bin_cont = (ensp['scintNL'].bin_cont
+                + NL_tao[0] * (ensp['NL_pull'][0].bin_cont - ensp['scintNL'].bin_cont)
+                + NL_tao[1] * (ensp['NL_pull'][1].bin_cont - ensp['scintNL'].bin_cont)
+                + NL_tao[2] * (ensp['NL_pull'][2].bin_cont - ensp['scintNL'].bin_cont)
+                + NL_tao[3] * (ensp['NL_pull'][3].bin_cont - ensp['scintNL'].bin_cont)
+                + NL_tao[4] * (ensp['NL_pull'][4].bin_cont - ensp['scintNL'].bin_cont))
+            s_tao = s_tao.GetWithModifiedEnergy(mode='spectrum',
+                                                 spectrum=new_nonl, LY_shared=NL_tao[5])
+            pulls.extend([NL_tao[0], NL_tao[1], NL_tao[2], NL_tao[3], NL_tao[4], NL_tao[5]])
+            pull_unc.extend([args.NL_sd] * 5)
+            pull_unc.append(args.ene_scale_unc)
 
         # ── detector response with individual abc pull penalties ──────────────
         if abc_tao:
@@ -278,12 +300,16 @@ class TAODetector:
             s_tao = s_tao.ApplyDetResp(self.rm, pecrop=args.ene_crop)
 
         if snf_noneq_norm_tao:
-            s_tao = s_tao + ensp['snf_final'].GetScaledFit(1+snf_noneq_norm_tao[0]) +  ensp['noneq_final'].GetScaledFit(1+snf_noneq_norm_tao[1])
+            if self._tao_snf:
+                s_tao = s_tao + ensp['snf_final'].GetScaledFit(1+snf_noneq_norm_tao[0]) +  ensp['noneq_final'].GetScaledFit(1+snf_noneq_norm_tao[1])
+            else:
+                # SNF correction removed completely: keep only non-equilibrium.
+                s_tao = s_tao + ensp['noneq_final'].GetScaledFit(1+snf_noneq_norm_tao[1])
             pulls.extend(snf_noneq_norm_tao)
             pull_unc.extend([args.snf_unc, args.noneq_unc])
 
         else:
-            s_tao = s_tao + ensp['snf_final'] +  ensp['noneq_final']
+            s_tao = s_tao + (ensp['snf_final'] if self._tao_snf else 0) +  ensp['noneq_final']
         # ── efficiency ───────────────────────────────────────────────────────
         #if eff_nuis_tao:
         pulls.append(eff_nuis_tao)
@@ -315,9 +341,9 @@ class TAODetector:
     # ════════════════════════════════════════════════════════════════════════
 
     def chi2_contribution(self,
-                          Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao,
+                          Nrea_tao, abc_tao, snf_noneq_norm_tao,
                           core_power_tao, eff_nuis_tao,bckg_rate,
-                          unc, nuisance):
+                          unc, nuisance, NL_tao=None):
         """
         Returns (chi2_tao, chi2_nolog, s_tao, s_tot_tao).
         """
@@ -325,8 +351,8 @@ class TAODetector:
 
         (s_tao, s_tot_tao, pulls, pull_unc,
          rfis_param_post, bckg) = self.build_spectrum(
-            Nrea_tao, NL_tao, abc_tao, snf_noneq_norm_tao,
-            core_power_tao, eff_nuis_tao,bckg_rate, nuisance)
+            Nrea_tao, abc_tao, snf_noneq_norm_tao,
+            core_power_tao, eff_nuis_tao,bckg_rate, nuisance, NL_tao=NL_tao)
 
         sp_obs = self._get_obs_spectrum()
 

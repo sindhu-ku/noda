@@ -153,15 +153,18 @@ def call_detector_chi2(b: DetectorBundle, mapping: dict[str, str],
         return float(out[0]) + float(out[2])     # chi2 + chi2_penalty_er
 
     if b.kind == 'tao':
-        return float(b.detector.chi2_contribution(
+        tao_kwargs = dict(
             Nrea_tao = g('Nrea_tao'),
-            NL_tao   = [g(f'NL_tao{i}') for i in range(6)],
             abc_tao  = [g('abc_tao0'), g('abc_tao1'), g('abc_tao2')],
             snf_noneq_norm_tao = [g(f'snf_noneq_norm_tao{i}') for i in range(2)],
             core_power_tao = g('core_power_tao'),
             eff_nuis_tao = g('eff_nuis_tao'),
             bckg_rate = g('bckg_rate'),
-            unc=b.unc_key, nuisance=shared_kwargs['nuisance'])[0])
+            unc=b.unc_key, nuisance=shared_kwargs['nuisance'])
+        # NL is a fit nuisance only when it is NOT baked into the leakage matrix.
+        if not getattr(b.detector.args, 'nl_in_leak', False):
+            tao_kwargs['NL_tao'] = [g(f'NL_tao{i}') for i in range(6)]
+        return float(b.detector.chi2_contribution(**tao_kwargs)[0])
 
     if b.kind == 'dyb':
         # snf_noneq_norm_dyb is a REQUIRED positional arg in DYB's

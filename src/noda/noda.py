@@ -320,7 +320,11 @@ class Spectrum:
       core_shares = np.full(len(L), 1./len(L))
     else:
       core_shares = np.array([p/(l*l) for p, l in zip(core_powers, L)])
-      core_shares = core_shares / np.sum(core_shares)
+      share_sum = np.sum(core_shares)
+      # A zero-power core (e.g. a reactor off for the whole phase) has zero
+      # total share; leave the shares at zero so it contributes a zero
+      # spectrum instead of dividing 0/0 -> NaN.
+      core_shares = core_shares / share_sum if share_sum > 0 else core_shares
 
     eshift = 0
     if ene_mode == 'vis':

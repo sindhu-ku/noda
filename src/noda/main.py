@@ -334,10 +334,14 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
                 ndays=ndays_dyb, ebins=ebins_dyb, detector="DYB",
                 backgrounds=backgrounds, s_ibd=s_ibd, s_bump_lin=s_bump_lin,
                 args=args_dyb)
-        ensp_nom_tao, resp_matrix_tao, ene_leak_tao = spec.CreateSpectra(
-            ndays=ndays_tao, ebins=ebins_tao, detector="TAO",
-            backgrounds=backgrounds, s_ibd=s_ibd, s_bump_lin=s_bump_lin,
-            args=args_tao)
+        # honour include_tao at SETUP time too: with a prefit cache the TAO
+        # bundle is never used, so building its spectra is wasted work (and
+        # forces its inputs to exist). Default True = previous behaviour.
+        if getattr(args_juno, 'include_tao', True):
+            ensp_nom_tao, resp_matrix_tao, ene_leak_tao = spec.CreateSpectra(
+                ndays=ndays_tao, ebins=ebins_tao, detector="TAO",
+                backgrounds=backgrounds, s_ibd=s_ibd, s_bump_lin=s_bump_lin,
+                args=args_tao)
 
     # ── JUNO covariance matrices (load-or-compute + cache to disk) ──────
     unc_max_juno = max(args_juno.unc_list_juno, key=len)
@@ -390,6 +394,22 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
         cm_tao = {'all': rebin_cov_matrix(
             GetCovMatrixFromROOT(args_tao.data_file, args_tao.FV_cov_matrix),
             args_tao.bins_nonuniform)}
+        # When NL is baked into the leakage matrix (nl_in_leak) there are no NL
+        # pull nuisances, so the NL uncertainty is carried as a covariance term
+        # instead. Nonlinearity800_RelativeCovariance is already on the analysis
+        # binning (bins_nonuniform), so it is added directly (no rebin).
+        nl_cov_name = getattr(args_tao, 'NL_cov_matrix', None)
+        if getattr(args_tao, 'nl_in_leak', False) and nl_cov_name:
+            nl_cov = GetCovMatrixFromROOT(args_tao.data_file, nl_cov_name)
+            if nl_cov.data.shape != cm_tao['all'].data.shape:
+                raise ValueError(
+                    f"NL covariance shape {nl_cov.data.shape} != TAO covariance "
+                    f"shape {cm_tao['all'].data.shape}; expected both on "
+                    f"bins_nonuniform ({len(args_tao.bins_nonuniform)} groups).")
+            cm_tao['all'].data = cm_tao['all'].data + nl_cov.data
+            if not args_juno.silent_print:
+                print(f"[TAO] added NL covariance {nl_cov_name} "
+                      f"(diag mean={np.mean(np.diag(nl_cov.data)):.3e})")
 
     # ── DYB covariance (only in direct PMOP path) ───────────────────────
     cm_dyb = None

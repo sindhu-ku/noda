@@ -62,6 +62,33 @@ FREE_PARAM = 0
 
 import re
 
+
+def read_external_osc(path):
+    """Read the 4 oscillation parameters (Minuit units: sin²θ₁₂, sin²θ₁₃ raw;
+    dm²₂₁ ×1e-5; dm²₃₁ ×1e-3) from a Postfit ROOT written by a previous run.
+
+    Used by `fix_osc_to`: the stat-only refit pins the osc params at these
+    EXTERNAL values (e.g. the full all-phase AllP fit) instead of this run's
+    own full-fit best fit. Returns {name: value} for the 4 OSC_PARAM_NAMES.
+    """
+    f = ROOT.TFile(path, "read")
+    if f.IsZombie():
+        raise FileNotFoundError(f"fix_osc_to: cannot open ROOT file '{path}'")
+    d = f.GetDirectory("oscillation_parameters")
+    if not d:
+        f.Close()
+        raise KeyError(f"fix_osc_to: no 'oscillation_parameters' folder in {path}")
+    out = {}
+    for name in OSC_PARAM_NAMES:
+        p = d.Get(name)
+        if not p:
+            f.Close()
+            raise KeyError(f"fix_osc_to: '{name}' not found in {path}")
+        out[name] = float(p.GetVal())
+    f.Close()
+    return out
+
+
 # Exact ORSA nuisance labels keyed by reactor-summary core name. ORSA's
 # labels don't follow a single rule (TPL has a numeric suffix, DYB/FC don't),
 # so they're listed explicitly to match ORSA exactly.
@@ -620,9 +647,8 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         chi2_dyb = 0.0
 
         if tao_det is not None:
-            (chi2_tao, _, _s, _st, _, _) = tao_det.chi2_contribution(
+            tao_kwargs = dict(
                 Nrea_tao=tao_params_dict['Nrea_tao'],
-                NL_tao=[tao_params_dict[f'NL_tao{i}'] for i in range(6)],
                 snf_noneq_norm_tao=[tao_params_dict[f'snf_noneq_norm_tao{i}']
                                     for i in range(2)],
                 abc_tao=[tao_params_dict['abc_tao0'],
@@ -632,6 +658,9 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 eff_nuis_tao=tao_params_dict['eff_nuis_tao'],
                 bckg_rate=tao_params_dict['bckg_rate'],
                 unc=unc_tao, nuisance=nuisance_vals)
+            if 'NL_tao0' in tao_params_dict:
+                tao_kwargs['NL_tao'] = [tao_params_dict[f'NL_tao{i}'] for i in range(6)]
+            (chi2_tao, _, _s, _st, _, _) = tao_det.chi2_contribution(**tao_kwargs)
 
 
         if dyb_det is not None:
@@ -658,6 +687,16 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
     for n in nuis_names:
         m_pre.limits[n] = [-1, None]
 
+    # The old-style TAO NL sector floats 5 near-collinear shape pulls
+    # (positronNLpull0-4 correlate up to 0.99) plus the LY energy scale. With
+    # Minuit's default strategy 1 the coarse finite-difference Hessian over that
+    # ill-conditioned (cond ~1e7) sub-space comes out non-positive-definite, so
+    # Hesse reports inaccurate errors (pull σ > 1, and the covariance is not
+    # trustworthy). Strategy 2 uses more accurate derivatives and recovers an
+    # accurate, positive-definite covariance. Only needed when TAO actually
+    # floats the NL pulls (nl_in_leak False); the baked-in path has no NL sector.
+    if tao_det is not None and not getattr(args_tao, "nl_in_leak", False):
+        m_pre.strategy = 2
     m_pre.migrad()
     m_pre.hesse()
 
@@ -682,9 +721,8 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         nbins += len(s_obs_dyb.bins)
 
     if tao_det is not None:
-        (chi2_tao, _, s_obs_tao, s_tot_tao, bckg, cm_tao) = tao_det.chi2_contribution(
+        tao_kwargs = dict(
             Nrea_tao=m_pre.values['Nrea_tao'],
-            NL_tao=[m_pre.values[f'NL_tao{i}'] for i in range(6)],
             snf_noneq_norm_tao=[m_pre.values[f'snf_noneq_norm_tao{i}']
                                 for i in range(2)],
             abc_tao=[m_pre.values['abc_tao0'],
@@ -694,6 +732,10 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
             eff_nuis_tao=m_pre.values['eff_nuis_tao'],
             bckg_rate=m_pre.values['bckg_rate'],
             unc=unc_tao, nuisance=nuis_best)
+        if 'NL_tao0' in m_pre.parameters:
+            tao_kwargs['NL_tao'] = [m_pre.values[f'NL_tao{i}'] for i in range(6)]
+        (chi2_tao, _, s_obs_tao, s_tot_tao, bckg, cm_tao) = \
+            tao_det.chi2_contribution(**tao_kwargs)
         nbins += len(s_obs_tao.bins)
 
     if dyb_det is not None:
@@ -907,7 +949,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     ndays_tao=tao_bundle.detector.ndays if tao_bundle else 0.0,
                     dyb_exp=dyb_bundle.detector.ensp_nom['rtot'] if dyb_bundle else None,
                     tao_exp=tao_bundle.detector.ensp_nom['rtot'] if tao_bundle else None,
-                    ibd_prefit=dyb_bundle.detector.ensp_nom['ribd'])
+                    ibd_prefit=(dyb_bundle.detector.ensp_nom['ribd']
+                                if dyb_bundle else None))
 
         # Per-bundle segment→reco covariance (prefit_wosegs). Each JUNO bundle
         # may have its own reco binning (e.g. different shells), so C_reco must
@@ -1000,6 +1043,25 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     continue
                 cov_b = (_compute_C_reco_for(b)
                          if (multi or C_reco is None) else C_reco)
+                # [TEST] optionally replace each shell's reco covariance with an
+                # externally-supplied one (ORSA's DYB_TAO_JUNO_covariance_*.txt),
+                # matched to the shell by bin count. Env-gated, no yaml change.
+                import os as _os
+                _ext_map = {int(_os.environ.get('NODA_EXT_COV_INNER_NBINS', '168')):
+                                _os.environ.get('NODA_EXT_COV_INNER'),
+                            int(_os.environ.get('NODA_EXT_COV_OUTER_NBINS', '84')):
+                                _os.environ.get('NODA_EXT_COV_OUTER')}
+                _n = getattr(cov_b, 'shape', (0,))[0]
+                _ext = _ext_map.get(_n)
+                if _ext:
+                    _O = np.loadtxt(_ext)
+                    if _O.shape == cov_b.shape:
+                        print(f"[EXT-COV] shell nbins={_n}: NODA diag mean="
+                              f"{np.mean(np.diag(cov_b)):.4g} -> ORSA diag mean={np.mean(np.diag(_O)):.4g}; "
+                              f"using {_ext.split('/')[-1]}")
+                        cov_b = _O
+                    else:
+                        print(f"[EXT-COV] shape mismatch {_O.shape} vs {cov_b.shape}; keeping NODA")
                 b.detector.set_external_cov(cov_b)
 
     # ── 8. Build chi² closure ────────────────────────────────────────────
@@ -1020,6 +1082,42 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 return v + float(d @ nuis_cov_inv @ d)
             _chi2_with_penalty.__signature__ = _orig_sig
             chi2_func = _chi2_with_penalty
+
+        # ── 9b. Efficiency inter-shell correlation (ORSA multivariate_gauss) ─
+        # Couple the per-shell eff_nuis with a joint Gaussian prior whose
+        # covariance Σ has diagonal = eff_unc_shell² and off-diagonal =
+        # eff_corr_unc² (the shared "target proton" variance). build_spectrum
+        # already emits the per-shell diagonal (eff_nuis/eff_unc)², so here we
+        # add only the extra coupling Σ⁻¹ − diag(1/eff_unc²); the net efficiency
+        # penalty is then Δ·Σ⁻¹·Δ. Equivalent to a shared target-proton
+        # nuisance, but expressed as a covariance prior like ORSA does.
+        if getattr(args_juno, 'eff_corr_split', False):
+            juno_bs = [b for b in bundles if b.kind == 'juno']
+            eff_mangled, eff_unc = [], []
+            for b in juno_bs:
+                mn = routing[id(b)].get('eff_nuis')
+                if mn is not None and mn not in eff_mangled:
+                    eff_mangled.append(mn)
+                    eff_unc.append(float(b.args.eff_unc))
+            if len(eff_mangled) >= 2:
+                ecu   = float(getattr(args_juno, 'eff_corr_unc', 0.01))
+                Sig   = np.full((len(eff_mangled), len(eff_mangled)), ecu ** 2)
+                for i, su in enumerate(eff_unc):
+                    Sig[i, i] = su ** 2
+                coupling = np.linalg.inv(Sig) - np.diag([1.0 / su ** 2 for su in eff_unc])
+                eff_idx  = [names.index(mn) for mn in eff_mangled]
+                _base_eff = chi2_func
+                _sig_eff  = chi2_func.__signature__
+                def _chi2_eff_cov(*flat, _b=_base_eff, _M=coupling, _idx=eff_idx):
+                    v = _b(*flat)
+                    d = np.array([flat[i] for i in _idx])
+                    return v + float(d @ _M @ d)
+                _chi2_eff_cov.__signature__ = _sig_eff
+                chi2_func = _chi2_eff_cov
+                if not args_juno.silent_print:
+                    print(f"[bundled] efficiency inter-shell covariance prior on "
+                          f"{eff_mangled}, eff_unc={eff_unc}, off-diag "
+                          f"eff_corr_unc={ecu} (ORSA multivariate_gauss form)")
 
         # ── 10. Seed shape-nuisance starts from prefit (both prefit modes) ───
         if is_prefit_mode and nuis_best is not None:
@@ -1082,6 +1180,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         if m.fixed[p]:
             m.fixed[p] = False
 
+    m.strategy =2 
     m.migrad()
     migrad_time = datetime.now()
 
@@ -1173,35 +1272,67 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             # (same mangled Minuit name across bundles) are duplicated into
             # every shell folder with identical values (ORSA convention).
             print("************Background rates************")
-            for b in juno_bundles_all:
-                tag_pre = (f"[{b.phase}/{b.shell}] "
-                           if len(juno_bundles_all) > 1 else "")
-                for key, info in b.backgrounds['JUNO'].items():
-                    mangled  = routing[id(b)][f'bkg_{key}']
-                    nuis     = m.values[mangled]
-                    nuis_err = m.errors[mangled]
-                    rate_unc        = info.get("rate_unc", None)
-                    if key == "geo":
-                        start_rate = (float(b.args.geo_tnu_rate)
-                                      * float(b.args.tnu_to_cpd)) * float(b.args.detector_efficiency)
-                        rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
-                    elif key == "wr" or key == "atm":
-                        start_rate = info["rate"]*float(b.args.detector_efficiency)
-                        rate_fit = start_rate * (1 + nuis) * (1+m.values[routing[id(b)]['eff_nuis']])
-                    else:
-                        start_rate = info["rate"]
-                        rate_fit  = start_rate * (1 + nuis)
+            multi = len(juno_bundles_all) > 1
 
-                    rate_err        = start_rate * nuis_err
-                    deviation_sigma = ((rate_fit - start_rate)
-                                       / (start_rate * rate_unc)
-                                       if rate_unc else float('nan'))
-                    print(f"{tag_pre}{key}: {rate_fit:.4f} ± {rate_err:.4f} cpd "
-                          f"(rel unc: {rate_err/rate_fit:.3%}; "
-                          f"deviation: {deviation_sigma:.2f} σ)")
-                    if args_juno.write_output:
-                        _, dir_nuis, _ = juno_shell_dirs[id(b)]
-                        dir_nuis.cd()
+            def _bkg_start_fit(b, key, info):
+                """(start_rate, fitted_rate) for one background in one shell,
+                including the detection-efficiency factor for external fluxes."""
+                nuis    = m.values[routing[id(b)][f'bkg_{key}']]
+                eff_fac = 1.0 + m.values[routing[id(b)]['eff_nuis']]
+                if key == "geo":
+                    sr = (float(b.args.geo_tnu_rate) * float(b.args.tnu_to_cpd)
+                          * float(b.args.detector_efficiency))
+                    return sr, sr * (1 + nuis) * eff_fac
+                if key in ("wr", "atm"):
+                    sr = info["rate"] * float(b.args.detector_efficiency)
+                    return sr, sr * (1 + nuis) * eff_fac
+                sr = info["rate"]
+                return sr, sr * (1 + nuis)
+
+            # A background is "shell-correlated" when its Minuit parameter is the
+            # SAME mangled name across all shells (correlate_shell: true). Those
+            # are reported once as a combined total over shells; the rest per
+            # shell. The per-shell ROOT nuisance write below is unchanged.
+            for key in juno_bundles_all[0].backgrounds['JUNO'].keys():
+                info0    = juno_bundles_all[0].backgrounds['JUNO'][key]
+                rate_unc = info0.get("rate_unc", None)
+                mangs    = {routing[id(bb)][f'bkg_{key}'] for bb in juno_bundles_all}
+                shared   = multi and len(mangs) == 1
+                if shared:
+                    b0       = juno_bundles_all[0]
+                    nuis_err = m.errors[routing[id(b0)][f'bkg_{key}']]
+                    sr_tot = rf_tot = 0.0
+                    for bb in juno_bundles_all:
+                        sr, rf = _bkg_start_fit(bb, key, bb.backgrounds['JUNO'][key])
+                        sr_tot += sr; rf_tot += rf
+                    rate_err = sr_tot * nuis_err
+                    dev = ((rf_tot - sr_tot) / (sr_tot * rate_unc)
+                           if rate_unc else float('nan'))
+                    print(f"[total] {key}: {rf_tot:.4f} ± {rate_err:.4f} cpd "
+                          f"(rel unc: {rate_err/rf_tot:.3%}; deviation: {dev:.2f} σ)")
+                else:
+                    for b in juno_bundles_all:
+                        tag_pre  = f"[{b.phase}/{b.shell}] " if multi else ""
+                        info     = b.backgrounds['JUNO'][key]
+                        ru       = info.get("rate_unc", None)
+                        nuis_err = m.errors[routing[id(b)][f'bkg_{key}']]
+                        sr, rf   = _bkg_start_fit(b, key, info)
+                        rate_err = sr * nuis_err
+                        dev = ((rf - sr) / (sr * ru) if ru else float('nan'))
+                        print(f"{tag_pre}{key}: {rf:.4f} ± {rate_err:.4f} cpd "
+                              f"(rel unc: {rate_err/rf:.3%}; deviation: {dev:.2f} σ)")
+
+            # ROOT nuisance write — per shell, unchanged (ORSA convention: shared
+            # params are duplicated identically into each shell folder).
+            if args_juno.write_output:
+                for b in juno_bundles_all:
+                    _, dir_nuis, _ = juno_shell_dirs[id(b)]
+                    dir_nuis.cd()
+                    for key, info in b.backgrounds['JUNO'].items():
+                        mangled  = routing[id(b)][f'bkg_{key}']
+                        nuis     = m.values[mangled]
+                        nuis_err = m.errors[mangled]
+                        rate_unc = info.get("rate_unc", None)
                         if rate_unc != 0.0:
                             write_parameter(f"{key}", nuis/rate_unc, nuis_err/rate_unc)
                         else:
@@ -1353,9 +1484,12 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         return m_pre.values[pname]
                     return None    # cached prefit — best-fit values unavailable
 
-                tao_NL  = [tao_val(f"NL_tao{i}") for i in range(6)]
+                tao_nl_in_leak = getattr(tao_bundle.detector.args, "nl_in_leak", False)
+                # When NL is baked into the leakage matrix there is no post-fit
+                # NL curve to draw (and no NL_tao params); only write resolution.
+                tao_NL  = None if tao_nl_in_leak else [tao_val(f"NL_tao{i}") for i in range(6)]
                 tao_abc = [tao_val(f"abc_tao{i}") for i in range(3)]
-                if None not in tao_NL and None not in tao_abc:
+                if None not in tao_abc and (tao_nl_in_leak or None not in tao_NL):
                     tao_dir = (output_file.GetDirectory("tao")
                                or output_file.mkdir("tao"))
                     resp_dir_tao = (tao_dir.GetDirectory("response")
@@ -1363,9 +1497,10 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     resp_post_tao = (resp_dir_tao.GetDirectory("postfit")
                                      or resp_dir_tao.mkdir("postfit"))
                     resp_post_tao.cd()
-                    _build_nl_graph(tao_bundle.detector.ensp_nom,
-                                    tao_bundle.detector.args,
-                                    NL_pulls=tao_NL).Write("", ROOT.TObject.kOverwrite)
+                    if not tao_nl_in_leak:
+                        _build_nl_graph(tao_bundle.detector.ensp_nom,
+                                        tao_bundle.detector.args,
+                                        NL_pulls=tao_NL).Write("", ROOT.TObject.kOverwrite)
                     _build_resolution_graph(*tao_abc).Write("", ROOT.TObject.kOverwrite)
 
         if args_juno.write_output and args_juno.fit_type == "PMOP_combined" and not args_juno.use_prefit:
@@ -1395,18 +1530,25 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 return None
 
             # (output name, Minuit name, nominal, prior sigma)
-            tao_export = ([("Eff",   "eff_nuis_tao",        0.0, args_tao_w.eff_unc),
-                           ("Rflux", "Nrea_tao",            0.0, args_tao_w.r2_unc),
-                           ("TS1",   "core_power_tao",      0.0, args_tao_w.core_flux_unc),
-                           ("bkg",   "bckg_rate",           0.0, args_tao_w.bckg_rate_unc),
-                           ("snf_tao",   "snf_noneq_norm_tao0", 0.0, args_tao_w.snf_unc),
-                           ("noneq_tao", "snf_noneq_norm_tao1", 0.0, args_tao_w.noneq_unc),
-                           ("LY",    "NL_tao4",             0.0, args_tao_w.ene_scale_unc)]
-                          + [(f"a{i}", f"NL_tao{i}", 0.0, args_tao_w.NL_sd)
-                             for i in range(4)]
-                          + [("a", "abc_tao0", args_tao_w.a, args_tao_w.a_err),
-                             ("b", "abc_tao1", args_tao_w.b, args_tao_w.b_err),
-                             ("c", "abc_tao2", args_tao_w.c, args_tao_w.c_err)])
+            tao_export = [("Eff",   "eff_nuis_tao",        0.0, args_tao_w.eff_unc),
+                          ("Rflux", "Nrea_tao",            0.0, args_tao_w.r2_unc),
+                          ("TS1",   "core_power_tao",      0.0, args_tao_w.core_flux_unc),
+                          ("bkg",   "bckg_rate",           0.0, args_tao_w.bckg_rate_unc),
+                          ("snf_tao",   "snf_noneq_norm_tao0", 0.0, args_tao_w.snf_unc),
+                          ("noneq_tao", "snf_noneq_norm_tao1", 0.0, args_tao_w.noneq_unc)]
+            # NL sector (only when NL is NOT baked into the leakage matrix):
+            # 5 shape pulls a0..a4 = NL_tao0..4 (prior NL_sd), plus the separate
+            # energy-scale LY = NL_tao5 (prior ene_scale_unc). Earlier this
+            # mislabelled NL_tao4 (a shape pull) as "LY" and divided its error by
+            # ene_scale_unc, producing the spurious "LY err ≈ 140"; NL_tao5 (the
+            # real LY) was never written.
+            if not getattr(args_tao_w, "nl_in_leak", False):
+                tao_export += ([(f"a{i}", f"NL_tao{i}", 0.0, args_tao_w.NL_sd)
+                                for i in range(5)]
+                               + [("LY", "NL_tao5", 0.0, args_tao_w.ene_scale_unc)])
+            tao_export += [("a", "abc_tao0", args_tao_w.a, args_tao_w.a_err),
+                           ("b", "abc_tao1", args_tao_w.b, args_tao_w.b_err),
+                           ("c", "abc_tao2", args_tao_w.c, args_tao_w.c_err)]
 
             fetched = {tag: tao_val_err(pname) for tag, pname, _, _ in tao_export}
             if any(v is None for v in fetched.values()):
@@ -1526,10 +1668,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         if tao_bundle is not None and id(tao_bundle) in routing:
             map_tao = routing[id(tao_bundle)]
             def gv_tao(base): return values_best[map_tao[base]]
-            (chi2_tao, _, s_obs_tao, s_tot_tao,
-             bckg_tao, cm_tao) = tao_bundle.detector.chi2_contribution(
+            tao_kwargs = dict(
                 Nrea_tao=gv_tao('Nrea_tao'),
-                NL_tao=[gv_tao(f'NL_tao{i}') for i in range(6)],
                 abc_tao=[gv_tao('abc_tao0'), gv_tao('abc_tao1'),
                          gv_tao('abc_tao2')],
                 snf_noneq_norm_tao=[gv_tao(f'snf_noneq_norm_tao{i}')
@@ -1538,6 +1678,10 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 eff_nuis_tao=gv_tao('eff_nuis_tao'),
                 bckg_rate=gv_tao('bckg_rate'),
                 unc=tao_bundle.unc_key, nuisance=nuis_vals)
+            if 'NL_tao0' in map_tao:
+                tao_kwargs['NL_tao'] = [gv_tao(f'NL_tao{i}') for i in range(6)]
+            (chi2_tao, _, s_obs_tao, s_tot_tao,
+             bckg_tao, cm_tao) = tao_bundle.detector.chi2_contribution(**tao_kwargs)
             plot_fit_residuals_all(
                 s_tot=s_tot_tao,
                 s_obs=s_obs_tao,
@@ -1632,10 +1776,65 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                                                 'profile_dm2_31_conditional',
                                                 False)))
 
+    # ── 21b. 2D geo-rate vs dm²₂₁ Δχ² map (conditional and/or profiled) ───
+    if getattr(args_juno, 'geo_dm21_2d', False):
+        from .minuit import scan_geo_dm21_2d
+        scan_geo_dm21_2d(m, chi2_func, args_juno,
+                         routing=routing,
+                         juno_bundles_all=juno_bundles_all,
+                         NMO_opt=bool(args_juno.NMO_opt))
+
+    # ── 21c. 2D solar (sin²θ₁₂, Δm²₂₁) profiled contour via mncontour ─────
+    if getattr(args_juno, 'solar_mncontour', False):
+        from .minuit import scan_solar_contour
+        scan_solar_contour(m, args_juno, NMO_opt=bool(args_juno.NMO_opt))
+
+    # ── 21d. 2D (sin²θ₁₃, Δm²₃₁) profiled contour via mncontour ───────────
+    if getattr(args_juno, 'th13_dm31_2d', False):
+        from .minuit import scan_th13_dm31_contour
+        scan_th13_dm31_contour(m, chi2_func, args_juno,
+                               NMO_opt=bool(args_juno.NMO_opt))
+
     # ── 22. MINOS errors ─────────────────────────────────────────────────
     merrors = bool(args_juno.calc_minuit_errors)
     if merrors:
-        m.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31")
+        m.minos("sin2_th12", "sin2_th13", "dm2_21", "dm2_31", "bkg_geo")
+
+        # ── Total geo rate with MINOS (asymmetric) errors ────────────────
+        # The geo nuisance is shared across shells (a single Minuit param, hence
+        # the bare "bkg_geo" name profiled above), so there is ONE geo rate: the
+        # per-shell start rates are summed and scaled by the shared (1+nuis). The
+        # error is that shared nuisance's MINOS error propagated to the summed
+        # rate (Σ start_rate · σ), referenced to the nominal rate — same
+        # convention as the "Background rates" block, NOT a full multi-nuisance
+        # (incl. per-shell efficiency) propagation of the total event count.
+        geo_bundles = [b for b in juno_bundles_all
+                       if "geo" in b.backgrounds['JUNO']
+                       and routing[id(b)]['bkg_geo'] in m.merrors]
+        if geo_bundles:
+            mangled     = routing[id(geo_bundles[0])]['bkg_geo']
+            nuis        = m.values[mangled]
+            me          = m.merrors[mangled]
+            nuis_err    = m.errors[mangled]
+            start_total = 0.0
+            rate_total  = 0.0
+            for b in geo_bundles:
+                sr  = (float(b.args.geo_tnu_rate)
+                       * float(b.args.tnu_to_cpd)
+                       * float(b.args.detector_efficiency))
+                eff = m.values[routing[id(b)]['eff_nuis']]
+                start_total += sr
+                rate_total  += sr * (1 + nuis) * (1 + eff)
+            err_lo    = start_total * abs(me.lower)
+            err_hi    = start_total * abs(me.upper)
+            hesse_err = start_total * nuis_err
+            n_sh      = len(geo_bundles)
+            print("************Total geo rate (MINOS errors)************")
+            print(f"geo{f' (Σ over {n_sh} shells)' if n_sh > 1 else ''}: "
+                  f"{rate_total:.4f} +{err_hi:.4f} / -{err_lo:.4f} cpd "
+                  f"(rel unc: +{err_hi/rate_total:.3%} / -{err_lo/rate_total:.3%}; "
+                  f"Hesse: ±{hesse_err:.4f} cpd = {hesse_err/rate_total:.3%}; "
+                  f"minos valid: {me.is_valid})")
 
     # ── 23. Oscillation parameter results ────────────────────────────────
     osc_params_nom = [
@@ -1749,6 +1948,157 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     print('Migrad: ', migrad_time - final_fit_start)
     print('Hesse: ',  hesse_time - migrad_time)
     print("Final fit time:", datetime.now() - final_fit_start)
+
+    # ── 28. Stat-only refit ──────────────────────────────────────────────
+    # Two-stage "statistics-only" measurement: the full fit above already found
+    # the joint best fit with every nuisance floating. Here we PIN every nuisance
+    # at that best-fit value and re-fit ONLY the parameters of interest — the 4
+    # oscillation params plus the shared geo rate — so the resulting Hesse errors
+    # carry no nuisance freedom (statistics only). The central values are
+    # essentially unchanged (they already sit at the conditional minimum); only
+    # the errors shrink. Results OVERWRITE the normal `oscillation_parameters`
+    # folder (write_osc_params uses kOverwrite), so the Postfit carries the
+    # stat-only values/errors.
+    #
+    # NB: `unc: stat` already makes the χ² covariance statistical (systematics
+    # enter this fit through the pull penalties, not a systematic cov matrix), so
+    # fixing the pulls is all that is needed for a genuine stat-only error.
+    # `stat_only_osc` is a stricter variant: it ALSO pins the 4 oscillation
+    # parameters at their full-fit best-fit values, so only the geo rate (and
+    # any other non-osc POI) floats in the refit. Plain `stat_only` leaves the
+    # osc params free and pins only the nuisances/systematics.
+    stat_only     = getattr(args_juno, 'stat_only', False)
+    stat_only_osc = getattr(args_juno, 'stat_only_osc', False)
+    # `fix_osc_to`: path to a Postfit ROOT from a previous run (e.g. the full
+    # all-phase AllP fit). When set, the stat-only refit pins the 4 osc params
+    # at THOSE external best-fit values instead of this run's own full fit —
+    # implies the osc-pinned variant (only geo floats).
+    fix_osc_to = (getattr(args_juno, 'fix_osc_to', '') or '').strip()
+    osc_ext    = None
+    if fix_osc_to:
+        osc_ext       = read_external_osc(fix_osc_to)
+        stat_only_osc = True
+    if stat_only or stat_only_osc:
+        label = ("nuisances + osc fixed at best fit" if stat_only_osc
+                 else "nuisances fixed at best fit")
+        if osc_ext is not None:
+            label = f"nuisances fixed at best fit; osc fixed to {fix_osc_to}"
+        print(f"\n************ Stat-only refit ({label}) ************")
+
+        poi = list(OSC_PARAM_NAMES)                     # sin2_th12/13, dm2_21/31
+        # Shared geo pull (its Minuit name may be mangled per bundle) stays free.
+        geo_name    = None
+        geo_bundles = [b for b in juno_bundles_all
+                       if 'geo' in b.backgrounds.get('JUNO', {})]
+        if geo_bundles:
+            cand = routing[id(geo_bundles[0])].get('bkg_geo')
+            if cand in m.parameters:
+                geo_name = cand
+        if geo_name is not None:
+            poi.append(geo_name)
+
+        # stat_only_osc: drop the oscillation params from the POI set so they
+        # are pinned at their full-fit best fit alongside the nuisances. The
+        # resulting geo Hesse error then carries neither nuisance NOR
+        # oscillation freedom.
+        if stat_only_osc:
+            poi = [p for p in poi if p not in OSC_PARAM_NAMES]
+
+        # fix_osc_to: move the osc params to the EXTERNAL best fit before pinning
+        # so the refit floats only geo around the AllP osc values, not this run's.
+        if osc_ext is not None:
+            for name, val in osc_ext.items():
+                m.values[name] = val
+            print("  osc pinned to external values: "
+                  + ", ".join(f"{k}={v:.6g}" for k, v in osc_ext.items()))
+
+        # Pin everything except the POIs at the full-fit best fit.
+        for p in m.parameters:
+            m.fixed[p] = (p not in poi)
+        if fix_dm2_31_to is not None:          # respect an externally-fixed dm2_31
+            m.fixed['dm2_31'] = True
+
+        m.strategy = 2
+        if any(not m.fixed[p] for p in m.parameters):   # something left to fit
+            m.migrad()
+        m.hesse()
+        free_now = [p for p in poi if not m.fixed[p]]
+        print(f"Stat-only fmin = {m.fval:.4f}  (valid: {m.fmin.is_valid}, "
+              f"free: {free_now})")
+
+        out_stat = None
+        if args_juno.write_output:
+            out_stat = ROOT.TFile(
+                f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
+                f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root",
+                "update")
+            d_stat = (out_stat.GetDirectory("oscillation_parameters")
+                      or out_stat.mkdir("oscillation_parameters"))
+            d_stat.cd()
+        try:
+            print("************ Stat-only oscillation parameters ************")
+            osc_tag = "osc fixed at best fit" if stat_only_osc else "stat only"
+            for i in range(4):
+                val     = m.values[i]
+                err     = m.errors[i]
+                exp_val = osc_params_nom[i]
+                rel_unc = err / val if val != 0 else float('nan')
+                dev     = (val - exp_val) / err if err != 0 else float('nan')
+                print(f"{m.parameters[i]}: {val:.6g} +/- {err:.6g} ({osc_tag}); "
+                      f"rel unc: {rel_unc:.3%}; deviation: {dev:.2f} σ")
+                if out_stat is not None:
+                    write_osc_params(str(m.parameters[i]), val, err)
+
+            # Total (Σ shells) geo rate with its stat-only Hesse error, using the
+            # same nominal-referenced convention as the MINOS geo-rate block.
+            if geo_name is not None:
+                nuis        = m.values[geo_name]
+                nuis_err    = m.errors[geo_name]
+                start_total = 0.0
+                rate_total  = 0.0
+                for b in geo_bundles:
+                    sr  = (float(b.args.geo_tnu_rate) * float(b.args.tnu_to_cpd)
+                           * float(b.args.detector_efficiency))
+                    eff = m.values[routing[id(b)]['eff_nuis']]
+                    start_total += sr
+                    rate_total  += sr * (1 + nuis) * (1 + eff)
+                err_total = start_total * nuis_err
+                n_sh      = len(geo_bundles)
+                print(f"geo{f' (Σ over {n_sh} shells)' if n_sh > 1 else ''}: "
+                      f"{rate_total:.4f} +/- {err_total:.4f} cpd (stat only; "
+                      f"rel unc: "
+                      f"{err_total / rate_total if rate_total else float('nan'):.3%})")
+
+                # Overwrite the per-shell geo NUISANCE TVectorD ([pull, err]) with
+                # the stat-only value/error. This is what downstream readers use
+                # (scripts/geo_free_83.py read_geo_pull → {juno_dir}/nuisances/geo);
+                # section 18 wrote it earlier with the FULL-fit error, so without
+                # this the "stat-only" file would carry the stat+syst geo error.
+                # Mirror section 18's units exactly (pull/rate_unc when the geo is
+                # constrained, raw pull when free) so the reader un-normalises
+                # correctly.
+                if out_stat is not None:
+                    write_osc_params("geo_rate", rate_total, err_total)
+                    from ..spectra import juno_output_dirname
+                    for b in geo_bundles:
+                        info     = b.backgrounds['JUNO']['geo']
+                        rate_unc = info.get("rate_unc", None)
+                        jname    = juno_output_dirname(b.args)
+                        jd = (out_stat.GetDirectory(jname)
+                              or out_stat.mkdir(jname))
+                        nd = jd.GetDirectory("nuisances") or jd.mkdir("nuisances")
+                        nd.cd()
+                        if rate_unc:                      # constrained (rate_unc>0)
+                            gv, ge = nuis / rate_unc, nuis_err / rate_unc
+                        else:                             # free geo (rate_unc 0/None)
+                            gv, ge = nuis, nuis_err
+                        vec = ROOT.TVectorD(2); vec[0] = gv; vec[1] = ge
+                        vec.Write("geo", ROOT.TObject.kOverwrite)
+                    d_stat.cd()                           # restore osc dir context
+        finally:
+            if out_stat is not None:
+                force_vector_streamers(out_stat)
+                out_stat.Close()
 
     if return_cost_fn:
         return m, chi2_func

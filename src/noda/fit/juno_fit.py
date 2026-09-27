@@ -16,6 +16,7 @@ import numpy as np
 import scipy as sp
 from ..noda import *
 from .. import nuosc as nuosc
+from ..spectra import _apply_oec_correction
 
 
 def _aux_dm2_31(toy, which):
@@ -456,6 +457,7 @@ class JUNODetector:
             Th = Th.ApplyDetResp(self.rm, pecrop=args.ene_crop)
             geo_sp = U + Th
             geo_sp.GetScaled(args.detector_efficiency)
+            _apply_oec_correction(geo_sp, args, label="geo", component="geo")   # IBD (Check 5-2)
             if args.rebin_nonuniform:
                 geo_sp.Rebin_nonuniform(args.bins_nonuniform)
             self._geo_spectrum_cache[key] = geo_sp
@@ -497,6 +499,7 @@ class JUNODetector:
 
             bckg = U_final + Th_final
             bckg.GetScaled(args.detector_efficiency)
+            _apply_oec_correction(bckg, args, label="geo", component="geo")   # IBD (Check 5-2)
             if args.rebin_nonuniform:
                 bckg.Rebin_nonuniform(args.bins_nonuniform)
             self._geo_spectrum_cache[key] = bckg
@@ -523,6 +526,7 @@ class JUNODetector:
             rate  = self.backgrounds['JUNO']['wr']['rate']
             scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
             bckg  = bckg.GetScaledFit(scale*args.detector_efficiency)
+            _apply_oec_correction(bckg, args, label="wr", component="wr")   # IBD (Check 5-2)
             bckg.Rebin_nonuniform(args.bins_nonuniform)
             self._wr_spectrum_cache[key] = bckg
             if len(self._wr_spectrum_cache) > 64:
@@ -810,6 +814,12 @@ class JUNODetector:
             pull_unc.append(args.r2_unc)
             s_juno = s_juno.GetScaledFit(1 + Nrea)
 
+        # ── OMILREC 0.6 MeV threshold correction on reactor IBDs (Check 5-2) ──
+        # Applied on the fine reco spectrum, before rebinning; no-op unless
+        # apply_oec_correction is set. Energy-independent nuisances (eff, Nrea)
+        # commute with it, so its position after them is irrelevant.
+        _apply_oec_correction(s_juno, args)
+
         if args.rebin_nonuniform:
             s_juno.Rebin_nonuniform(args.bins_nonuniform)
 
@@ -839,6 +849,7 @@ class JUNODetector:
                     rate  = self.backgrounds['JUNO']['wr']['rate']
                     scale = rate * ndays / (args.duty_cycle * bckg.GetIntegral())
                     bckg  = bckg.GetScaledFit(scale*args.detector_efficiency)
+                    _apply_oec_correction(bckg, args)   # world reactors are IBDs (Check 5-2)
                     if args.rebin_nonuniform:
                         bckg.Rebin_nonuniform(args.bins_nonuniform)
                 else:
@@ -857,7 +868,11 @@ class JUNODetector:
 
             bckg = bckg.GetScaledFit(1 + info["pull"])
 
-            if bckg == "geo" or bckg == "wr":
+            # geo / world-reactor are external fluxes: their detected rate
+            # carries the detection-efficiency nuisance like the signal does.
+            # (was `bckg == "geo"` — comparing the Spectrum object to a
+            # string, so this scaling never applied.)
+            if key == "geo" or key == "wr":
                 bckg = bckg.GetScaledFit(1 + eff_nuis)
 
             if info["b2b"] > 0:

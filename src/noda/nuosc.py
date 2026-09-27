@@ -184,6 +184,97 @@ def SetOscillationParameters(opt, NO, silent=True):
       op_nom['dm2_31_dyb']     = -2.571e-3 + op_nom['dm2_21']  # DYB, IO
       op_nom['dm2_31_dyb_err'] = 0.06e-3
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
+  elif opt == 'JUNO2026':
+    # June 2026 unblinded 240-day data best fit (2-shell JUNO+DYB+LBL fit,
+    # config/240-day_FV165/manifest_phases.yaml) — centrals for Asimov
+    # studies AT the observed best-fit point. External constraints stay as
+    # in NuFitLBL: DYB dm2_31 pull central/width, LBL theta23/dcp for the
+    # f_lbl projection, th13 pull width.
+    op_nom['sin2_th13_err'] = 0.063e-2
+    if NO:
+      op_nom['sin2_th12'] = 0.304215
+      op_nom['sin2_th13'] = 0.021793
+      op_nom['dm2_21']    = 7.36541e-5
+      op_nom['dm2_31']    = 2.50819e-3
+      op_nom['dm2_31_err'] = 0.0265e-3
+      op_nom['sin2_th23'] = 0.534
+      op_nom['theta23'] = 48.5    # [deg]  (NuFitLBL, NO)
+      op_nom['dcp']     = 177.0   # [deg]
+      op_nom['dm2_31_dyb']     = 2.466e-3 + 7.50e-5   # DYB external, NO
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
+    else:
+      op_nom['sin2_th12'] = 0.304216
+      op_nom['sin2_th13'] = 0.021784
+      op_nom['dm2_21']    = 7.36460e-5
+      op_nom['dm2_31']    = -2.45168e-3
+      op_nom['dm2_31_err'] = 0.0275e-3
+      op_nom['sin2_th23'] = 0.537
+      op_nom['theta23'] = 48.6    # [deg]  (NuFitLBL, IO)
+      op_nom['dcp']     = 285.0   # [deg]
+      op_nom['dm2_31_dyb']     = -2.571e-3 + 7.50e-5  # DYB external, IO
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
+    op_nom['dm2_32'] = op_nom['dm2_31'] - op_nom['dm2_21']
+  elif opt == 'JUNO2026aux':
+    # JUNO2026 truth point, but with the DYB dm2_31 pull centred ON the
+    # truth instead of the external measurement — the median-toy
+    # configuration of the FC NMO toys (sample_aux_dm2_31 draws the DYB
+    # pseudo-measurement around the data best fit; its IO image is
+    # -meas + 2 sin2_th12 dm2_21). Pair with dm2_31_lbl set to the truth
+    # and NO direct dm2_31_lbl_IO in the config to mimic the toys' f_lbl
+    # projection. For Asimov cross-checks of the toy median only.
+    op_nom['sin2_th13_err'] = 0.063e-2
+    if NO:
+      op_nom['sin2_th12'] = 0.304215
+      op_nom['sin2_th13'] = 0.021793
+      op_nom['dm2_21']    = 7.36541e-5
+      op_nom['dm2_31']    = 2.50819e-3
+      op_nom['dm2_31_err'] = 0.0265e-3
+      op_nom['sin2_th23'] = 0.534
+      op_nom['theta23'] = 48.5
+      op_nom['dcp']     = 177.0
+      op_nom['dm2_31_dyb']     = 2.50819e-3            # = truth
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
+    else:
+      op_nom['sin2_th12'] = 0.304216
+      op_nom['sin2_th13'] = 0.021784
+      op_nom['dm2_21']    = 7.36460e-5
+      op_nom['dm2_31']    = -2.45168e-3
+      op_nom['dm2_31_err'] = 0.0275e-3
+      op_nom['sin2_th23'] = 0.537
+      op_nom['theta23'] = 48.6
+      op_nom['dcp']     = 285.0
+      op_nom['dm2_31_dyb']     = -2.46337e-3           # -truth + 2 s12 dm21
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
+    op_nom['dm2_32'] = op_nom['dm2_31'] - op_nom['dm2_21']
+  elif opt == 'oldtoymed':
+    # Median-toy configuration of the PRE-July-6 NMO toy production
+    # (nmo_plots_172m): spectrum truth = NuFitLBL centrals, but the aux
+    # dm2_31 pulls centred on the DATA best fit (old run_one_toy_nmo drew
+    # them around initial_fits' free fit while generating the Asimov at
+    # op_nom). True-NO ensemble only. Pair with dm2_31_lbl = 2.50819e-3
+    # and no direct dm2_31_lbl_IO. For decomposing the old-vs-new toy
+    # median shift; not for physics fits.
+    op_nom['sin2_th12'] = 0.307
+    op_nom['sin2_th13'] = 0.02175
+    op_nom['sin2_th13_err'] = 0.063e-2
+    op_nom['dm2_21'] = 7.50e-5
+    if NO:
+      op_nom['sin2_th23'] = 0.534
+      op_nom['dm2_32'] = 2.442e-03
+      op_nom['dm2_31_err'] = 0.0265e-3
+      op_nom['theta23'] = 48.5
+      op_nom['dcp']     = 177.0
+      op_nom['dm2_31_dyb']     = 2.50819e-3            # data best fit
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
+    else:
+      op_nom['sin2_th23'] = 0.537
+      op_nom['dm2_32'] = -2.483e-03
+      op_nom['dm2_31_err'] = 0.0275e-3
+      op_nom['theta23'] = 48.6
+      op_nom['dcp']     = 285.0
+      op_nom['dm2_31_dyb']     = -2.46337e-3           # IO image of data bf
+      op_nom['dm2_31_dyb_err'] = 0.06e-3
+    op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
   else:
     print(f"No such option \"{opt}\"")
     return

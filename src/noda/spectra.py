@@ -81,6 +81,102 @@ def _zero_spectrum(ebins):
 
 
 # ---------------------------------------------------------------------------
+# OMILREC / 0.6 MeV threshold correction  (Check 5-2, DocDB-17104 p10)
+# ---------------------------------------------------------------------------
+# The reactor "eps_eff_reactor" curve models the low-energy IBD efficiency loss
+# caused by the OMILREC 0.6 MeV threshold. It is applied to *all IBD* components
+# (reactor IBDs, geo-neutrinos, world reactors) at the reconstructed-energy
+# level, so those components end up with fewer expected events in the low-energy
+# bins — mimicking the data. Backgrounds (accidentals, etc.) are NOT corrected.
+
+_OEC_CACHE = {}
+
+# IBD component -> preferred correction column (new per-component CSV format).
+# Only IBD components are ever corrected (Check 5-2); backgrounds never call
+# _apply_oec_correction, so no bg columns are mapped here.
+_OEC_COL = {
+    "reactor": "reactor_efficiency_correction_factor",
+    "geo":     "geoneutrino_efficiency_correction_factor",
+    "wr":      "wr_efficiency_correction_factor",
+}
+
+
+def _load_oec_correction(path):
+    """Load the OMILREC efficiency table; cache by path.
+
+    Returns (e_low, e_high, factors) where `factors` maps each IBD component
+    ('reactor', 'geo', 'wr') to its per-bin correction array. Two CSV layouts
+    are accepted, keyed off the header row:
+      * per-component: E_low,E_high,E_center,<comp>_efficiency_correction_factor…
+        each IBD component uses its OWN column;
+      * legacy single-column: E_low,E_high,E_center,eps_eff_reactor,
+        eps_eff_accidental — the reactor column is used for every IBD component.
+    """
+    if path not in _OEC_CACHE:
+        with open(path) as fh:
+            header = [h.strip() for h in fh.readline().strip().split(",")]
+        # genfromtxt (not loadtxt) so empty cells parse: some component columns
+        # are blank where that component has no events (e.g. geo above its
+        # endpoint). Blank -> NaN -> 1.0 (no correction; harmless as those bins
+        # carry no events anyway).
+        data = np.genfromtxt(path, delimiter=",", skip_header=1)
+        data = np.nan_to_num(data, nan=1.0)
+        hmap = {h: i for i, h in enumerate(header)}
+        factors = {}
+        for comp, col in _OEC_COL.items():
+            if col in hmap:                       # per-component file
+                factors[comp] = data[:, hmap[col]]
+            elif "eps_eff_reactor" in hmap:       # legacy single-column file
+                factors[comp] = data[:, hmap["eps_eff_reactor"]]
+            else:                                 # positional fallback (4th col)
+                factors[comp] = data[:, 3]
+        _OEC_CACHE[path] = (data[:, 0], data[:, 1], factors)
+    return _OEC_CACHE[path]
+
+
+def _oec_eff_at(energies, e_low, e_high, eff):
+    """Reactor efficiency evaluated at each energy (MeV).
+
+    Below the first bin -> first value (no IBD signal below the fit threshold
+    anyway); above the last bin -> 1.0 (no correction).
+    """
+    energies = np.asarray(energies, dtype=float)
+    out = np.ones_like(energies)
+    for lo, hi, ef in zip(e_low, e_high, eff):
+        out[(energies >= lo) & (energies < hi)] = ef
+    out[energies < e_low[0]] = eff[0]
+    out[energies >= e_high[-1]] = 1.0
+    return out
+
+
+def _apply_oec_correction(spec, args, label="", component=None):
+    """Multiply a reconstructed-energy IBD spectrum in place by the OMILREC
+    per-component efficiency. No-op unless ``apply_oec_correction`` is set.
+    Applied ONLY to IBD components (reactor / geo / world-reactors), each with
+    its own correction column; backgrounds are never passed here.
+
+    `component` ('reactor'|'geo'|'wr') selects the column; if omitted it is
+    inferred from `label` (geo*, reactor*, wr*). Must be applied AFTER rate
+    normalisation and BEFORE the non-uniform rebin. Returns *spec*."""
+    if not getattr(args, "apply_oec_correction", False):
+        return spec
+    if component is None:
+        lab = (label or "").lower()
+        component = ("geo"     if lab.startswith("geo")
+                     else "wr" if lab.startswith("wr")
+                     else "reactor")
+    e_low, e_high, factors = _load_oec_correction(args.oec_correction_file)
+    eff = factors.get(component, factors["reactor"])
+    fac = _oec_eff_at(spec.GetBinCenters(), e_low, e_high, eff)
+    before = spec.GetIntegral()
+    spec.bin_cont = np.asarray(spec.bin_cont, dtype=float) * fac
+    if label:
+        print(f"  OEC correction [{label}] (col={component}): {before:.2f} -> "
+              f"{spec.GetIntegral():.2f} events")
+    return spec
+
+
+# ---------------------------------------------------------------------------
 # Energy-response chain helpers
 # ---------------------------------------------------------------------------
 
@@ -186,6 +282,12 @@ def _weight_flux_with_ibd(flux, s_ibd, s_bump_lin, args, ndays, extrafactor):
 def _load_nonlinearity(ensp, args, detector):
     """Populate ensp['scintNL'] and ensp['NL_pull'] when NL == 'pull'."""
     if args.NL != "pull":
+        return
+
+    # For TAO with NL baked into the energy-leakage matrix there is no separate
+    # NL curve (the positronNL/positronNLpull histograms are gone from the
+    # new-style inputs), so nothing to load.
+    if detector == "TAO" and getattr(args, "nl_in_leak", False):
         return
 
     if detector == "TAO":
@@ -446,8 +548,13 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd, ene
         ensp["snf_final_temp"]   = _apply_positron_energy(ensp["snf"],   args, s_ibd=s_ibd).ApplyDetResp(ene_leak, pecrop=args.ene_crop)
         ensp["noneq_final_temp"] = _apply_positron_energy(ensp["noneq"], args, s_ibd=s_ibd).ApplyDetResp(ene_leak, pecrop=args.ene_crop)
 
-        ensp["snf_final"] = _apply_nonlinearity(ensp["snf_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
-        ensp["noneq_final"] =  _apply_nonlinearity(ensp["noneq_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        if detector == "TAO" and getattr(args, "nl_in_leak", False):
+            # NL already carried by the energy-leakage matrix — no separate curve.
+            ensp["snf_final"]   = ensp["snf_final_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            ensp["noneq_final"] = ensp["noneq_final_temp"].ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+        else:
+            ensp["snf_final"] = _apply_nonlinearity(ensp["snf_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
+            ensp["noneq_final"] =  _apply_nonlinearity(ensp["noneq_final_temp"],   args, ensp).ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
 # def _build_snf_noneq_corrections_per_core(ensp, args,ndays, ebins, core_fractions,
 #                                           core_baselines, core_powers,
@@ -610,6 +717,8 @@ def _build_geo_spectra(ensp, args, ebins, s_ibd, ndays, resp_matrix, name, rate,
         vis_nl = _apply_nonlinearity(vis, args, ensp)
         reco = vis_nl.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
         reco.GetScaled(args.detector_efficiency)
+        # OMILREC 0.6 MeV threshold correction: geo-nu are IBDs (Check 5-2)
+        _apply_oec_correction(reco, args, label=f"geo-{name}")
         if args.rebin_nonuniform:
             reco.Rebin_nonuniform(args.bins_nonuniform)
         return reco
@@ -640,6 +749,12 @@ def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_
 
         if key == "wr" or key == "geo" or key == "atm":
             ensp[key].GetScaled(args.detector_efficiency)
+        # OMILREC 0.6 MeV threshold correction: world reactors + geo-nu are IBDs
+        # (Check 5-2). Applied after rate normalisation, before rebinning. The
+        # analytic geo path rebuilds/replaces "geo" in _build_geo_spectra where
+        # the same correction is re-applied.
+        if key in ("wr", "geo"):
+            _apply_oec_correction(ensp[key], args, label=key)
         if args.rebin_nonuniform:
             ensp[key].Rebin_nonuniform(args.bins_nonuniform)
 
@@ -932,7 +1047,10 @@ def _write_tao_output(ensp, args, backgrounds):
     dir_resp = tao_dir.GetDirectory("response") or tao_dir.mkdir("response")
     dir_resp_prefit = dir_resp.GetDirectory("prefit") or dir_resp.mkdir("prefit")
     dir_resp_prefit.cd()
-    _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
+    # NL baked into the leakage matrix (nl_in_leak): no separate NL curve exists,
+    # so skip the pre-fit NL graph and write only the resolution curve.
+    if not getattr(args, "nl_in_leak", False):
+        _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
     _build_resolution_graph(args.a, args.b, args.c).Write("", ROOT.TObject.kOverwrite)
     force_vector_streamers(output_file)
     output_file.Close()
@@ -1066,10 +1184,15 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             ensp["rvis_nonl_leak"] = ensp["rvis_nonl"]
             ensp["rvis_nonl_temp_leak"] = ensp["rvis_nonl_temp"]
 
-        if detector != "DYB":
+        tao_nl_in_leak = (detector == "TAO" and getattr(args, "nl_in_leak", False))
+        if detector != "DYB" and not tao_nl_in_leak:
             ensp["rvis"]      = _apply_nonlinearity(ensp["rvis_nonl_leak"],      args, ensp)
             ensp["rvis_temp"] = _apply_nonlinearity(ensp["rvis_nonl_temp_leak"], args, ensp)
             #ensp["rvis_temp_wcorr"] = _apply_nonlinearity(ensp["rvis_nonl_temp_wcorr"], args, ensp)
+        elif tao_nl_in_leak:
+            # NL already carried by the energy-leakage matrix — no separate curve.
+            ensp["rvis"]      = ensp["rvis_nonl_leak"]
+            ensp["rvis_temp"] = ensp["rvis_nonl_temp_leak"]
         else:
             ensp["rvis"]      = ensp["rvis_nonl"]
             ensp["rvis_temp"] = ensp["rvis_nonl_temp"]
@@ -1088,6 +1211,10 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             ensp["rdet"] = ensp["rdet"]
     else:
         ensp["rdet"] = ensp["rdet"] + ensp["snf_final"] + ensp["noneq_final"]
+    # OMILREC 0.6 MeV threshold correction on reactor IBDs (Check 5-2).
+    # Applied on the fine reco spectrum, before rebinning.
+    if detector == "JUNO":
+        _apply_oec_correction(ensp["rdet"], args, label="reactor")
     ensp['rdet_fine'] = ensp['rdet']
     if args.rebin_nonuniform:
         ensp["rdet"].Rebin_nonuniform(args.bins_nonuniform)
