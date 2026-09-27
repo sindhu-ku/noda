@@ -6,7 +6,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: NuFitLBL #PDG option
+  PDG_opt: DYB #PDG option
   NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
@@ -18,9 +18,18 @@ fit_options:
   print_minuit_correlation: false
   run_hesse: True
   solar_contour: false
+  # 2D (sin2_th13, dm2_31) conditional Delta-chi2 map (see scan_th13_dm31_contour).
+  # Wide dm2_31 range exposes the JUNO wiggle-degeneracy secondary minima
+  # (present when the DYB dm2_31 pull is off).
+  th13_dm31_2d: false
+  th13_dm31_nth13: 31
+  th13_dm31_ndm: 401
+  th13_dm31_nsigma: 5.0
+  th13_dm31_dm31_range: [2.0, 3.0]
+  th13_dm31_tag: ''
   CI_powers: False
   osc_per_core: True # oscillate each core flux at its own baseline and sum, instead of summing fluxes and oscillating with power/L^2 shares
-  calc_minuit_errors: False
+  calc_minuit_errors: true
   profile_dm2_31: true
   profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
   profile_points: 1000
@@ -31,7 +40,7 @@ fit_options:
   silent_print: false
   geo_spectra: ana
   pull_dm2_31: true
-  pull_dm2_31_lbl: true #false
+  pull_dm2_31_lbl: false #false
   dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
   dm2_31_lbl: 2.517e-03 #0.0025043000
   # Optional: independent NuFit IO best-fit |dm2_31| for the DATA fit. When set,
@@ -45,10 +54,26 @@ fit_options:
   lin_resp: True
   fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
   fit_mode: prefit_wosegs
-  save_prefit: True
+  save_prefit: False
   use_prefit: True
-  prefit_path: ${NODA_BASE}/prefit_data/240_allP_data.npz
+  # Stat-only refit: after the full fit, pin every nuisance at its best-fit value
+  # and re-fit only the osc params + geo rate, so the errors are statistics-only.
+  # Overwrites the values/errors in the Postfit's oscillation_parameters folder.
+  stat_only: False
+  prefit_path: ${NODA_BASE}/prefit_data/ prefit_data/240_allP_TAO0911.npz #240_allP_data.npz
   include_tao: True
+  # When False, the SNF flux correction is removed entirely from the TAO model
+  # spectrum (only the non-equilibrium correction is kept). Override per run with
+  # --tao_snf_corr False.
+  tao_snf_corr: True
+  # Efficiency-correlation split across shells. When True, the per-shell
+  # detection-efficiency prior is decomposed into a SHARED "target proton"
+  # part (eff_corr, prior eff_corr_unc, correlated across shells) and a
+  # per-shell UNCORRELATED remainder (eff_nuis, prior
+  # sqrt(eff_unc^2 - eff_corr_unc^2)). Total per-shell prior unchanged.
+  # Override per run with --eff_corr_split True.
+  eff_corr_split: False
+  eff_corr_unc: 0.01
   include_dyb: True
   geo_fit: true
   apply_bump: true
@@ -72,8 +97,8 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
-  write_output: False
-  file_prefix: 'GroupC_15m_June14-2026_P14_JUNO+DYB+TAO'
+  write_output: True
+  file_prefix: '172m_latest_Sep16-2026'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -166,8 +191,8 @@ common_det_inputs:
   noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_June2026.yaml
-  stat_opt: 207.117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_Aug2026.yaml
+  stat_opt: 207.5628days #207.117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
   detector_efficiency: 0.5407 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
   eff_unc: 0.01229613688 #rel
   bins: 601
@@ -178,7 +203,7 @@ juno_inputs:
     - 12.0
   NL: real
   NL_data_file:  ${NODA_BASE}/data/JUNOInputs2022_05_08.root #${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: ${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV15_June11_clean.root
+  data_spectrum: ${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV15_Aug31_40keV.root #June1_2026/GroupC_spectra_P26B_total_FV15_June11_clean.root
   det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er_15m.txt
   data_hist_name: data
   rebin_nonuniform: true
@@ -340,16 +365,25 @@ tao_inputs:
   FORCE_CALC_ENE_LEAK: False
   NL: pull
   NL_sd: 1.0
-  data_file: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
-  NL_data_file: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
-  data_spectrum: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
+  # NL is baked into the energy-leakage matrix (Energy_leakage_NL_FV800) in the
+  # new-style TAO inputs, so NODA applies no separate NL curve and carries no NL
+  # fit nuisances for TAO. Set False (or omit) to use the old separate-NL path.
+  nl_in_leak: True
+  data_file: ${NODA_BASE}/data/TAOInputs_2026_9_11.root
+  NL_data_file: ${NODA_BASE}/data/TAOInputs_2026_9_11.root
+  data_spectrum: ${NODA_BASE}/data/TAOInputs_2026_9_11.root
   data_hist_name: IBD_Spectra/IBD_spectrum_bkg_not_subtracted_FV800
   bckg_hist_name: IBD_Spectra/Bkg_spectrum_FV800
   bckg_scale: 0.93711878 #0.9827282340500528 # 27.88/28.37 reactor-on/off DAQ livetime ratio (Group A convention)
   bckg_rate_unc: 0.009
   bckg_rate: 419
-  IAV_hist: Detector_Response/Energy_leakage_FV800
+  IAV_hist: Detector_Response/Energy_leakage_NL_FV800
   FV_cov_matrix: Detector_Response/FVcut800_RelativeCovariance
+  # NL (non-linearity) relative covariance — added to the TAO covariance only
+  # when nl_in_leak is True, to carry the NL uncertainty now that NL is baked
+  # into the leakage matrix (no separate NL pull nuisances). Already on the
+  # analysis binning (bins_nonuniform), so no rebin is applied.
+  NL_cov_matrix: Detector_Response/Nonlinearity800_RelativeCovariance_340bins
   rebin_nonuniform:  True
   bins_nonuniform:
     - [0.8, 0.94, 1]
@@ -365,8 +399,8 @@ tao_inputs:
   core_powers: [4.14]
   core_baselines: [43.2]
   Np: 2.0070463252814688e+29
-  detector_efficiency: 0.405
-  eff_unc: 0.10729614
+  detector_efficiency: 0.466   # was 0.405 (stale); = TAO file FV800 IBD selection efficiency
+  eff_unc: 0.10729614          # = 0.05/0.466 (file's absolute unc)
   veto: 1.0
   nl_hist_name: Detector_Response/positronNL
   nl_pull_hist_name: Detector_Response/positronNLpullkey

@@ -6,7 +6,7 @@ fit_options:
   sin2_th13_opt: pull # Sin2_theta13 option
   pull_all: true
   osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
-  PDG_opt: NuFitLBL #PDG2025 #DYB #PDG option
+  PDG_opt: DYB #PDG2025 #DYB #PDG option
   NMO_opt: True # NMO option, true is normal
   NMO_sig: False
   stat_method_opt: CNP #NorP, CNP, or bayesian
@@ -18,9 +18,15 @@ fit_options:
   print_minuit_correlation: false
   run_hesse: True
   solar_contour: false
+  solar_mncontour: false      # profiled (sin²θ₁₂, Δm²₂₁) contour via Minuit mncontour
+  solar_mncontour_size: 100   # points traced per contour (cost knob)
+  solar_mncontour_cls: [1, 2, 3]   # confidence levels (σ) to draw
+  solar_profiles: true        # add 1D profiled Δχ² marginals on the sides
+  solar_profile_size: 40      # points per 1D profile
+  solar_profile_bound: 4.0    # profile half-range in σ
   CI_powers: False
   osc_per_core: True # oscillate each core flux at its own baseline and sum, instead of summing fluxes and oscillating with power/L^2 shares
-  calc_minuit_errors: False
+  calc_minuit_errors: true
   profile_dm2_31: true
   profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
   profile_points: 1000
@@ -43,11 +49,20 @@ fit_options:
   fit_mode: prefit_wosegs
   save_prefit: True
   use_prefit: True
+  # Stat-only refit: after the full fit, pin every nuisance at its best-fit value
+  # and re-fit only the osc params + geo rate, so the errors are statistics-only.
+  # Overwrites the values/errors in the Postfit's oscillation_parameters folder.
+  stat_only: False
   prefit_path: ${NODA_BASE}/prefit_data/240_allP_data.npz
   include_tao: True
   include_dyb: True
   geo_fit: true
   apply_bump: true
+  # Check 5-2 (DocDB-17104 p10): OMILREC 0.6 MeV threshold reactor efficiency.
+  # Applied to ALL IBDs (reactor IBDs, geo-neutrinos, world reactors) at reco
+  # energy, so low-E bins lose events like the data. Backgrounds are untouched.
+  apply_oec_correction: False
+  oec_correction_file: ${NODA_BASE}/data/OMILREC_correction_p10_DocDB17104.csv
   geo_fit_type: total #UThfree , mantle or total (default)
   mantle_model: GD
   reac_model: HM
@@ -68,8 +83,8 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
-  write_output: False
-  file_prefix: 'GroupC_lbl_June14-2026'
+  write_output: True
+  file_prefix: 'P26B_allp_Aug26-2026_test'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -162,10 +177,10 @@ common_det_inputs:
   noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_June2026.yaml #June2026.yaml
-  stat_opt: 207.117days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
-  detector_efficiency: 0.7048 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
-  eff_unc: 0.01938200364 #rel
+  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_Aug2026.yaml #June2026.yaml
+  stat_opt: 207.5628days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  detector_efficiency: 0.6951 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  eff_unc: 0.0191 #rel
   bins: 601
   min_ene: 0.0  # Minimum energy
   max_ene: 12
@@ -174,7 +189,7 @@ juno_inputs:
     - 12.0
   NL: real
   NL_data_file:  ${NODA_BASE}/data/JUNOInputs2022_05_08.root #${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: ${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV16.5_June11_clean.root
+  data_spectrum: ${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV16.5_Aug26_10keV.root
   det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er.txt
   data_hist_name: data
   rebin_nonuniform: true

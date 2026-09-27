@@ -37,6 +37,10 @@ fit_options:
   fit_mode: prefit_wosegs
   save_prefit: True
   use_prefit: True
+  # Stat-only refit: after the full fit, pin every nuisance at its best-fit value
+  # and re-fit only the osc params + geo rate, so the errors are statistics-only.
+  # Overwrites the values/errors in the Postfit's oscillation_parameters folder.
+  stat_only: False
   prefit_path: ${NODA_BASE}/prefit_data/240_allP_asimov.npz
   include_tao: True
   include_dyb: True

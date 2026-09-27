@@ -21,7 +21,7 @@ fit_options:
   CI_powers: False
   osc_per_core: True # oscillate each core flux at its own baseline and sum, instead of summing fluxes and oscillating with power/L^2 shares
   calc_minuit_errors: true
-  profile_dm2_31: true
+  profile_dm2_31: false
   profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
   profile_points: 1000
   # --- profile splitting (memory): scan one chunk per job, write raw CSV, ---
@@ -62,6 +62,10 @@ fit_options:
   fit_mode: prefit_wosegs
   save_prefit: True
   use_prefit: True
+  # Stat-only refit: after the full fit, pin every nuisance at its best-fit value
+  # and re-fit only the osc params + geo rate, so the errors are statistics-only.
+  # Overwrites the values/errors in the Postfit's oscillation_parameters folder.
+  stat_only: False
   prefit_path: ${NODA_BASE}/prefit_data/59day_data.npz
   include_tao: True
   include_dyb: True
@@ -87,8 +91,8 @@ fit_options:
   bayes_nwalkers: 30
   bayes_nprocesses: 16
   ihep_usage: True
-  write_output: False
-  file_prefix: 'P26B_p1_Jul2026_new'
+  write_output: True
+  file_prefix: 'P26B_p1_Aug26-2026'
 
   FORCE_CALC_RM: true # Force calculation of response matrix
   FORCE_CALC_CM: false # Force calculation of covariance matrices
@@ -181,10 +185,10 @@ common_det_inputs:
   noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
 
 juno_inputs:
-  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary.yaml #June2026.yaml
-  stat_opt: 55.425days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
-  detector_efficiency: 0.6898 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
-  eff_unc: 0.0194327976 #rel
+  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_phase1_Aug2026.yaml #June2026.yaml
+  stat_opt: 56.3419days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  detector_efficiency: 0.6986 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  eff_unc: 0.0193 #rel
   bins: 601
   min_ene: 0.0  # Minimum energy
   max_ene: 12
@@ -193,9 +197,9 @@ juno_inputs:
     - 12.0
   NL: real
   NL_data_file:  ${NODA_BASE}/data/JUNOInputs2022_05_08.root #${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
-  data_spectrum: ~/Downloads/Data_ORV_phase1b_minus_CDmuon_gaptime.root #${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_phase1_FV16.5_July24_clean_10keV.root
+  data_spectrum: ${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_phase1_FV16.5_Aug26_10keV.root
   det_resp_file: ${NODA_BASE}/data/phase1_cov_er.txt
-  data_hist_name: Data
+  data_hist_name: data
   rebin_nonuniform: true
   bins_nonuniform:
     - [0.7, 1.0, 1]
@@ -227,15 +231,6 @@ juno_inputs:
   nl_hist_name: J22rc0_positronScintNL
   NL_sd: 1.0
 
-  # a: 3.460208280002487202e-02
-  # b: 1.388123233982778947e-02
-  # c: 0.0 #5.380349814631570082e-05
-
-  # kB: 1.557933720873369565e-02
-  # fC: 2.974105037911449201e-01
-  # kI: 9.250676609385573681e-04
-  # LY_shared: 1.004921799448283970e+00
-
 
   a: 3.521059025008223958e-02
   b: 1.371078124381019253e-02
@@ -244,13 +239,7 @@ juno_inputs:
   fC: 3.730705605582284590e-01
   kI: 7.670292387190972422e-04
   LY_shared: 1.007829025064929995e+00
-  # a: 3.521059025008223958e-02
-  # b: 1.371078124381019253e-02
-  # c: 1.222285580508436498e-04
-  # kB: 1.550084076173213928e-02
-  # fC: 3.730705605582284590e-01
-  # kI: 7.670292387190972422e-04
-  # LY_shared: 1.007829025064929995e+00
+  #
 
   param_sp: data/unoscillated_spectrum_param_v1.dat
   param_cov: data/COVARIANCE_param_v1.dat

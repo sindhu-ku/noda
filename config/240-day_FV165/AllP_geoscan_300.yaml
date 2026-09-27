@@ -1,0 +1,379 @@
+cd config: ''
+# Fit options configuration
+
+fit_options:
+  is_data: True
+  sin2_th13_opt: pull # Sin2_theta13 option
+  pull_all: true
+  osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
+  PDG_opt: DYB #PDG option
+  NMO_opt: True # NMO option, true is normal
+  NMO_sig: False
+  stat_method_opt: CNP #NorP, CNP, or bayesian
+  grid_scan: false # if not grid scan, iminuit is run
+  plot_minuit_matrix: false
+  plot_correlation: true
+  plot_minuit_profiles: false
+  plot_spectra: false
+  print_minuit_correlation: false
+  run_hesse: True
+  solar_contour: false
+  CI_powers: False
+  osc_per_core: True # oscillate each core flux at its own baseline and sum, instead of summing fluxes and oscillating with power/L^2 shares
+  calc_minuit_errors: true
+  profile_dm2_31: true
+  profile_dm2_31_conditional: true # if true, scan dm2_31 with all other params fixed at best fit (m.profile); if false, profile likelihood (mnprofile)
+  profile_points: 1000
+  profile_nchunks: 1        # number of dm2_31 sub-ranges to split the scan into
+  profile_chunk: 0          # which chunk this job does (0 .. nchunks-1)
+  profile_csv: ''           # raw (dm2_31,chi2) output CSV for this chunk
+  profile_make_graph: true  # set 0 in chunk jobs (graph built by combine step)
+  silent_print: false
+  geo_spectra: ana
+  pull_dm2_31: true
+  pull_dm2_31_lbl: false #false
+  dm2_31_lbl_err: 0.0265e-03 #  0.035e-03
+  dm2_31_lbl: 2.517e-03 #0.0025043000
+  # Optional: independent NuFit IO best-fit |dm2_31| for the DATA fit. When set,
+  # the IO hypothesis uses this directly instead of projecting dm2_31_lbl via
+  # f_lbl; comment both out to revert to the projection. (NO always uses
+  # dm2_31_lbl above.) FC toys are unaffected.
+  dm2_31_lbl_IO: 2.408e-03
+  dm2_31_lbl_err_IO: 0.0275e-03
+  theta23: 48.6
+  dcp: 285
+  lin_resp: True
+  fit_type: PMOP_combined #geo or PMOP or PMOP_combined (default)
+  fit_mode: prefit_wosegs
+  save_prefit: True
+  use_prefit: True
+  prefit_path: ${NODA_BASE}/prefit_data/240_allP_data.npz
+  include_tao: True
+  include_dyb: True
+  geo_fit: true
+  apply_bump: true
+  geo_fit_type: total #UThfree , mantle or total (default)
+  mantle_model: GD
+  reac_model: HM
+  nd: DYB
+  pull_shape: True
+  use_dagflow: false
+  geo_OPfixed: false
+  toymc: false
+  ntoys: 1000
+  toy_prefix: 0
+  toy_batch_size: 8
+  minuit_timeout: 600 #s
+  toymc_timeout: 600 #s
+  #just for the bayesian method, random seeds and chi2 def
+  bayes_seed_beg: 481
+  bayes_chi2: CNP
+  bayes_events: 400
+  bayes_nwalkers: 30
+  bayes_nprocesses: 16
+  ihep_usage: True
+  write_output: False
+  file_prefix: 'GroupC_15m_June14-2026_P14_JUNO+DYB+TAO'
+
+  FORCE_CALC_RM: true # Force calculation of response matrix
+  FORCE_CALC_CM: false # Force calculation of covariance matrices
+  PLOT_CM: false # Plot covariance matrices
+
+  backgrounds_yaml: ${NODA_BASE}/config/240-day_FV165/backgrounds_AllP_15m.yaml
+  input_data_file: ${NODA_BASE}/data/JUNOInputs2022_05_08.root #data file
+  geo_file: ${NODA_BASE}/data/geo_raw_Nov2723.root
+  geoU_file: ${NODA_BASE}/data/U238_IHEP.txt
+  geoTh_file: ${NODA_BASE}/data/Th232_IHEP.txt
+  geo_MC_U_file: ${NODA_BASE}/data/geo_U_promptFV.root
+  geo_MC_Th_file: ${NODA_BASE}/data/geo_Th_promptFV.root
+  geo_MC_file: ${NODA_BASE}/data/xc_pdfs_2023-08-25.root
+  geoU_hist_name: 'geoU'
+  geoTh_hist_name: 'geoTh'
+  reactor_model: Huber-Mueller
+
+  main_data_folder: ${NODA_BASE}/Geo_sens_Jan14
+  cov_matrix_plots_folder: ${NODA_BASE}/CMplots #folder to store CM plots
+  plots_folder: ${NODA_BASE}/Plots #folder to save plots of spectra
+  data_matrix_folder: ${NODA_BASE}/Geo_sens_Jan14 #folder to save or to use csv files of spectra and matrices
+  bayes_data_folder: ${NODA_BASE}/Bayesian/npz_files
+  bayes_plots_folder: ${NODA_BASE}/Bayesian/Plots
+
+  #start and end points for each parameter in grid space
+  grid_params:
+    sin2_12: [0.302, 0.312]
+    sin2_13: [0.0068, 0.0368]
+    dm2_21: [7.47e-5, 7.59e-5]
+    dm2_31: [2.515e-3, 2.543e-3]
+
+  #number of points for each parameter in the grid space
+  grid_points: 21
+
+  shape_unc: TAO
+
+
+  bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
+
+  sample_size_resp: 10000 #000 # Sample size for response matrix fluctuations
+  sample_size_core: 10000 # Sample size for core powers fluctuations
+  sample_size_nonl: 10000 # Sample size for non-linearity fluctuations
+  sample_size_me: 10000 #00 # Sample size for matter effect fluctuations
+
+
+# Juno Inputs
+common_det_inputs:
+
+  Th_U_ratio: 0.29 #0.30
+  Th_U_ratio_err: 0.03
+  mantle_Th_U_ratio:
+    GD: 0.26
+    GC: 0.23
+    CC: 0.17
+  crust_Th_U_ratio: 0.30
+  crust_rate_tnu: 50 # 1.370terminals
+  crust_rate_unc: 0.25
+  mantle_rate:
+    GD: 0.562 #0.635
+    GC: 0.259 #0.285
+    CC: 0.091 #0.081
+
+  geo_tnu_rate: 1.75 #1.75 #2209750 # 1.2554280 #44.25 #40 #37.95 #40.0
+  tnu_to_cpd: 1. #0.028010356 # 0.027773315 #0.032387707
+  geo_rate: 1.75 #2209750 #1.2955 #1.229 # 1.239 #1.255 #1.147
+  wr_rate:  1.26 #0.87910200 #0.892 #0.78 #0.903 #1.185
+
+  me_rho: 2.45
+  me_rho_scale: 0.15
+  duty_cycle: 1.0 #0.91666667
+  alpha: [0.58, 0.07, 0.30, 0.05]
+  efission: [202.36, 205.99, 211.12, 214.26]
+  efission_err: [0.26, 0.52, 0.34, 0.33]
+
+  #b2b_unc: 0.0134
+
+  r2_unc: 0.015 #rel
+  snf_unc: 0.3 #rel
+  me_rho_unc: 0.061
+  noneq_unc: 0.3 #rel
+  core_flux_unc: 0.008 #rel
+  ff: 0.0005
+  posE_shift: 2d
+  pos_ene_TF2: Epositron_Enu_cos_StrumiaVissani
+
+  unc_corr_ind: r2+snf+noneq
+
+  unc_corr_dep: crel+nl
+  snf_file: ${NODA_BASE}/data/SNFYJandTS.root
+  noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
+
+juno_inputs:
+  reactor_summary_yaml:  ${NODA_BASE}/config/reactor_summary_June2026.yaml
+  stat_opt: 300.0days #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  detector_efficiency: 0.5407 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  eff_unc: 0.01229613688 #rel
+  bins: 601
+  min_ene: 0.0  # Minimum energy
+  max_ene: 12
+  ene_crop:
+    - 0.0
+    - 12.0
+  NL: real
+  NL_data_file:  ${NODA_BASE}/data/JUNOInputs2022_05_08.root #${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
+  data_spectrum: ${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV15_June11_clean.root
+  det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er_15m.txt
+  data_hist_name: data
+  rebin_nonuniform: true
+  bins_nonuniform:
+    - [0.7, 0.94, 1]
+    - [0.94, 6.66, 143]
+    - [6.66, 6.9, 3]
+    - [6.9, 7.2, 3]
+    - [7.2, 7.4, 1]
+    - [7.4, 7.62, 1]
+    - [7.62, 7.86, 1]
+    - [7.86, 8.12, 1]
+    - [8.12, 8.46, 1]
+    - [8.46, 12.0, 1]
+
+  seg_bins_nonuniform: [1.8000, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #10.8] #12.7823]
+
+  U235_scale: 0.58
+  U238_scale: 0.07
+  Pu239_scale: 0.30
+  Pu241_scale: 0.05
+
+  core_powers: [2.60903, 2.70452,  2.45140, 2.49596, 2.72569, 2.55129,  3.44837, 3.52934, 12.11, 17.4]  #[1.93, 2.74 ,2.86, 1.54, 2.47, 2.87, 4.09, 4.15, 15.90, 9.25]
+
+  core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0, 411000.0]
+  # core_powers: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
+  # core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
+
+  Np: 1.44258e+33
+
+  veto: 1.0
+  nl_hist_name: J22rc0_positronScintNL
+  NL_sd: 1.0
+
+  # a: 3.460208280002487202e-02
+  # b: 1.388123233982778947e-02
+  # c: 0.0 #5.380349814631570082e-05
+
+  # kB: 1.557933720873369565e-02
+  # fC: 2.974105037911449201e-01
+  # kI: 9.250676609385573681e-04
+  # LY_shared: 1.004921799448283970e+00
+
+
+  a: 3.416436790434080467e-02
+  b: 1.198803835199211548e-02
+  c: 4.838230577518015836e-05
+  kB: 1.337081584614287569e-02
+  fC: 5.913557309961047226e-01
+  kI: 4.090848640413228751e-03
+  LY_shared: 1.005740400122542733e+00
+  # a: 3.521059025008223958e-02
+  # b: 1.371078124381019253e-02
+  # c: 1.222285580508436498e-04
+  # kB: 1.550084076173213928e-02
+  # fC: 3.730705605582284590e-01
+  # kI: 7.670292387190972422e-04
+  # LY_shared: 1.007829025064929995e+00
+
+  param_sp: data/unoscillated_spectrum_param_v1.dat
+  param_cov: data/COVARIANCE_param_v1.dat
+
+
+#  # Uncertainty list
+  unc_list_juno:
+    #- stat
+    #- stat+bg+b2b_DYB+nl
+    #- stat+eff
+    #- stat+r2
+    #- stat+crel
+    #- stat+snf
+    #- stat+noneq
+    #- stat+b2b_DYB
+    #- stat+abc
+    #- stat+nl
+    #- stat+bg
+    #- stat+me
+    - stat
+
+dyb_inputs:
+  model: PRL
+  bins: 241 #241 # Number of bins
+  ene_crop:
+    - 0.0 #0 #7
+    - 12.0 #8.0
+
+  min_ene: 0.0 #0.7
+  max_ene: 12.0 #8.0
+  stat_opt: 3158days # time period for sensitivity studies # time period for sensitivity studies
+  FORCE_CALC_ENE_LEAK: False
+  NL: na
+  NL_data_file: ${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
+  iav_matrix_file: data/dyb_iav_matrix.txt
+  dagflow_data: ../dayabay-model/data/
+  custom_bin_edges: ../dayabay-model/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
+  rebin_nonuniform:  True
+  bins_nonuniform:
+    - [0.7, 1.25, 1]
+    - [1.25, 7.0, 23]
+    - [7.0, 8.0, 1]
+
+
+  U235_scale: 0.564
+  U238_scale: 0.076
+  Pu239_scale: 0.304
+  Pu241_scale: 0.056
+
+  core_powers: [17.4]
+  core_baselines: [580] #[560.0] #580.0] #[580.0]
+
+  Np: 3.0851810e+30
+  detector_efficiency: 0.803
+  veto: 1.0
+  nl_hist_name: positronScintNL
+  rea_rate_unc: 0.015
+
+  ff_b2b_unc: 0.0016
+
+
+  fneu_A: 27.2
+  fneu_B: -1.0
+  fneu_C: 2.0
+
+
+  a: 0.081
+  b: 0.016
+  c: 0.026
+
+  ene_scale_unc: 0.085
+
+      # Uncertainty list
+  unc_list_nd:
+     - stat+b2b_ff #stat+bg+eff+r2+nl+snf+noneq
+
+  dyb_spectrum: ${NODA_BASE}/data/dyb_spectra_prl.txt
+  dyb_cm: ${NODA_BASE}/data/dyb_cov_matrix_prl.txt
+  dyb_resp_matrix: ${NODA_BASE}/data/dyb_resp_matrix.txt
+    #   - stat+eff
+    #   - stat+r2
+    #   - stat+crel
+    #   - stat+snf
+    #   - stat+noneq
+    #   - stat+bg
+    #   - stat+ene_scale
+    #   - stat+fv
+    # - stat+eff+r2+crel+snf+noneq+bg+ene_scale
+
+
+
+tao_inputs:
+  bins: 601 #241 # Number of bins
+  ene_crop:
+    - 0.0 #0 #7
+    - 12.0 #8.0
+
+  min_ene: 0.0 #0.7
+  max_ene: 12.0 #8.0
+  stat_opt: 31.3305days # time period for sensitivity studies # time period for sensitivity studies
+  FORCE_CALC_ENE_LEAK: False
+  NL: pull
+  NL_sd: 1.0
+  data_file: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
+  NL_data_file: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
+  data_spectrum: ${NODA_BASE}/data/TAOInputs_2026_6_15.root
+  data_hist_name: IBD_Spectra/IBD_spectrum_bkg_not_subtracted_FV800
+  bckg_hist_name: IBD_Spectra/Bkg_spectrum_FV800
+  bckg_scale: 0.93711878 #0.9827282340500528 # 27.88/28.37 reactor-on/off DAQ livetime ratio (Group A convention)
+  bckg_rate_unc: 0.009
+  bckg_rate: 419
+  IAV_hist: Detector_Response/Energy_leakage_FV800
+  FV_cov_matrix: Detector_Response/FVcut800_RelativeCovariance
+  rebin_nonuniform:  True
+  bins_nonuniform:
+    - [0.8, 0.94, 1]
+    - [0.94, 7.44, 325]
+    - [7.44, 7.8, 9]
+    - [7.8, 8.2, 4]
+    - [8.2, 12, 1]
+  U235_scale: 0.568
+  U238_scale: 0.077
+  Pu239_scale: 0.308
+  Pu241_scale: 0.047
+
+  core_powers: [4.14]
+  core_baselines: [43.2]
+  Np: 2.0070463252814688e+29
+  detector_efficiency: 0.405
+  eff_unc: 0.10729614
+  veto: 1.0
+  nl_hist_name: Detector_Response/positronNL
+  nl_pull_hist_name: Detector_Response/positronNLpullkey
+  a: 0.0257965
+  a_err: 0.0038323
+  b: 0.0103571
+  b_err: 0.0032674
+  c: 0.0147691
+  c_err: 0.0005788
+  ene_scale_unc: 0.006

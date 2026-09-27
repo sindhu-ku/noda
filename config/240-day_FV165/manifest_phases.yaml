@@ -24,10 +24,10 @@ common: config/240-day_FV165/AllP_Jun2026_15.yaml
 
 phases:
   "AllP/S-15":
-    detector_efficiency: 0.5407 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
-    eff_unc: 0.01229613688 #rel
+    detector_efficiency: 0.5358 #0.6974 # 0.709 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+    eff_unc: 0.0112 #rel
     backgrounds_yaml: ${NODA_BASE}/config/240-day_FV165/backgrounds_AllP_15m.yaml
-    data_spectrum: ${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV15_June11_clean.root
+    data_spectrum: ${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV15_Aug31_40keV.root #June1_2026/GroupC_spectra_P26B_total_FV15_June11_clean.root
     data_hist_name: data
     det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er_15m.txt
     a: 3.416436790434080467e-02
@@ -50,10 +50,10 @@ phases:
       - [8.46, 12.0, 1]
 
   "AllP/S-15-172":
-    detector_efficiency: 0.2307
-    eff_unc: 0.0266236
+    detector_efficiency: 0.2412
+    eff_unc: 0.0316   # was 0.031; total = sqrt(0.03^2+0.01^2) to match ORSA (uncorr 3.0% + corr 1.0%)
     backgrounds_yaml: ${NODA_BASE}/config/240-day_FV165/backgrounds_AllP_15-172m.yaml
-    data_spectrum: ${NODA_BASE}/data/June1_2026/GroupC_spectra_P26B_total_FV17.2-15_June11_clean.root
+    data_spectrum: ${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV17.2-15_Aug31_40keV.root #June1_2026/GroupC_spectra_P26B_total_FV17.2-15_June11_clean.root
     data_hist_name: data
     det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er_15-172m.txt
     a: 3.331535741991097782e-02

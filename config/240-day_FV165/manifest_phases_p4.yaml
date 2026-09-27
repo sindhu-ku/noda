@@ -1,0 +1,52 @@
+# manifest_phases_p4.yaml — POINT 4: same as manifest_phases.yaml but with the
+# changed inter-shell correlations:
+#   * BiPo correlated across shells (backgrounds_AllP_*_p4.yaml, correlate_shell:
+#     true, common prior 0.703).
+#   * Efficiency split into a shared "target proton" part + per-shell remainder
+#     (enabled on the CLI with --eff_corr_split True; see AllP_Jun2026_15.yaml).
+# Everything else (new GroupC Aug26 JUNO inputs, new TAO 9_11) is identical to
+# manifest_phases.yaml. Run with --tao_snf_corr False --eff_corr_split True.
+
+common: config/240-day_FV165/AllP_Jun2026_15.yaml
+
+phases:
+  "AllP/S-15":
+    detector_efficiency: 0.5358
+    eff_unc: 0.0112 #rel
+    backgrounds_yaml: ${NODA_BASE}/config/240-day_FV165/backgrounds_AllP_15m_p4.yaml
+    data_spectrum: ${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV15_Aug31_40keV.root
+    data_hist_name: data
+    det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er_15m.txt
+    a: 3.416436790434080467e-02
+    b: 1.198803835199211548e-02
+    c: 4.838230577518015836e-05
+    kB: 1.337081584614287569e-02
+    fC: 5.913557309961047226e-01
+    kI: 4.090848640413228751e-03
+    LY_shared: 1.005740400122542733e+00
+    bins_nonuniform:
+      - [0.7, 0.9, 1]
+      - [0.9, 7.02, 153]
+      - [7.02, 8.22, 12]
+      - [8.22, 8.46, 1]
+      - [8.46, 12.0, 1]
+
+  "AllP/S-15-172":
+    detector_efficiency: 0.2412
+    eff_unc: 0.0316   # was 0.031; total = sqrt(0.03^2+0.01^2) to match ORSA (uncorr 3.0% + corr 1.0%)
+    backgrounds_yaml: ${NODA_BASE}/config/240-day_FV165/backgrounds_AllP_15-172m_p4.yaml
+    data_spectrum: ${NODA_BASE}/data/Inputs_GroupC_Aug26/GroupC_spectra_P26B_total_FV17.2-15_Aug31_40keV.root
+    data_hist_name: data
+    det_resp_file: ${NODA_BASE}/data/June1_2026/Jun2026_cov_er_15-172m.txt
+    a: 3.331535741991097782e-02
+    b: 2.444861113007639961e-02
+    c: 2.561926199493550979e-02
+    kB: 3.262678868441074671e-04
+    fC: 2.760418156860625416e+00
+    kI: 6.079791023109518827e-03
+    LY_shared: 1.000257212727742262e+00
+    bins_nonuniform:
+      - [0.7, 0.94, 1]
+      - [0.94, 7.02, 76]
+      - [7.02, 8.22, 6]
+      - [8.22, 12.0, 1]
