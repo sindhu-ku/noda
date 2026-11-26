@@ -47,9 +47,28 @@ are not in git; copy them into the tree before running.
 ```
 src/noda/
   main.py            run_noda entry point: builds the datasets, runs the fit
-  spectra.py         reactor, background and geo spectra, prefit ROOT output
-  noda.py            Spectrum / response / covariance classes, oscillation sampling
-  nuosc.py           oscillation probability (3 flavours, matter) and parameter sets (PDG_opt)
+  noda.py            compatibility facade: re-exports core/ + physics/ (`from noda.noda import *`)
+  core/              building blocks
+    spectrum.py      Spectrum class (rebinning, oscillation, energy models, plotting)
+    covmatrix.py     CovMatrix class
+    response.py      RespMatrix, resolution matrices (CalcRespMatrix_abc), energy leakage
+    binning.py       bin-edge construction and rebinning helpers
+    likelihood.py    χ² functions (Chi2, Combined_Chi2, Chi2DYB)
+    fileio.py        reading spectra/matrices from ROOT, pickled caches, livetime
+    root_utils.py    ROOT helpers
+  physics/           physics inputs
+    nuosc.py         oscillation probability (3 flavours, matter) and parameter sets (PDG_opt)
+    nl_geant4.py     Geant4-based non-linearity model
+    constants.py     physical constants
+    reactor.py       reactor flux normalisation, core-averaged survival probability, reactor inputs
+    tao_bkg.py       analytic TAO fast-neutron spectrum
+  model/             nominal (prefit) prediction
+    assemble.py      CreateSpectra: signal + backgrounds -> total, prefit plots and ROOT output
+    reactor.py       reactor chain: flux per core -> IBD x oscillation -> response, SNF / non-eq
+    detection.py     IBD detection chain: positron energy, NL, response, leakage, OEC efficiency
+    backgrounds.py   backgrounds from the yaml (generic keys, per-background efficiency), geo, world reactors
+    matrices.py      systematic covariance matrices
+    DYB_model.py     Daya Bay external model (use_dagflow)
   fit/
     combined_fit.py  bundled multi-detector Minuit fit, prefit stage, postfit output
     juno_fit.py      JUNO model (per shell)
@@ -60,12 +79,18 @@ src/noda/
     minuit.py        profiles, contours, ROOT parameter writers
   fc/                Feldman–Cousins tools
   bayesian/          PT-MCMC tools
+  legacy/            superseded code (old grid scan, toy MC, Bayesian scripts), not used
 config/
   standard/          the maintained configurations (see below)
   legacy/            older and test configurations, kept for reference
 scripts/             plotting and analysis scripts (e.g. plot_nuis_new.py)
 combine_profile.py   merges chunked Δm²₃₁ profile jobs into one ROOT graph
 ```
+
+`noda.nuosc` and `noda.constants` still work as aliases of `noda.physics.nuosc` /
+`noda.physics.constants`, so `from noda import nuosc` in older scripts is unchanged.
+New code should import from the subpackages directly, e.g.
+`from noda.core.likelihood import Chi2` or `from noda.model.assemble import CreateSpectra`.
 
 ---
 
@@ -87,6 +112,15 @@ backgrounds file, data spectrum, response file, binning, …).
 | `config/standard/geo_sens/config.yaml` | Geoneutrino sensitivity (JUNO 1-year Asimov + DYB) |
 
 Each folder holds its own backgrounds and `reactor_summary.yaml`.
+
+The energy range comes from the yaml (`min_ene`/`max_ene`, or the edges of
+`bins_nonuniform`); nothing is hard-coded to 0–12 MeV.
+
+Backgrounds yaml: any set of keys (or none). Each entry has `rootfile`, `histname`,
+`rate`, `rate_unc`, `b2b_unc`, `b2b_scale`, `name`, and optionally
+`efficiency: [detector, eff_nuis, oec]`. `detector` scales by `detector_efficiency`, `eff_nuis` applies the fit's
+efficiency nuisance, and `oec` applies the OMILREC threshold correction. Default: `geo` and `wr` use all three, `atm`
+only `detector`, all others none. Postfit histograms are named by the yaml key.
 
 Conventions used in the standard configs:
 - True-energy grid: `bins: 601` (20 keV, 0–12 MeV) with `osc_points_per_bin: 4`
