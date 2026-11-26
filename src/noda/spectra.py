@@ -992,7 +992,8 @@ def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None,
         fC = args.fC if fC is None else fC
         kI = args.kI if kI is None else kI
         LY_shared = args.LY_shared if LY_shared is None else LY_shared
-        e = np.arange(1.022, 12.0, 0.001)
+        # 1.022 MeV = minimum deposited energy of an IBD positron (physics, not a range choice)
+        e = np.arange(1.022, analysis_range(args)[1], 0.001)
         ratio = (G4model.eval(e, kB, fC=fC, kI=kI) * LY_shared
                  / G4model_gamma.eval(2.224589, kB, fC=fC, kI=kI))
     graph = ROOT.TGraph(len(e),
@@ -1002,10 +1003,19 @@ def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None,
     return graph
 
 
-def _build_resolution_graph(a, b, c):
+def analysis_range(args):
+    """(E_lo, E_hi) of the analysis in MeV, from the yaml: first/last edge of
+    bins_nonuniform when rebin_nonuniform is set, else min_ene/max_ene."""
+    bn = getattr(args, 'bins_nonuniform', None)
+    if getattr(args, 'rebin_nonuniform', False) and bn:
+        return float(bn[0][0]), float(bn[-1][1])
+    return float(args.min_ene), float(args.max_ene)
+
+
+def _build_resolution_graph(a, b, c, emin=0.8, emax=12.0):
     """Relative energy resolution σ_E/E vs Evis, same parametrisation as
     CalcRespMatrix_abc: sqrt(a²/E + b² + c²/E²)."""
-    e = np.arange(0.8, 12.0, 0.001)
+    e = np.arange(max(emin, 0.1), emax, 0.001)   # sigma/E diverges at E -> 0
     res = np.sqrt(a**2 / e + b**2 + c**2 / e**2)
     graph = ROOT.TGraph(len(e),
                         np.ascontiguousarray(e, dtype=float),
@@ -1053,7 +1063,7 @@ def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     dir_pre.cd()
     write_param_dbl("Efficiency", args.detector_efficiency)
     if s_ibd is not None:
-        enu = np.arange(0.0, 12.001, 0.001)
+        enu = np.arange(0.0, max(12.0, float(args.max_ene)) + 0.001, 0.001)
         xsec_vals = s_ibd(enu)
         xsec_graph = ROOT.TGraph(len(enu),
                                  np.ascontiguousarray(enu, dtype=float),
@@ -1066,7 +1076,7 @@ def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     dir_resp_prefit.cd()
     g_nl = _build_nl_graph(ensp, args);  g_nl.SetName("nl_positron")
     g_nl.Write("", ROOT.TObject.kOverwrite)
-    g_res = _build_resolution_graph(args.a, args.b, args.c)
+    g_res = _build_resolution_graph(args.a, args.b, args.c, *analysis_range(args))
     g_res.SetName("resolution");   g_res.Write("", ROOT.TObject.kOverwrite)
     force_vector_streamers(output_file)
     output_file.Close()
@@ -1129,7 +1139,8 @@ def _write_tao_output(ensp, args, backgrounds):
     # so skip the pre-fit NL graph and write only the resolution curve.
     if not getattr(args, "nl_in_leak", False):
         _build_nl_graph(ensp, args).Write("", ROOT.TObject.kOverwrite)
-    _build_resolution_graph(args.a, args.b, args.c).Write("", ROOT.TObject.kOverwrite)
+    _build_resolution_graph(args.a, args.b, args.c,
+                            *analysis_range(args)).Write("", ROOT.TObject.kOverwrite)
     force_vector_streamers(output_file)
     output_file.Close()
 
@@ -1359,13 +1370,13 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
             extra_spectra=extra_spectra,
             leg_labels=leg_labels,
             colors=colors,
-            xmin=0.7, xmax=12.0, ymin=1e-3, log_scale=False,
+            xmin=analysis_range(args)[0], xmax=analysis_range(args)[1], ymin=1e-3, log_scale=False,
         )
 
     if detector != "DYB":
         ensp['rvis_nonl'].Plot(f"{args.plots_folder}/stages_{detector}.png", \
         extra_spectra = [ensp['rvis_nonl_leak'],ensp['rvis']], colors=['black', 'blue', 'orange'],\
-        leg_labels = ['rvis_nonl', 'rvis_nonl_leak', 'rvis'], xmin=0.7, xmax=2.0)
+        leg_labels = ['rvis_nonl', 'rvis_nonl_leak', 'rvis'], xmin=analysis_range(args)[0], xmax=2.0)  # low-E zoom
     # ------------------------------------------------------------------
     # 8. Diagnostics
     # ------------------------------------------------------------------

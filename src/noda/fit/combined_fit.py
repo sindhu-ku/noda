@@ -842,6 +842,7 @@ def replay_dyb_tao_postfit(m_pre, nuis_best, dyb_det, tao_det, E_segments,
                 eff=1.0
             )
 
+        from ..spectra import analysis_range
         ibd_prefit.Plot(
                 f"{args_juno.plots_folder}/rfis_posfit.png",
                 xlabel="Antineutrino energy (MeV)",
@@ -849,7 +850,7 @@ def replay_dyb_tao_postfit(m_pre, nuis_best, dyb_det, tao_det, E_segments,
                 extra_spectra=[ibd_postfit],
                 leg_labels=['pre-fit', 'post-fit'],
                 colors=['steelblue', 'brown'],
-                xmin=0.7, xmax=12.0, ymin=1e-3,
+                xmin=analysis_range(args_juno)[0], xmax=analysis_range(args_juno)[1], ymin=1e-3,
                 log_scale=False,
                 title=f"PRL 2025, {len(E_segments)} segments")
     if tao_det is not None:
@@ -1584,7 +1585,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
 
 
         if args_juno.write_output and output_file is not None and b_first is not None:
-            from ..spectra import _build_nl_graph, _build_resolution_graph
+            from ..spectra import _build_nl_graph, _build_resolution_graph, analysis_range
             # Per-shell post-fit Efficiency + NL/resolution curves, into each
             # shell's own juno_<shell>/{postfit,response/postfit}. eff_nuis and
             # the response params are uncorrelated per (phase, shell), so route
@@ -1615,13 +1616,14 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 _build_resolution_graph(
                     m.values[mp['abc0']],
                     m.values[mp['abc1']],
-                    m.values[mp['abc2']]).Write("", ROOT.TObject.kOverwrite)
+                    m.values[mp['abc2']],
+                    *analysis_range(b.args)).Write("", ROOT.TObject.kOverwrite)
 
             # ── TAO post-fit response curves (tao/response/postfit) ─────────
             # In combined mode the TAO parameters live in the JUNO Minuit object
             # (mangled via routing); in the prefit modes they come from m_pre.
             if use_tao and tao_bundle is not None:
-                from ..spectra import _build_nl_graph, _build_resolution_graph
+                from ..spectra import _build_nl_graph, _build_resolution_graph, analysis_range
 
                 def tao_val(pname):
                     mangled = routing[id(tao_bundle)].get(pname, pname) \
@@ -1649,7 +1651,9 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         _build_nl_graph(tao_bundle.detector.ensp_nom,
                                         tao_bundle.detector.args,
                                         NL_pulls=tao_NL).Write("", ROOT.TObject.kOverwrite)
-                    _build_resolution_graph(*tao_abc).Write("", ROOT.TObject.kOverwrite)
+                    _build_resolution_graph(
+                        *tao_abc, *analysis_range(tao_bundle.detector.args)
+                    ).Write("", ROOT.TObject.kOverwrite)
 
         if (args_juno.write_output and args_juno.fit_type == "PMOP_combined"
                 and (fit_mode == 'combined' or m_pre is not None)):
@@ -1872,6 +1876,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 cm=cm_dyb,
                 ndf=len(s_obs_dyb.bins) - len(E_segments),
                 write_output=dyb_bundle.args.write_output)
+            from ..spectra import analysis_range
             dyb_bundle.detector.ensp_nom['ribd'].Plot(
                 f"{args_juno.plots_folder}/rfis_posfit.png",
                 xlabel="Antineutrino energy (MeV)",
@@ -1879,7 +1884,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 extra_spectra=[ibd_postfit],
                 leg_labels=['pre-fit', 'post-fit'],
                 colors=['steelblue', 'brown'],
-                xmin=0.7, xmax=12.0, ymin=1e-3,
+                xmin=analysis_range(args_juno)[0], xmax=analysis_range(args_juno)[1], ymin=1e-3,
                 log_scale=False,
                 title=f"PRL 2025, {len(E_segments)} segments")
 

@@ -82,7 +82,9 @@ def _resolve_base_path(cli_base, manifest_doc):
 # ─────────────────────────────────────────────────────────────────────────────
 # IBD cross-section interpolator (unchanged from previous main.py)
 # ─────────────────────────────────────────────────────────────────────────────
-def _build_ibd_interpolator(ebins=None):
+def _build_ibd_interpolator(ebins=None, emax=12.0):
+    # IBD cross-section tabulated on 0..emax MeV (1 keV steps); zero outside.
+    # emax follows the largest detector max_ene in the yaml, never below 12 MeV.
     hbar_MeV = 1.0e-6 * hbar / qe
     MeV_to_cm = (hbar * c * (1.0 / (1.0e6 * qe)))**2 * 1.0e4
     me2, fsq, gsq = me**2, f**2, g**2
@@ -90,8 +92,8 @@ def _build_ibd_interpolator(ebins=None):
     M = (mn + mp) * 0.5
     sigma0 = (2.0 * np.pi**2 /
               (phase_space * (fsq + 3.0*gsq) * (me**5) * n_lifetime / hbar_MeV))
-    n_points = int((12.0 - 0.0) / 0.001) + 1
-    enu_array = np.linspace(0.0, 12.0, n_points)
+    n_points = int((emax - 0.0) / 0.001) + 1
+    enu_array = np.linspace(0.0, emax, n_points)
     cos_theta_arr = np.linspace(-1.0, 1.0, 100)
     dc = 2.0 / (len(cos_theta_arr) - 1)
     xsec = np.zeros_like(enu_array)
@@ -297,7 +299,9 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
                 exist_ok=True)
 
     # ── interpolators ───────────────────────────────────────────────────
-    s_ibd      = _build_ibd_interpolator(ebins)
+    s_ibd      = _build_ibd_interpolator(
+        ebins, emax=max(12.0, float(args_juno.max_ene), float(args_dyb.max_ene),
+                        float(args_tao.max_ene)))
     s_bump_lin = _build_bump_interpolator(args_juno.input_data_file)
 
     # ── per-phase energy-response covariance (optional) ──────────────────
