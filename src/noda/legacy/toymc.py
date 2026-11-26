@@ -1,4 +1,4 @@
-from .noda import Spectrum, CovMatrix, GetSpectrumFromROOT
+from ..noda import Spectrum, CovMatrix, GetSpectrumFromROOT
 from .minuit import run_minuit
 import numpy as np
 import h5py

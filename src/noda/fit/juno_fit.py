@@ -15,9 +15,9 @@ The only shared quantities this module *receives* from outside are:
 import numpy as np
 import scipy as sp
 from ..noda import *
-from .. import nuosc as nuosc
-from ..spectra import _apply_oec_correction
-from .. import backgrounds as bkgdef
+from ..physics import nuosc as nuosc
+from ..model.detection import _apply_oec_correction
+from ..model import backgrounds as bkgdef
 
 
 def _aux_dm2_31(toy, which):
@@ -294,7 +294,7 @@ class JUNODetector:
         multiple bundles (phase × shell). For a single-bundle run, the
         correction is identically zero and behaviour is unchanged.
         """
-        from .. import nuosc as nuosc                # local import
+        from ..physics import nuosc as nuosc                # local import
         args = self.args
         nom  = nuosc.op_nom
         defs = {}

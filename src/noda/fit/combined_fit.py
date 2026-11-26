@@ -48,14 +48,14 @@ import inspect
 import matplotlib.pyplot as plt
 from iminuit import Minuit
 
-from .. import nuosc as nuosc
+from ..physics import nuosc as nuosc
 from ..noda import *
 from .juno_fit import JUNODetector
 from .dyb_fit  import DYBDetector
 from .tao_fit  import TAODetector
 from .shared_nuisances import *
 from .minuit import *
-from .. import backgrounds as bkgdef
+from ..model import backgrounds as bkgdef
 
 FULL_CHI2  = 0
 DYB_BINS   = 0
@@ -176,7 +176,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
         if detector_label == "JUNO":
             # Per-shell top-level folder (juno_inner / juno_outer),
             # bare object names instead of a per-object shell suffix.
-            from ..spectra import juno_output_dirname
+            from ..model.assemble import juno_output_dirname
             jdir = juno_output_dirname(args)
             s_signal.WritetoROOT("reactor", f"{output_file}",
                                  directory=f"{jdir}/postfit")
@@ -824,7 +824,7 @@ def replay_dyb_tao_postfit(m_pre, nuis_best, dyb_det, tao_det, E_segments,
                 eff=1.0
             )
 
-        from ..spectra import analysis_range
+        from ..model.assemble import analysis_range
         ibd_prefit.Plot(
                 f"{args_juno.plots_folder}/rfis_posfit.png",
                 xlabel="Antineutrino energy (MeV)",
@@ -1150,14 +1150,14 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 cov_b = (_compute_C_reco_for(b)
                          if (multi or C_reco is None) else C_reco)
                 b.detector.set_external_cov(cov_b)
-                from ..spectra import juno_output_dirname as _jod
+                from ..model.assemble import juno_output_dirname as _jod
                 _seg_reco_covs[_jod(b.args)] = cov_b
 
         # ── 7b. Write the DYB+TAO segment prefit (best fit, covariance,
         #    correlation, edges) and each shell's reco-space propagation to a
         #    top-level segments/ folder. prefit/ stays segment-free (nominal).
         if args_juno.write_output and nuis_best is not None:
-            from ..spectra import juno_output_dirname
+            from ..model.assemble import juno_output_dirname
             _of = (f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
                    f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root")
             _nb = np.asarray(nuis_best, dtype=float)
@@ -1372,7 +1372,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
     # carrying the FULL nuisance set, so shared parameters are
     # duplicated with identical values across shells.
     juno_shell_dirs = {}
-    from ..spectra import juno_output_dirname
+    from ..model.assemble import juno_output_dirname
     if args_juno.write_output:
         output_file = ROOT.TFile(
             f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
@@ -1568,7 +1568,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
 
 
         if args_juno.write_output and output_file is not None and b_first is not None:
-            from ..spectra import _build_nl_graph, _build_resolution_graph, analysis_range
+            from ..model.assemble import _build_nl_graph, _build_resolution_graph, analysis_range
             # Per-shell post-fit Efficiency + NL/resolution curves, into each
             # shell's own juno_<shell>/{postfit,response/postfit}. eff_nuis and
             # the response params are uncorrelated per (phase, shell), so route
@@ -1606,7 +1606,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             # In combined mode the TAO parameters live in the JUNO Minuit object
             # (mangled via routing); in the prefit modes they come from m_pre.
             if use_tao and tao_bundle is not None:
-                from ..spectra import _build_nl_graph, _build_resolution_graph, analysis_range
+                from ..model.assemble import _build_nl_graph, _build_resolution_graph, analysis_range
 
                 def tao_val(pname):
                     mangled = routing[id(tao_bundle)].get(pname, pname) \
@@ -1859,7 +1859,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 cm=cm_dyb,
                 ndf=len(s_obs_dyb.bins) - len(E_segments),
                 write_output=dyb_bundle.args.write_output)
-            from ..spectra import analysis_range
+            from ..model.assemble import analysis_range
             dyb_bundle.detector.ensp_nom['ribd'].Plot(
                 f"{args_juno.plots_folder}/rfis_posfit.png",
                 xlabel="Antineutrino energy (MeV)",
@@ -2220,7 +2220,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 # correctly.
                 if out_stat is not None:
                     write_osc_params("geo_rate", rate_total, err_total)
-                    from ..spectra import juno_output_dirname
+                    from ..model.assemble import juno_output_dirname
                     for b in geo_bundles:
                         info     = b.backgrounds['JUNO']['geo']
                         rate_unc = info.get("rate_unc", None)

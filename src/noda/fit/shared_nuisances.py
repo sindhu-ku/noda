@@ -19,7 +19,7 @@ Layout inside the shared block:
 """
 
 import numpy as np
-from .. import nuosc as nuosc
+from ..physics import nuosc as nuosc
 
 # ── names ────────────────────────────────────────────────────────────────────
 OSC_PARAM_NAMES    = ["sin2_th12", "sin2_th13", "dm2_21", "dm2_31"]

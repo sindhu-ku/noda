@@ -32,7 +32,7 @@ import numpy as np
 from copy import deepcopy
 from typing import Optional, Dict, Any
 
-from .. import nuosc
+from ..physics import nuosc
 from ..noda import *  # Spectrum, etc.
 from ..fit import combined_fit as minuit_new
 from ..fit.shared_nuisances import get_shape_nuis_names

@@ -9,7 +9,7 @@ from numba import njit, prange, typed
 
 # Portable base path: honour $NODA_BASE (set per cluster, or by main.py from
 # --base_path / config), else fall back to the repo root that holds this file.
-_NODA_BASE = os.environ.get('NODA_BASE') or str(Path(__file__).resolve().parents[2])
+_NODA_BASE = os.environ.get('NODA_BASE') or str(Path(__file__).resolve().parents[3])
 SPECTRA_PATH = os.path.join(_NODA_BASE, "data", "")
 me = 0.51099893
 """

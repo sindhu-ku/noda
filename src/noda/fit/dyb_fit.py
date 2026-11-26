@@ -13,7 +13,7 @@ Shared quantities received from outside:
 
 import numpy as np
 from ..noda import *
-from .. import nuosc as nuosc
+from ..physics import nuosc as nuosc
 
 
 class DYBDetector:

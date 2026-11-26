@@ -22,8 +22,8 @@ import pandas as pd
 import scipy as sp
 from datetime import datetime
 
-from . import spectra as spec
-from . import matrices as mat
+from .model import assemble as spec
+from .model import matrices as mat
 from .noda import *
 from .fit import combined_fit as minuit_new
 from .fit.manifest import load as load_manifest
@@ -34,7 +34,7 @@ from .fit.tao_fit  import TAODetector
 from .fit.dyb_fit  import DYBDetector
 from .fit.combined_fit import load_reactor_summary
 from .fit.minuit import load_prefit_cache
-from .constants import *
+from .physics.constants import *
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -325,7 +325,7 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
     backgrounds = backgrounds or {}
     if not backgrounds.get('JUNO'):        # empty / missing list -> no backgrounds
         backgrounds['JUNO'] = {}
-    from . import backgrounds as bkgdef
+    from .model import backgrounds as bkgdef
     bkgdef.register(backgrounds)           # display name -> key for post-fit output
 
     # ── spectra ─────────────────────────────────────────────────────────
@@ -614,7 +614,7 @@ def _run_multi_bundle(setups, manifest_doc):
     if (args_juno.fit_type == 'PMOP_combined'
             and getattr(args_juno, 'include_dyb', False)):
         if args_juno.use_dagflow:
-            from .DYB_model import make_dyb_model
+            from .model.DYB_model import make_dyb_model
             dyb_model = make_dyb_model(first['args_dyb'])
             bundles.append(_build_dyb_bundle(first, dyb_model=dyb_model))
         elif first['cm_dyb'] is not None:

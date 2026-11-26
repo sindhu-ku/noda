@@ -289,7 +289,7 @@ def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
 
     t_dyb = _aux_dm2_31(toy_dm2_31, 'dyb_NO' if dm2_31_phys > 0 else 'dyb_IO')
     if bool(getattr(args, 'pull_dm2_31', False)) and t_dyb is not None:
-        from .. import nuosc
+        from ..physics import nuosc
         s     = nuosc.op_nom.get('dm2_31_dyb_err', nuosc.op_nom['dm2_31_err'])
         c_nom = nuosc.op_nom.get('dm2_31_dyb',     nuosc.op_nom['dm2_31'])
         # bundles emitted n× the toy-centred pull; get_pull_defs already
@@ -298,7 +298,7 @@ def osc_pull_dedup_correction(values_by_mangled: dict[str, float],
                            - ((dm2_31_phys - c_nom) / s) ** 2)
 
     if bool(getattr(args, 'pull_dm2_31_lbl', False)):
-        from .. import nuosc
+        from ..physics import nuosc
         ordering = "NO" if dm2_31_phys > 0 else "IO"
         # Toy: per-ordering precomputed LBL central (match build_spectrum).
         t_lbl = _aux_dm2_31(toy_dm2_31, 'lbl_NO' if dm2_31_phys > 0 else 'lbl_IO')

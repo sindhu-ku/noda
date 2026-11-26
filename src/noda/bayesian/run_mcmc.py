@@ -68,7 +68,7 @@ from datetime import datetime
 
 import numpy as np
 
-from .. import nuosc
+from ..physics import nuosc
 from ..fc.fc_toy import build_setups
 from ..fit import combined_fit as minuit_new
 from ..fit.minuit import load_prefit_cache
@@ -140,7 +140,7 @@ def build_all_bundles(setups, force_NO):
     if (args_fit.fit_type == 'PMOP_combined'
             and getattr(args_fit, 'include_dyb', False)):
         if args_fit.use_dagflow:
-            from ..DYB_model import make_dyb_model
+            from ..model.DYB_model import make_dyb_model
             bundles.append(_build_dyb_bundle(
                 first2, dyb_model=make_dyb_model(first2['args_dyb'])))
         elif first2['cm_dyb'] is not None:

@@ -8,7 +8,7 @@ Spectrum building has moved to juno_fit.py / dyb_fit.py / tao_fit.py.
 """
 
 import sys
-from .. import nuosc as nuosc
+from ..physics import nuosc as nuosc
 from ..noda import *
 import numpy as np
 import os

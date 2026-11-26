@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys, os
-from .noda import *
+from ..noda import *
 from datetime import datetime
 
 def GetCM(ensp = {},

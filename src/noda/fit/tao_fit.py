@@ -21,7 +21,7 @@ Shared quantities received at call time:
 import numpy as np
 import scipy as sp
 from ..noda import *
-from .. import nuosc as nuosc
+from ..physics import nuosc as nuosc
 
 
 class TAODetector:

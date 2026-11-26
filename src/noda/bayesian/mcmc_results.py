@@ -119,7 +119,7 @@ def pull_chi2(flat, names, j31, add, meta, pdg_opt, lbl_spec):
     chi2 = np.zeros(len(flat))
     ops = (meta or {}).get('op')
     if ops is None and pdg_opt:
-        from .. import nuosc
+        from ..physics import nuosc
         ops = {}
         for lab, no in (('NO', True), ('IO', False)):
             nuosc.SetOscillationParameters(opt=pdg_opt, NO=no)
