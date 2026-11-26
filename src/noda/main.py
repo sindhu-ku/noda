@@ -322,6 +322,11 @@ def setup_one_phase(cfg_path, *, phase_label='p0', shell_label='ALL',
     # ── backgrounds ─────────────────────────────────────────────────────
     with open(args_juno.backgrounds_yaml, 'r') as f:
         backgrounds = _expand_base(yaml.safe_load(f))
+    backgrounds = backgrounds or {}
+    if not backgrounds.get('JUNO'):        # empty / missing list -> no backgrounds
+        backgrounds['JUNO'] = {}
+    from . import backgrounds as bkgdef
+    bkgdef.register(backgrounds)           # display name -> key for post-fit output
 
     # ── spectra ─────────────────────────────────────────────────────────
     ensp_nom_juno, resp_matrix = spec.CreateSpectra(

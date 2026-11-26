@@ -17,6 +17,7 @@ import scipy as sp
 from ..noda import *
 from .. import nuosc as nuosc
 from ..spectra import _apply_oec_correction
+from .. import backgrounds as bkgdef
 
 
 def _aux_dm2_31(toy, which):
@@ -868,11 +869,11 @@ class JUNODetector:
 
             bckg = bckg.GetScaledFit(1 + info["pull"])
 
-            # geo / world-reactor are external fluxes: their detected rate
-            # carries the detection-efficiency nuisance like the signal does.
-            # (was `bckg == "geo"` — comparing the Spectrum object to a
-            # string, so this scaling never applied.)
-            if key == "geo" or key == "wr":
+            # External fluxes (default: geo, wr) carry the detection-efficiency
+            # nuisance like the signal does; set per background with the yaml
+            # `efficiency:` list (see noda/backgrounds.py).
+            if "eff_nuis" in bkgdef.efficiency_flags(
+                    key, self.backgrounds['JUNO'].get(key)):
                 bckg = bckg.GetScaledFit(1 + eff_nuis)
 
             if info["b2b"] > 0:

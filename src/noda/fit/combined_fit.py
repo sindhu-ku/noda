@@ -55,6 +55,7 @@ from .dyb_fit  import DYBDetector
 from .tao_fit  import TAODetector
 from .shared_nuisances import *
 from .minuit import *
+from .. import backgrounds as bkgdef
 
 FULL_CHI2  = 0
 DYB_BINS   = 0
@@ -249,14 +250,6 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
                  label=f'{signal_label}: {sig_cpd:.2f} cpd')
 
     colors = plt.cm.tab10.colors
-    name_to_key = {
-        "Accidentals": "acc", "Geoneutrinos": "geo",
-        r"$^{9}$Li / $^{8}$He": "lihe", "Fast neutrons": "fastn",
-        "Double neutrons": "doublen",
-        r"$^{13}$C ($\alpha$, n) $^{16}$O": "alphan",
-        "Atmospheric neutrinos": "atm", "World reactor neutrinos": "wr",
-        r"$^{214}$Bi": "bipo",
-    }
     if bckgs:
         if detector_label == "JUNO":
             for i, (key, spec) in enumerate(bckgs.items()):
@@ -264,8 +257,8 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
                 ax1.step(bin_centers, np.append(spec.bin_cont, spec.bin_cont[-1]),
                          where='post', color=colors[i % len(colors)], lw=1,
                          label=f'{key}: {cpd:.2f} cpd')
-                if write_output and name_to_key.get(key):
-                    spec.WritetoROOT(name_to_key.get(key),
+                if write_output and bkgdef.name_to_key(key):
+                    spec.WritetoROOT(bkgdef.name_to_key(key),
                                      f"{output_file}", f"{jdir}/postfit")
         if detector_label == "TAO":
                 cpd = bckgs.GetIntegral() / ndays if ndays else 0.0
@@ -357,17 +350,6 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
         tag=tag,
         output_name=output_name,
     )
-
-# Post-fit background display-name -> short histogram key (matches the per-shell
-# names written by plot_fit_residuals_all).
-_BCKG_NAME_TO_KEY = {
-    "Accidentals": "acc", "Geoneutrinos": "geo",
-    r"$^{9}$Li / $^{8}$He": "lihe", "Fast neutrons": "fastn",
-    "Double neutrons": "doublen",
-    r"$^{13}$C ($\alpha$, n) $^{16}$O": "alphan",
-    "Atmospheric neutrinos": "atm", "World reactor neutrinos": "wr",
-    r"$^{214}$Bi": "bipo",
-}
 
 
 def _rebin_to(coarse_edges, fine_edges, fine_cont):
@@ -599,7 +581,7 @@ def plot_postfit_summed(shell_results, args,
                         bkeys.append(k)
             n_written = 0
             for k in bkeys:
-                short = _BCKG_NAME_TO_KEY.get(k)
+                short = bkgdef.name_to_key(k)   # display name -> yaml key
                 if not short:
                     continue
                 cont = _sum_shells(lambda r, k=k: (r.get('bckgs') or {}).get(k))
@@ -1427,16 +1409,17 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 """(start_rate, fitted_rate) for one background in one shell,
                 including the detection-efficiency factor for external fluxes."""
                 nuis    = m.values[routing[id(b)][f'bkg_{key}']]
-                eff_fac = 1.0 + m.values[routing[id(b)]['eff_nuis']]
+                flags   = bkgdef.efficiency_flags(key, info)
+                eff_fac = (1.0 + m.values[routing[id(b)]['eff_nuis']]
+                           if "eff_nuis" in flags else 1.0)
+                det_eff = (float(b.args.detector_efficiency)
+                           if "detector" in flags else 1.0)
                 if key == "geo":
                     sr = (float(b.args.geo_tnu_rate) * float(b.args.tnu_to_cpd)
-                          * float(b.args.detector_efficiency))
-                    return sr, sr * (1 + nuis) * eff_fac
-                if key in ("wr", "atm"):
-                    sr = info["rate"] * float(b.args.detector_efficiency)
-                    return sr, sr * (1 + nuis) * eff_fac
-                sr = info["rate"]
-                return sr, sr * (1 + nuis)
+                          * det_eff)
+                else:
+                    sr = info["rate"] * det_eff
+                return sr, sr * (1 + nuis) * eff_fac
 
             # A background is "shell-correlated" when its Minuit parameter is the
             # SAME mangled name across all shells (correlate_shell: true). Those

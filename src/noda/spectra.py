@@ -22,6 +22,7 @@ from datetime import datetime
 
 
 from .noda import *
+from . import backgrounds as bkgdef
 
 
 # ---------------------------------------------------------------------------
@@ -807,18 +808,23 @@ def _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_
         scale = float(info["rate"]) * ndays / (args.duty_cycle * ensp[key].GetIntegral())
         ensp[key].GetScaled(scale)
 
-        if key == "wr" or key == "geo" or key == "atm":
+        # Per-background efficiency options from the yaml (`efficiency:`);
+        # defaults reproduce the reactor analysis (see noda/backgrounds.py).
+        eff_flags = bkgdef.efficiency_flags(key, info)
+        if "detector" in eff_flags:
             ensp[key].GetScaled(args.detector_efficiency)
-        # OMILREC 0.6 MeV threshold correction: world reactors + geo-nu are IBDs
-        # (Check 5-2). Applied after rate normalisation, before rebinning. The
-        # analytic geo path rebuilds/replaces "geo" in _build_geo_spectra where
-        # the same correction is re-applied.
-        if key in ("wr", "geo"):
-            _apply_oec_correction(ensp[key], args, label=key)
+        # OMILREC 0.6 MeV threshold correction (default: wr + geo, the IBD
+        # backgrounds; Check 5-2). Applied after rate normalisation, before
+        # rebinning. The analytic geo path rebuilds/replaces "geo" in
+        # _build_geo_spectra where the same correction is re-applied.
+        if "oec" in eff_flags:
+            _apply_oec_correction(ensp[key], args, label=key,
+                                  component=key if key in ("geo", "wr") else "reactor")
         if args.rebin_nonuniform:
             ensp[key].Rebin_nonuniform(args.bins_nonuniform)
 
-        print(f"  {key}: {ensp[key].GetIntegral():.2f}  (rate={info['rate']*args.detector_efficiency})")
+        eff_print = args.detector_efficiency if "detector" in eff_flags else 1.0
+        print(f"  {key}: {ensp[key].GetIntegral():.2f}  (rate={info['rate']*eff_print})")
         bckg = ensp[key] if bckg is None else bckg + ensp[key]
 
     return bckg
@@ -908,32 +914,26 @@ def _assemble_total_spectrum_tao(ensp, args, ndays):
                 ['TAO expectation', 'TAO data', 'TAO background'],
                 ['brown', 'steelblue', 'orange'])
 
-def _assemble_total_spectrum_juno(ensp, args):
-
+def _assemble_total_spectrum_juno(ensp, args, backgrounds):
+    """Event summary + (spectra, labels, colors) for the JUNO prefit plot.
+    Loops over the backgrounds listed in the yaml (any keys)."""
+    bkgs = backgrounds["JUNO"]
     events = {
         "rtot":   ensp["rtot"].GetIntegral(),
         "rdet":   ensp["rdet"].GetIntegral(),
-        "rbckg":  ensp["bckg"].GetIntegral(),
+        "rbckg":  ensp["bckg"].GetIntegral() if ensp.get("bckg") is not None else 0.0,
         "ribd":   ensp["ribd"].GetIntegral(),
         "rosc":   ensp["rosc"].GetIntegral(),
-        "acc":    ensp["acc"].GetIntegral(),
-        "fastn":  ensp["fastn"].GetIntegral(),
-        "lihe":   ensp["lihe"].GetIntegral(),
-        "alphan": ensp["alphan"].GetIntegral(),
-        "geo":    ensp["geo"].GetIntegral(),
-        "atm":    ensp["atm"].GetIntegral(),
-        "wr":     ensp["wr"].GetIntegral(),
+        "bkgs":   [(key, ensp[key].GetIntegral()) for key in bkgs],
     }
     _print_juno_event_summary(events)
 
-    extra = [ensp[k] for k in ("acc", "geo", "lihe", "fastn", "alphan", "atm", "wr", "doublen", "bipo")]
-    labels = [
-        "Reactor antineutrinos", "Accidentals", "Geoneutrinos",
-        "Li9/He8", "Fast neutrons", "(alpha, n)", "Atmospheric",
-        "Reactors > 300 km", "Double neutrons", "BiPo214",
-    ]
-    colors = ["black", "darkred", "green", "navy", "orange", "magenta",
-              "lightblue", "yellow", "lightgreen", "purple", "grey"]
+    extra = [ensp[k] for k in bkgs]
+    labels = ["Reactor antineutrinos"] + [bkgdef.display_name(k, i) for k, i in bkgs.items()]
+    palette = ["darkred", "green", "navy", "orange", "magenta", "lightblue",
+               "yellow", "lightgreen", "purple", "grey", "teal", "olive",
+               "pink", "brown", "cyan"]
+    colors = ["black"] + [palette[n % len(palette)] for n in range(len(bkgs))]
 
     if args.is_data:
         ensp["data"] = GetSpectrumFromROOT(args.data_spectrum, args.data_hist_name)
@@ -953,13 +953,8 @@ def _print_juno_event_summary(ev):
     print(f"  Detected:            {ev['rdet']:>10.2f} events")
     print(f"  IBD + BG:            {ev['rtot']:>10.2f} events")
     print(f"  Backgrounds (total): {ev['rbckg']:>10.2f} events")
-    print(f"    accidentals:       {ev['acc']:>10.2f}")
-    print(f"    Li-9/He-8:         {ev['lihe']:>10.2f}")
-    print(f"    fast n:            {ev['fastn']:>10.2f}")
-    print(f"    (alpha,n):         {ev['alphan']:>10.2f}")
-    print(f"    geo-nu:            {ev['geo']:>10.2f}")
-    print(f"    atmospheric:       {ev['atm']:>10.2f}")
-    print(f"    global reactors:   {ev['wr']:>10.2f}")
+    for key, n in ev["bkgs"]:
+        print(f"    {key + ':':<18} {n:>10.2f}")
     print("=" * 46 + "\n")
 
 
@@ -1328,6 +1323,9 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
 
     if detector == "JUNO":
         ensp["bckg"] = _load_juno_backgrounds(ensp,backgrounds, args, ebins, resp_matrix, ndays, s_ibd=s_ibd)
+        if ensp["bckg"] is None:      # empty background list in the yaml
+            ensp["bckg"] = Spectrum(bins=ensp["rdet"].bins,
+                                    bin_cont=np.zeros(len(ensp["rdet"].bin_cont)))
         # ------------------------------------------------------------------
         # 6. Geo-neutrino spectra  (JUNO analytic path)
         # ------------------------------------------------------------------
@@ -1343,7 +1341,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
                     float(args.crust_rate_tnu) * args.tnu_to_cpd, args.crust_Th_U_ratio,
                 )
                 ensp["geo_ana"] = ensp["geocrust"] + ensp["geomantle"]
-            else:
+            elif "geo" in backgrounds["JUNO"]:
                 ensp["geo_ana"] = _build_geo_spectra(
                     ensp, args, ebins, s_ibd, ndays, resp_matrix, "geo",
                     float(args.geo_tnu_rate) * float(args.tnu_to_cpd), args.Th_U_ratio,
@@ -1352,7 +1350,7 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
                 ensp["geo"]  = ensp["geo_ana"]
                 print(f"  geo: {ensp['geo'].GetIntegral():.2f}")
         ensp["rtot"] = ensp["rdet"] + ensp["bckg"]
-        extra_spectra, leg_labels, colors = _assemble_total_spectrum_juno(ensp, args)
+        extra_spectra, leg_labels, colors = _assemble_total_spectrum_juno(ensp, args, backgrounds)
 
         if args.write_output:
             _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=s_ibd)
