@@ -7,7 +7,7 @@ Three accepted shapes:
 
   # 1) phase only — whole radius fit, one full config per phase
   P25C: config/P25C_PRL2025.yaml
-  P25D: config/P25D.yaml
+  P25D: config/legacy/P25D.yaml
 
   # 2) phase + shell
   P25C:
@@ -24,13 +24,13 @@ Three accepted shapes:
   #    replaced in place; nest under an explicit section name
   #    (e.g. `tao_inputs: {…}`) to target a specific section.
   #
-  #    common: config/240-day_FV165/AllP_Jun2026.yaml
+  #    common: config/standard/p26b_165m/config.yaml
   #    phases:
   #      groupA:
   #        stat_opt: 197.98095days
   #        detector_efficiency: 0.69985553
   #        eff_unc: 0.02098609788
-  #        backgrounds_yaml: config/240-day_FV165/backgrounds_groupA.yaml
+  #        backgrounds_yaml: config/legacy/240-day_FV165/backgrounds_groupA.yaml
   #        core_powers: [...]
   #        det_resp_file: data/...
   #      phase1:

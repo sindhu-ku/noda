@@ -336,7 +336,13 @@ class Spectrum:
     b1 = self.bins[:-1]
     b2 = self.bins[1:]
 
-    # 2. Setup the evaluation energies depending on points_per_bin
+    # 2. Setup the evaluation energies depending on points_per_bin.
+    #    A caller that leaves the default (1) gets the detector's config value
+    #    `osc_points_per_bin` (juno_inputs); averaging P over sub-points of each
+    #    true-energy bin removes the far-core (DYB 215 km, FC 411 km) aliasing
+    #    that bin-centre sampling causes at 20 keV.
+    if points_per_bin == 1:
+      points_per_bin = int(getattr(args, 'osc_points_per_bin', 1) or 1)
     if points_per_bin == 1:
         evis_array = 0.5 * (b1 + b2) + eshift
     else:
@@ -1200,9 +1206,14 @@ def LoadRespMatrix(fname):
   f.close()
   return m
 
-def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_meV", verbose=True):
+def CalcRespMatrix_abc(a, b, c, ebins, pebins, escale=1., eshift=0., norm_mode="per_meV", verbose=True,
+                       escale_on_vis=False):
     evis = 0.5*(ebins[1:] + ebins[:-1]) + eshift
-    rel_res = np.sqrt(a**2 / evis + b**2 + c**2 / evis**2)  # in fraction
+    # escale_on_vis: scale the visible energy itself (E_vis -> escale*E_vis), so
+    # the resolution is evaluated at the scaled energy, sigma(escale*E_vis).
+    # Default: stretch the reco axis, width escale*sigma(E_vis).
+    e_res = escale * evis if escale_on_vis else evis
+    rel_res = np.sqrt(a**2 / e_res + b**2 + c**2 / e_res**2)  # in fraction
 
     loc = escale * evis                     # shape (N_e,)
     scale = escale * rel_res * evis         # shape (N_e,)

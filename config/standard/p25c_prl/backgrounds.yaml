@@ -1,0 +1,101 @@
+# background_rates.yaml
+
+JUNO:
+  lihe:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root" #lihe_spectrum.root"
+    histname: "prefit/lihe" #Li9BkgHistogramAD"
+    rate: 1.92
+    rate_unc: 1.30
+    b2b_unc: 0.3
+    b2b_scale: 0.1
+    name: "$^{9}$Li / $^{8}$He"
+    correlate_phase: true
+    correlate_shell: true
+
+  geo:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
+    histname: "prefit/geo" #GeoNuHistogramAD"
+    rate: 1.75 #1.2554280 #1.239 #1.147
+    rate_unc: 0.4
+    b2b_unc: 0.05
+    b2b_scale: 0.0
+    name: "Geoneutrinos"
+    correlate_phase: true
+    correlate_shell: true
+
+  wr:
+    rootfile: "${NODA_BASE}/data/WR.root"
+    histname: "spectrum_nom" #OtherReactorSpectrum_L300km"
+    rate: 1.26 #0.90390814  #886 #1.185
+    rate_unc: 0.1
+    b2b_unc: 0.05
+    b2b_scale: 0.0
+    name: "World reactor neutrinos"
+    correlate_phase: true
+    correlate_shell: true
+
+  bipo:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
+    histname: "prefit/bipo" #OtherReactorSpectrum_L300km"
+    rate: 0.25
+    rate_unc: 0.5
+    b2b_unc: 0.05
+    b2b_scale: 0.1
+    name: "$^{214}$Bi"
+    correlate_phase: false
+    correlate_shell: false
+
+  acc:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
+    histname: "prefit/acc" #AccBkgHistogramAD"
+    rate: 0.17
+    rate_unc: 0.0071
+    b2b_unc: 0.0352
+    b2b_scale: 0.1
+    name: "Accidentals"
+    correlate_phase: false
+    correlate_shell: false
+
+  doublen:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
+    histname: "prefit/doublen" #FnBkgHistogramAD"
+    rate: 0.05
+    rate_unc: 1.0
+    b2b_unc: 0.15
+    b2b_scale: 0.1
+    name: "Double neutrons"
+    correlate_phase: true
+    correlate_shell: false
+
+  atm:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
+    histname: "prefit/atm" #AtmosphericNeutrinoModelGENIE2"
+    rate: 0.15 #0.10760811
+    rate_unc: 0.5
+    b2b_unc: 0.5
+    b2b_scale: 0.0
+    name: "Atmospheric neutrinos"
+    correlate_phase: true
+    correlate_shell: true
+
+  alphan:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root" #${NODA_BASE}/data/GeoneutrinoCommonInputs.root" #"${NODA_BASE}/data/IBD_bckgs_groupC_Nov10_reprod25D_good.root"
+    histname: "prefit/alphan" #AlphaN_MC" #AlphaNBkgHistogramAD"
+    rate: 0.037
+    rate_unc: 0.25
+    b2b_unc: 0.25
+    b2b_scale: 0.0
+    name: "$^{13}$C ($\\alpha$, n) $^{16}$O"
+    correlate_phase: false
+    correlate_shell: false
+
+  fastn:
+    rootfile: "${NODA_BASE}/data/GroupC_spectra_march13_P25C_Mar25.root"
+    histname: "prefit/fastn" #FnBkgHistogramAD"
+    rate: 0.006
+    rate_unc: 1.0
+    b2b_unc: 0.15
+    b2b_scale: 0.1
+    name: "Fast neutrons"
+    correlate_phase: true
+    correlate_shell: false

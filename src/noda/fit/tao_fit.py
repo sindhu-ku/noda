@@ -120,10 +120,15 @@ class TAODetector:
         """
         NL_names  = [] if self._nl_in_leak else [f"NL_tao{i}" for i in range(6)]
         abc_names = ["abc_tao0", "abc_tao1", "abc_tao2"]
+        # Energy-scale nuisance on the visible energy (before reco). In the
+        # old NL-pull mode this lived in NL_tao[5] (LY); with the baked-in
+        # leakage matrix (nl_in_leak) it is a standalone floated parameter.
+        escale_names = ["escale_tao"] if self._nl_in_leak else []
         return (
             ["Nrea_tao"]
             + NL_names
             + abc_names
+            + escale_names
             + [f"snf_noneq_norm_tao{i}" for i in range(2)]
             + ["core_power_tao"]
             + ["eff_nuis_tao"]
@@ -136,10 +141,12 @@ class TAODetector:
         args = self.args
         NL_start  = [] if self._nl_in_leak else [0.0] * 6
         abc_start = [args.a, args.b, args.c]
+        escale_start = [0.0] if self._nl_in_leak else []   # escale_tao
         return (
             [0.0]        # Nrea_tao
             + NL_start
             + abc_start
+            + escale_start
             + [0.0, 0.0]
             + [0.0]      # core_power_tao
             + [0.0]      # eff_nuis_tao
@@ -160,10 +167,12 @@ class TAODetector:
     def get_first_fix(self):
         """Parameters to fix in the first Minuit stage."""
         NL_names = [] if self._nl_in_leak else [f"NL_tao{i}" for i in range(6)]
+        escale_names = ["escale_tao"] if self._nl_in_leak else []
         return (
             ["Nrea_tao"]
             + NL_names
             + ["abc_tao0", "abc_tao1", "abc_tao2"]
+            + escale_names
             + [f"snf_noneq_norm_tao{i}" for i in range(2)]
             + ["core_power_tao"]
             + ["eff_nuis_tao"]
@@ -174,24 +183,27 @@ class TAODetector:
     #  Internal cached helpers
     # ════════════════════════════════════════════════════════════════════════
 
-    def _get_resp_matrix(self, a, b, c):
-        # Cache by (a,b,c) for BOTH paths: migrad holds (a,b,c) fixed while it
+    def _get_resp_matrix(self, a, b, c, escale=1.0):
+        # Cache by (a,b,c,escale) for BOTH paths: migrad holds (a,b,c) fixed while it
         # perturbs the other nuisances, so even the linearized combination
         # (which still materialises a full fine×fine matrix) must be cached or
         # lin_resp=True ends up slower than the cached non-linear path. Bounded
         # to the working set to avoid multi-GB growth across the fit / FC toys.
-        key = (a, b, c)
+        # escale multiplies the visible energy (loc = escale·Evis) before reco.
+        key = (a, b, c, escale)
         rm = self._resp_matrix_cache.get(key)
         if rm is None:
-            if self._linearize_resp:
+            if self._linearize_resp and escale == 1.0:
                 M = (self._M0
                      + (a - self._a0) * self._dMda
                      + (b - self._b0) * self._dMdb
                      + (c - self._c0) * self._dMdc)
                 rm = RespMatrix(data=M, ebins=self.fine_bins, pebins=self.fine_bins)
             else:
-                resp_matrix = CalcRespMatrix_abc(a, b, c, escale=1,
-                                                 ebins=self.fine_bins, pebins=self.fine_bins)
+                resp_matrix = CalcRespMatrix_abc(
+                    a, b, c, escale=escale,
+                    ebins=self.fine_bins, pebins=self.fine_bins,
+                    escale_on_vis=(str(getattr(self.args, 'escale_mode', 'reco')) == 'vis'))
                 rm = RespMatrix(data=resp_matrix.data,
                                 ebins=self.fine_bins, pebins=self.fine_bins)
             self._resp_matrix_cache[key] = rm
@@ -222,7 +234,7 @@ class TAODetector:
     def build_spectrum(self,
                        Nrea_tao, abc_tao, snf_noneq_norm_tao,
                        core_power_tao, eff_nuis_tao, bckg_rate, nuisance,
-                       NL_tao=None):
+                       NL_tao=None, escale_tao=0.0):
         """
         Builds the TAO predicted spectrum.
 
@@ -288,14 +300,21 @@ class TAODetector:
             pull_unc.append(args.ene_scale_unc)
 
         # ── detector response with individual abc pull penalties ──────────────
+        # escale_tao multiplies the visible energy (loc = (1+escale)·Evis) before
+        # reco — the TAO energy-scale nuisance (σ = ene_scale_unc), active with the
+        # baked-in leakage matrix where the old LY/NL pull is switched off.
         if abc_tao:
-            resp_matrix = self._get_resp_matrix(abc_tao[0], abc_tao[1], abc_tao[2])
+            resp_matrix = self._get_resp_matrix(abc_tao[0], abc_tao[1], abc_tao[2],
+                                                escale=1.0 + escale_tao)
             s_tao = s_tao.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
             # Individual pull terms (no 2D covariance penalty)
             pulls.extend([abc_tao[0] - args.a,
                           abc_tao[1] - args.b,
                           abc_tao[2] - args.c])
             pull_unc.extend([args.a_err, args.b_err, args.c_err])
+            if self._nl_in_leak:
+                pulls.append(escale_tao)
+                pull_unc.append(args.ene_scale_unc)
         else:
             s_tao = s_tao.ApplyDetResp(self.rm, pecrop=args.ene_crop)
 
@@ -337,13 +356,88 @@ class TAODetector:
         return s_tao, s_tot_tao, pulls, pull_unc, rfis_param_post, bckg
 
     # ════════════════════════════════════════════════════════════════════════
+    #  Step-by-step TAO spectra
+    # ════════════════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _stretch_energy(spec, k):
+        """Map E -> k*E on the same binning (content-conserving)."""
+        e = np.asarray(spec.bins, float)
+        cum = np.concatenate([[0.0], np.cumsum(spec.bin_cont)])
+        cum_new = np.interp(e, k * e, cum, left=0.0, right=cum[-1])
+        return Spectrum(bins=spec.bins, bin_cont=np.diff(cum_new))
+
+    def build_stages(self, Nrea_tao, abc_tao, snf_noneq_norm_tao,
+                     core_power_tao, eff_nuis_tao, bckg_rate, nuisance,
+                     NL_tao=None, escale_tao=0.0):
+        """Spectra at every step of the TAO chain, same inputs as
+        build_spectrum.  Eff/Nrea normalisations are applied to every stage
+        so all stages are in events.
+
+          unosc       IBD flux x xsec x exposure (true E), segments applied
+          osc         = unosc (43 m: oscillation not applied in the TAO model)
+          snf, noneq  SNF / non-eq corrections (true E), x (1+pull)
+          osc_wcorr   osc + snf + noneq (true E)
+          dep_noleak  osc_wcorr after positron conversion (deposited E)
+          dep         after leakage+LSNL matrix
+          vis         after energy scale (E -> (1+escale_tao)*E)
+          rec         after resolution (a,b,c), fine binning
+          reactor     the model reactor spectrum the fit uses (analysis bins)
+          bkg, totalpred
+        Returns (stages dict of Spectrum, params dict)."""
+        args = self.args
+        ensp = self.ensp_nom
+        norm = (1 + eff_nuis_tao) * (1 + Nrea_tao)
+
+        core_powers_new = list(np.array(self.core_powers_std) * (1 + core_power_tao))
+        core_scales = np.array([compute_extrafactors(
+            args, efission=args.efission, alpha=self.fission_fracs[i],
+            core_baselines=[self.core_baselines[i]],
+            core_powers=[core_powers_new[i]]) for i in range(self.n_cores)])
+        raw = np.sum(self.fission_arrays * core_scales[:, np.newaxis], axis=0)
+        raw = raw * (1.0 + self._get_nuisance_fine(np.array(nuisance)))
+        st = {}
+        st["unosc"] = Spectrum(bins=self.dummy_sp.bins, bin_cont=raw * norm)
+        st["osc"]   = Spectrum(bins=self.dummy_sp.bins, bin_cont=raw * norm)
+        f_snf   = (1 + snf_noneq_norm_tao[0]) if snf_noneq_norm_tao else 1.0
+        f_noneq = (1 + snf_noneq_norm_tao[1]) if snf_noneq_norm_tao else 1.0
+        snf = ensp["snf"].GetScaledFit(f_snf * norm if self._tao_snf else 0.0)
+        noneq = ensp["noneq"].GetScaledFit(f_noneq * norm)
+        st["snf"], st["noneq"] = snf, noneq
+        st["osc_wcorr"] = st["osc"] + snf + noneq
+        st["dep_noleak"] = st["osc_wcorr"].GetWithPositronEnergy(
+            s_ibd=self.s_ibd, inputfile=args.input_data_file, tf2name=args.pos_ene_TF2)
+        st["dep"] = st["dep_noleak"].ApplyDetResp(self.ene_leak, pecrop=args.ene_crop)
+        st["vis"] = self._stretch_energy(st["dep"], 1.0 + escale_tao)
+        rm = self._get_resp_matrix(abc_tao[0], abc_tao[1], abc_tao[2],
+                                   escale=1.0 + escale_tao)
+        st["rec"] = st["dep"].ApplyDetResp(rm, pecrop=args.ene_crop)
+
+        s_rea, s_tot, _, _, _, bckg = self.build_spectrum(
+            Nrea_tao=Nrea_tao, abc_tao=abc_tao, snf_noneq_norm_tao=snf_noneq_norm_tao,
+            core_power_tao=core_power_tao, eff_nuis_tao=eff_nuis_tao,
+            bckg_rate=bckg_rate, nuisance=nuisance, NL_tao=NL_tao,
+            escale_tao=escale_tao)
+        st["reactor"], st["bkg"], st["totalpred"] = s_rea, bckg, s_tot
+
+        params = dict(
+            Efficiency=args.detector_efficiency * (1 + eff_nuis_tao),
+            LY=1.0 + escale_tao, a=abc_tao[0], b=abc_tao[1], c=abc_tao[2],
+            power_GW=float(np.sum(self.core_powers_std)),
+            baseline_km=float(self.core_baselines[0]) * 1e-3,
+            R_flux=1.0 + Nrea_tao, core_norm=1.0 + core_power_tao)
+        params["fission_fractions"] = [args.U235_scale, args.U238_scale,
+                                       args.Pu239_scale, args.Pu241_scale]
+        return st, params
+
+    # ════════════════════════════════════════════════════════════════════════
     #  chi2 contribution
     # ════════════════════════════════════════════════════════════════════════
 
     def chi2_contribution(self,
                           Nrea_tao, abc_tao, snf_noneq_norm_tao,
                           core_power_tao, eff_nuis_tao,bckg_rate,
-                          unc, nuisance, NL_tao=None):
+                          unc, nuisance, NL_tao=None, escale_tao=0.0):
         """
         Returns (chi2_tao, chi2_nolog, s_tao, s_tot_tao).
         """
@@ -352,7 +446,8 @@ class TAODetector:
         (s_tao, s_tot_tao, pulls, pull_unc,
          rfis_param_post, bckg) = self.build_spectrum(
             Nrea_tao, abc_tao, snf_noneq_norm_tao,
-            core_power_tao, eff_nuis_tao,bckg_rate, nuisance, NL_tao=NL_tao)
+            core_power_tao, eff_nuis_tao,bckg_rate, nuisance, NL_tao=NL_tao,
+            escale_tao=escale_tao)
 
         sp_obs = self._get_obs_spectrum()
 

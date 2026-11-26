@@ -1,0 +1,411 @@
+config: ''
+# Geo-neutrino sensitivity standard (geo sensitivity paper): JUNO 1 year Asimov
+# (no data), DYB as the reactor-shape constraint, no TAO. Physics inputs kept from
+# geo_Jan9_2026.yaml; keys updated to the current code (Nov 2026).
+# Fit options configuration
+
+fit_options:
+
+
+  sin2_th13_opt: free # Sin2_theta13 option
+  pull_all: false
+  osc_formula_opt: default # Oscillation formula option, default is PDG, YB is yellowbook
+  PDG_opt: PDG2022 # PDG option
+  NMO_opt: True # NMO option, true is normal
+  stat_method_opt: CNP #NorP, CNP, or bayesian
+  grid_scan: false # if not grid scan, iminuit is run
+  plot_minuit_matrix: false
+  plot_correlation: false
+  plot_minuit_profiles: false
+  plot_spectra: true
+  print_minuit_correlation: false
+  solar_contour: false
+  CI_powers: true
+  calc_minuit_errors: false
+  profile_dm2_31: false
+  silent_print: false
+  geo_spectra: ana
+  pull_dm2_31: false
+  fit_type: PMOP_combined #PMOP_combined #geo or PMOP or PMOP_combined (default)
+  geo_fit: true
+  apply_bump: true
+  geo_fit_type: total #UThfree , mantle or total (default)
+  mantle_model: GD 
+  reac_model: HM 
+  nd: DYB
+  pull_shape: True
+  use_dagflow: false
+  geo_OPfixed: false
+  toymc: false      
+  ntoys: 1000 
+  toy_prefix: 0    
+  toy_batch_size: 8 
+  minuit_timeout: 600 #s
+  toymc_timeout: 600 #s
+  #just for the bayesian method, random seeds and chi2 def
+  bayes_seed_beg: 481
+  bayes_chi2: CNP
+  bayes_events: 400
+  bayes_nwalkers: 30
+  bayes_nprocesses: 16
+  ihep_usage: True
+  write_output: False
+  write_per_core: false
+  file_prefix: 'geo_sens'
+  is_data: false           # Asimov
+  NMO_sig: false
+  run_hesse: true
+  stat_only: false
+  # detectors / strategy: JUNO + DYB shape constraint, no TAO
+  include_tao: false
+  include_dyb: true
+  fit_mode: prefit_wosegs  # DYB prefit -> segments fixed + C_seg in the JUNO fit
+  use_prefit: false        # DYB-only prefit is fast; run it fresh
+  save_prefit: false
+  prefit_path: ${NODA_BASE}/prefit_data/geo_sens_DYBonly.npz
+  tao_snf_corr: false
+  eff_corr_split: false    # single volume
+  eff_corr_unc: 0.01
+  osc_per_core: true       # oscillate each core at its own baseline (current standard)
+  lin_resp: true
+  apply_oec_correction: false
+  oec_correction_file: ${NODA_BASE}/data/OMILREC_correction_p10_DocDB17104.csv
+  # LBL dm2_31 pull (off, as pull_dm2_31)
+  pull_dm2_31_lbl: false
+  dm2_31_lbl: 2.517e-03
+  dm2_31_lbl_err: 0.0265e-03
+  theta23: 48.6
+  dcp: 285.0
+  # dm2_31 profile settings (profile_dm2_31 is off)
+  profile_dm2_31_conditional: true
+  profile_points: 1000
+  profile_nchunks: 1
+  profile_chunk: 0
+  profile_csv: ''
+  profile_make_graph: true
+  solar_mncontour: false
+  solar_mncontour_size: 100
+  solar_mncontour_cls: [1, 2, 3]
+  solar_profiles: false
+  solar_profile_size: 40
+  solar_profile_bound: 4.0
+  # analytic geo spectra (geo_spectra: ana) read these
+  geoU_file: ${NODA_BASE}/data/U238_IHEP.txt
+  geoTh_file: ${NODA_BASE}/data/Th232_IHEP.txt
+  geoU_hist_name: 'geoU'
+  geoTh_hist_name: 'geoTh'
+
+  FORCE_CALC_RM: true # Force calculation of response matrix
+  FORCE_CALC_CM: false # Force calculation of covariance matrices
+  PLOT_CM: false # Plot covariance matrices
+
+  backgrounds_yaml: ${NODA_BASE}/config/standard/geo_sens/backgrounds.yaml
+  input_data_file: ${NODA_BASE}/data/JUNOInputs2022_05_08.root #data file
+  geo_file: ${NODA_BASE}/data/geo_raw_Nov2723.root
+  geo_MC_U_file: ${NODA_BASE}/data/geo_U_promptFV.root
+  geo_MC_Th_file: ${NODA_BASE}/data/geo_Th_promptFV.root
+  geo_MC_file: ${NODA_BASE}/data/xc_pdfs_2023-08-25.root
+
+  reactor_model: Huber-Mueller
+
+  main_data_folder: ${NODA_BASE}/Geo_Jan9
+  cov_matrix_plots_folder: ${NODA_BASE}/CMplots #folder to store CM plots
+  plots_folder: ${NODA_BASE}/Plots #folder to save plots of spectra
+  data_matrix_folder: ${NODA_BASE}/Geo_Jan9 #folder to save or to use csv files of spectra and matrices
+  bayes_data_folder: ${NODA_BASE}/Bayesian/npz_files
+  bayes_plots_folder: ${NODA_BASE}/Bayesian/Plots
+
+  #start and end points for each parameter in grid space
+  grid_params:
+    sin2_12: [0.302, 0.312]
+    sin2_13: [0.0068, 0.0368]
+    dm2_21: [7.47e-5, 7.59e-5]
+    dm2_31: [2.515e-3, 2.543e-3]
+
+  #number of points for each parameter in the grid space
+  grid_points: 21
+
+  shape_unc: TAO
+
+
+  bayes_unc: stat #+eff+r2+crel+snf+noneq+b2b_DYB+abc+nl+bg+me
+
+  sample_size_resp: 10000 #000 # Sample size for response matrix fluctuations
+  sample_size_core: 10000 # Sample size for core powers fluctuations
+  sample_size_nonl: 10000 # Sample size for non-linearity fluctuations
+  sample_size_me: 10000 #00 # Sample size for matter effect fluctuations
+
+
+# Juno Inputs
+common_det_inputs:
+  Th_U_ratio: 0.29 #0.30
+  Th_U_ratio_err: 0.03
+  mantle_Th_U_ratio:
+    GD: 0.26 
+    GC: 0.23
+    CC: 0.17
+  crust_Th_U_ratio: 0.30
+  crust_rate_tnu: 50 # 1.370
+  crust_rate_unc: 0.25
+  mantle_rate:
+    GD: 0.562 #0.635
+    GC: 0.259 #0.285
+    CC: 0.091 #0.081
+
+  geo_tnu_rate: 44.25 #40 #37.95 #40.0
+  tnu_to_cpd: 0.032387707 #0.027773315 #0.032387707
+  geo_rate: 1.229 #1.2955 #1.229 # 1.239 #1.255 #1.147
+
+  me_rho: 2.45 #2.45
+  me_rho_scale: 0.15
+  duty_cycle: 0.91666667
+  alpha: [0.58, 0.07, 0.30, 0.05]
+  efission: [202.36, 205.99, 211.12, 214.26]
+  efission_err: [0.26, 0.52, 0.34, 0.33]
+
+  #b2b_unc: 0.0134
+
+  r2_unc: 0.02 #rel
+  snf_unc: 0.3 #rel
+  me_rho_unc: 0.061
+  noneq_unc: 0.3 #rel
+  core_flux_unc: 0.008 #rel
+  ff: 0.0005
+  posE_shift: 2d   # current method (TF2 pos_ene_TF2); the old "ana" path is not maintained
+  pos_ene_TF2: Epositron_Enu_cos_StrumiaVissani
+
+  unc_corr_ind: r2+snf+noneq
+
+  unc_corr_dep: crel+nl
+  snf_file: ${NODA_BASE}/data/SNFYJandTS.root
+  noneq_file: ${NODA_BASE}/data/Non-Equilibrium_corrections.root
+
+juno_inputs:
+  reactor_summary_yaml:  ${NODA_BASE}/config/standard/geo_sens/reactor_summary.yaml
+  stat_opt: 1year #58.91days #46.05days #46.6155days #46.05days # time period for sensitivity studies
+  eff_unc: 0.0214 #rel
+  detector_efficiency: 0.822 #0.703 #0.822 #0.703 #0.717 #0.703500 #0.717 #0.822 #0.906 #0.822
+  bins: 601   # 20 keV true-energy grid 0-12 MeV (current standard; was 501 bins from 0.8 MeV)
+  osc_points_per_bin: 4   # standard: average P_ee over 4 sub-points per true bin
+  min_ene: 0.0  # Minimum energy
+  max_ene: 12
+  ene_crop:
+    - 0.0
+    - 12.0
+  NL: pull
+  det_resp_file: ${NODA_BASE}/data/geo_sens_cov_er_diag.txt   # diag (a_err, b_err, c_err)^2; required by the current code even in NL pull mode
+  ene_scale_unc: 0.005   # LY / energy-scale pull of NL pull mode (as in geo_Sep3_2025.yaml; not set in geo_Jan9_2026)
+  NL_data_file:  ${NODA_BASE}/data/JUNOInputs2022_05_08.root #${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
+  data_spectrum: ${NODA_BASE}/data/IBD_bckgs_groupC_Jan6_reprod25C.root 
+  rebin_nonuniform: true
+  bins_nonuniform: 
+    # - [0.7, 1.0, 1]
+    # - [1.0, 6.6, 56]
+    # - [6.6, 7.4, 4]
+    # - [7.4, 7.7, 1]
+    # - [7.7, 8.1, 1]
+    # - [8.1, 8.6, 1]
+    # - [8.6, 9.4, 1]
+    # - [9.4, 12.0, 1]
+
+    - [0.8, 1.0, 1]
+    - [1.0, 7.0, 300]
+    - [7.0, 9.0, 10]
+    - [9.0, 10.0, 2]
+    - [10.0, 12.0, 1]
+
+  seg_bins_nonuniform: [1.8000, 1.9800, 2.1800, 2.3900, 2.6100, 2.8500, 3.1000, 3.3700, 3.6500, 3.9500, 4.2700, 4.6000, 4.9500, 5.3200, 5.7000, 6.1000, 6.5200, 6.9600, 7.4200, 7.9200, 8.7700] #, 12.7823]
+    
+  U235_scale: 0.58
+  U238_scale: 0.07
+  Pu239_scale: 0.30
+  Pu241_scale: 0.05
+
+  # core_powers: [1.92635615,  2.73654672,  2.86288168,  1.54130401,  2.47091164,  2.86591997, 4.09121128,  4.14699872, 15.89570359,  9.24866519]  #[1.93, 2.74 ,2.86, 1.54, 2.47, 2.87, 4.09, 4.15, 15.90, 9.25]
+
+  # core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0, 411000.0]
+  core_powers: [2.9, 2.9, 2.9, 2.9, 2.9, 2.9, 4.6, 4.6, 17.4]
+  core_baselines: [52740.0, 52820.0, 52410.0, 52490.0, 52110.0, 52190.0, 52770.0, 52640.0, 215000.0]
+
+  Np: 1.4351802862903064e+33 #1.442e+33 
+
+  veto: 1.0
+  nl_hist_name: J22rc0_positronScintNL
+  nl_pull_hist_name: positronScintNLpullkey   # NL pull curves (NL: pull)
+  NL_sd: 1.0
+
+  #Padova
+  # a: 3.35364040e-02 #3.36449744e-02 #0.033 #0.03364345
+  # b: 1.53220897e-02 #1.52257960e-02 # 0.015229000 #0.00839  #0.009 #0.00839
+  # c: 0.0 #0.000 
+
+  # #Irvine
+  # a: 3.15289041e-02
+  # b: 9.39472257e-03
+  # # c: 0.0
+  a: 0.02614
+  b: 0.0064
+  c: 0.012
+
+  #Irvine
+  a_err: 5.52553579e-04
+  b_err: 6.05760616e-04
+  c_err: 7.60974158e-04
+
+  #Padova
+  kB: 1.33122880e-02 #1.45305820e-02 #0.016439 #0.0162 #0.016439
+  fC: 6.58328259e-01 #4.70417566e-01 #0.22315 #0.42 #0.22315
+  kI: 2.76166818e-03 #1.36409561e-03
+  LY_shared: 1.00439834e+00 #1.00436611e+00
+
+
+  param_sp: data/unoscillated_spectrum_param_v1.dat
+  param_cov: data/COVARIANCE_param_v1.dat
+
+
+#  # Uncertainty list
+  unc_list_juno:
+    #- stat
+    #- stat+bg+b2b_DYB+nl
+    #- stat+eff
+    #- stat+r2
+    #- stat+crel
+    #- stat+snf
+    #- stat+noneq
+    #- stat+b2b_DYB
+    #- stat+abc
+    #- stat+nl
+    #- stat+bg
+    #- stat+me
+    - stat
+
+dyb_inputs:
+  model: CPC   # old DYB spectra (dyb_spectra.txt), as in P25C
+  bins: 241 #241 # Number of bins
+  ene_crop:
+    - 0.0 #0 #7
+    - 12.0 #8.0
+    
+  min_ene: 0.0 #0.7
+  max_ene: 12.0 #8.0
+  stat_opt: 1958days # time period for sensitivity studies # time period for sensitivity studies
+  FORCE_CALC_ENE_LEAK: False
+  NL: pull
+  NL_data_file: ${NODA_BASE}/data/Irvine_NL_inputs_nov13_2025.root
+  iav_matrix_file: data/dyb_iav_matrix.txt
+  dagflow_data: ../dayabay-model-official/data/
+  custom_bin_edges: ../dayabay-model-official/data/parameters/reactor_antinu_spectrum_edges_JUNO.tsv
+  rebin_nonuniform:  True
+  bins_nonuniform:
+    - [0.7, 1.0, 1]
+    - [1.0, 8.0, 140]
+    #- [8.0, 12.0, 1]
+
+  
+  U235_scale: 0.564
+  U238_scale: 0.076
+  Pu239_scale: 0.304
+  Pu241_scale: 0.056
+
+  core_powers: [17.4]
+  core_baselines: [540] #[560.0] #580.0] #[580.0]
+
+  Np: 3.0851810e+30 #2.00917077999192e+29
+  detector_efficiency: 0.803
+  veto: 1.0
+  nl_hist_name: positronScintNL
+  nl_pull_hist_name: positronScintNLpullkey   # NL pull curves (NL: pull)
+  rea_rate_unc: 0.015
+
+  ff_b2b_unc: 0.0016
+
+
+  fneu_A: 27.2
+  fneu_B: -1.0
+  fneu_C: 2.0
+
+
+  a: 0.081 
+  b: 0.016
+  c: 0.026
+  
+  ene_scale_unc: 0.085
+
+      # Uncertainty list
+  unc_list_nd:
+     - stat+b2b_ff #stat+bg+eff+r2+nl+snf+noneq
+
+  dyb_spectrum: ${NODA_BASE}/data/dyb_spectra.txt
+  dyb_cm: ${NODA_BASE}/data/dyb_cov_matrix.txt
+  dyb_resp_matrix: ${NODA_BASE}/data/dyb_resp_matrix.txt   # only read for model: PRL
+    #   - stat+eff
+    #   - stat+r2
+    #   - stat+crel
+    #   - stat+snf
+    #   - stat+noneq
+    #   - stat+bg
+    #   - stat+ene_scale
+    #   - stat+fv
+    # - stat+eff+r2+crel+snf+noneq+bg+ene_scale
+
+# TAO is not part of the geo-sensitivity fit (include_tao: false), but the
+# setup still builds the TAO namespace, so a valid tao_inputs block is required.
+# Copied from config/standard/p26b_2shell/common.yaml.
+tao_inputs:
+  bins: 601 #241 # Number of bins
+  ene_crop:
+    - 0.0 #0 #7
+    - 12.0 #8.0
+
+  min_ene: 0.0 #0.7
+  max_ene: 12.0 #8.0
+  stat_opt: 31.3305days # time period for sensitivity studies # time period for sensitivity studies
+  FORCE_CALC_ENE_LEAK: False
+  NL: pull
+  NL_sd: 1.0
+  # NL is baked into the energy-leakage matrix (Energy_leakage_NL_FV800) in the
+  # new-style TAO inputs, so NODA applies no separate NL curve and carries no NL
+  # fit nuisances for TAO. Set False (or omit) to use the old separate-NL path.
+  nl_in_leak: True
+  data_file: ${NODA_BASE}/data/TAOInputs_2026_9_11.root
+  NL_data_file: ${NODA_BASE}/data/TAOInputs_2026_9_11.root
+  data_spectrum: ${NODA_BASE}/data/TAOInputs_2026_9_11.root
+  data_hist_name: IBD_Spectra/IBD_spectrum_bkg_not_subtracted_FV800
+  bckg_hist_name: IBD_Spectra/Bkg_spectrum_FV800
+  bckg_scale: 1.0   # TAOInputs_2026_9_11 Bkg_spectrum is raw reactor-off counts ("not scaled"); bckg_rate 419 = 12304 ev / 29.36 off-days already a per-day rate -> no on/off factor (was 0.93711878 = 29.36/31.33, double-counted). 0.8-12 MeV = 407.7 cpd
+  bckg_rate_unc: 0.009
+  bckg_rate: 419
+  IAV_hist: Detector_Response/Energy_leakage_NL_FV800
+  FV_cov_matrix: Detector_Response/FVcut800_RelativeCovariance
+  # NL (non-linearity) relative covariance — added to the TAO covariance only
+  # when nl_in_leak is True, to carry the NL uncertainty now that NL is baked
+  # into the leakage matrix (no separate NL pull nuisances). Already on the
+  # analysis binning (bins_nonuniform), so no rebin is applied.
+  NL_cov_matrix: Detector_Response/Nonlinearity800_RelativeCovariance_340bins
+  rebin_nonuniform:  True
+  bins_nonuniform:
+    - [0.8, 0.94, 1]
+    - [0.94, 7.44, 325]
+    - [7.44, 7.8, 9]
+    - [7.8, 8.2, 4]
+    - [8.2, 12, 1]
+  U235_scale: 0.568
+  U238_scale: 0.077
+  Pu239_scale: 0.308
+  Pu241_scale: 0.047
+
+  core_powers: [4.14]
+  core_baselines: [43.2]
+  Np: 2.0070463252814688e+29
+  detector_efficiency: 0.466   # was 0.405 (stale); = TAO file FV800 IBD selection efficiency
+  eff_unc: 0.10729614          # = 0.05/0.466 (file's absolute unc)
+  veto: 1.0
+  nl_hist_name: Detector_Response/positronNL
+  nl_pull_hist_name: Detector_Response/positronNLpullkey
+  a: 0.0257965
+  a_err: 0.0038323
+  b: 0.0103571
+  b_err: 0.0032674
+  c: 0.0147691
+  c_err: 0.0005788
+  ene_scale_unc: 0.006

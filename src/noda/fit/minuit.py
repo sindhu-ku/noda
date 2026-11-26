@@ -247,6 +247,13 @@ def profile_dm2_31(m, args_juno, NMO_opt=True, write=False, conditional=False):
             dir_prof = out_file.GetDirectory("profiles") or out_file.mkdir("profiles")
             dir_prof.cd()
             graph.Write()
+            # raw (unsmoothed) scan points, chi2 as returned by Minuit
+            graph_raw = ROOT.TGraph(len(dm2_scan_vals),
+                                    np.asarray(dm2_scan_vals, dtype=float),
+                                    np.asarray(chi2_vals, dtype=float))
+            graph_raw.SetName(("chi2_profile" if conditional else "dm2_31") + "_raw")
+            graph_raw.SetMarkerStyle(2)
+            graph_raw.Write()
         finally:
             force_vector_streamers(out_file)
             out_file.Close()
@@ -1135,6 +1142,12 @@ def load_prefit_cache(path: str) -> dict:
     """Read a prefit cache produced by run_minuit (save_prefit_path)."""
     z = np.load(path)
     C = z['C_reco']
-    return {'nuis_best': z['nuis_best'],
-            'nuis_cov':  z['nuis_cov'],
-            'C_reco':    None if C.size == 0 else C}
+    out = {'nuis_best': z['nuis_best'],
+           'nuis_cov':  z['nuis_cov'],
+           'C_reco':    None if C.size == 0 else C}
+    # optional full DYB+TAO prefit best fit (newer caches)
+    if 'pre_names' in z.files:
+        out.update(pre_names=[str(n) for n in z['pre_names']],
+                   pre_values=z['pre_values'], pre_errors=z['pre_errors'],
+                   pre_fval=float(z['pre_fval']))
+    return out

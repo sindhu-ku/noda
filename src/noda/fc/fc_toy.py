@@ -24,7 +24,7 @@ Toy seed = seed_base + task_id * n_toys + i  → unique, reproducible.
 
 Usage examples:
   # dm31 FC at true NO
-  run_fc_toy --config config/groupA.yaml \\
+  run_fc_toy --config config/legacy/groupA.yaml \\
              --task-id 0 --n-toys 50 --seed-base 0 \\
              --true-dm31 2.50 --true-no 1 \\
              --mode dm31 \\
@@ -32,7 +32,7 @@ Usage examples:
              --prefit-cache fc_runs/prefit_NO.npz
 
   # NMO test (true NO toys); needs both prefits
-  run_fc_toy --config config/groupA.yaml \\
+  run_fc_toy --config config/legacy/groupA.yaml \\
              --task-id 0 --n-toys 50 \\
              --true-dm31 -2.50 --true-no 1 \\
              --mode nmo \\

@@ -186,7 +186,7 @@ def SetOscillationParameters(opt, NO, silent=True):
     op_nom['dm2_31'] = op_nom["dm2_32"] + op_nom["dm2_21"]
   elif opt == 'JUNO2026':
     # June 2026 unblinded 240-day data best fit (2-shell JUNO+DYB+LBL fit,
-    # config/240-day_FV165/manifest_phases.yaml) — centrals for Asimov
+    # config/standard/p26b_2shell/manifest.yaml) — centrals for Asimov
     # studies AT the observed best-fit point. External constraints stay as
     # in NuFitLBL: DYB dm2_31 pull central/width, LBL theta23/dcp for the
     # f_lbl projection, th13 pull width.

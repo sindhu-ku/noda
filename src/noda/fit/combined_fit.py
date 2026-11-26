@@ -89,10 +89,10 @@ def read_external_osc(path):
     return out
 
 
-# Exact ORSA nuisance labels keyed by reactor-summary core name. ORSA's
-# labels don't follow a single rule (TPL has a numeric suffix, DYB/FC don't),
-# so they're listed explicitly to match ORSA exactly.
-ORSA_CORE_LABELS = {
+# Export labels of the reactor-core nuisances, keyed by reactor-summary core
+# name. They match the ORSA export so output files compare directly; the
+# labels follow no single rule (TPL has a numeric suffix, DYB/FC don't).
+CORE_EXPORT_LABELS = {
     "YJ1": "YJ-C1", "YJ2": "YJ-C2", "YJ3": "YJ-C3",
     "YJ4": "YJ-C4", "YJ5": "YJ-C5", "YJ6": "YJ-C6",
     "TS1": "TS-C1", "TS2": "TS-C2",
@@ -100,13 +100,13 @@ ORSA_CORE_LABELS = {
 }
 
 def _core_display_tag(name):
-    """Map a reactor-summary core name to the exact ORSA export label.
+    """Map a reactor-summary core name to its export label.
 
     Falls back to a '<plant>-C<n>' / '<name>-C' derivation only for names not
-    in ORSA_CORE_LABELS, so an unexpected core never crashes the export.
+    in CORE_EXPORT_LABELS, so an unexpected core never crashes the export.
     """
-    if name in ORSA_CORE_LABELS:
-        return ORSA_CORE_LABELS[name]
+    if name in CORE_EXPORT_LABELS:
+        return CORE_EXPORT_LABELS[name]
     m = re.match(r"^([A-Za-z]+)(\d+)$", str(name))
     if m:
         return f"{m.group(1)}-C{m.group(2)}"
@@ -173,7 +173,7 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
         output_file = (f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}"
                            f"_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root")
         if detector_label == "JUNO":
-            # Per-shell top-level folder (ORSA layout: juno_inner / juno_outer),
+            # Per-shell top-level folder (juno_inner / juno_outer),
             # bare object names instead of a per-object shell suffix.
             from ..spectra import juno_output_dirname
             jdir = juno_output_dirname(args)
@@ -182,9 +182,26 @@ def plot_fit_residuals_all(s_tot, s_obs, s_signal, bckgs, ndays, args,
             s_tot.WritetoROOT("totalpred", f"{output_file}",
                               directory=f"{jdir}/postfit")
         else:
+            ddir = f"{detector_label.lower()}/postfit"
             s_tot.WritetoROOT(f"totalpred{root_suffix}",
                                  f"{output_file}",
-                                 directory=f"{detector_label.lower()}/postfit")
+                                 directory=ddir)
+            # reactor-only postfit (+ TAO bkg) and efficiency
+            if detector_label == "TAO" and bckgs is not None:
+                bckgs.WritetoROOT(f"bkg{root_suffix}", f"{output_file}", directory=ddir)
+                (s_tot - bckgs).WritetoROOT(f"reactor{root_suffix}", f"{output_file}",
+                                            directory=ddir)
+            elif detector_label == "DYB":
+                s_tot.WritetoROOT(f"reactor{root_suffix}", f"{output_file}",
+                                  directory=ddir)
+            if eff is not None:
+                from .minuit import write_param_dbl
+                f_ = ROOT.TFile(output_file, "update")
+                d_ = f_.GetDirectory(ddir) or f_.mkdir(ddir)
+                d_.cd()
+                write_param_dbl("Efficiency", eff)
+                force_vector_streamers(f_)
+                f_.Close()
 
     os.makedirs("Plots", exist_ok=True)
     bin_centers  = s_tot.bins
@@ -536,8 +553,8 @@ def plot_postfit_summed(shell_results, args,
     if write_output:
         output_file = (f"Postfit_{args.file_prefix}_NO_{args.NMO_opt}"
                        f"_dm2_31_pull_{args.pull_dm2_31}_{args.fit_mode}.root")
-        # The whole-detector sum is a NODA-only diagnostic with no ORSA
-        # equivalent; keep it in a clearly-named top-level folder so it does
+        # The whole-detector sum is a NODA-only diagnostic; keep it in a
+        # clearly-named top-level folder so it does
         # not collide with the per-shell juno_inner / juno_outer dirs.
         sum_dir = "juno_summed" if detector_label == "JUNO" else detector_label.lower()
 
@@ -660,6 +677,8 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 unc=unc_tao, nuisance=nuisance_vals)
             if 'NL_tao0' in tao_params_dict:
                 tao_kwargs['NL_tao'] = [tao_params_dict[f'NL_tao{i}'] for i in range(6)]
+            if 'escale_tao' in tao_params_dict:
+                tao_kwargs['escale_tao'] = tao_params_dict['escale_tao']
             (chi2_tao, _, _s, _st, _, _) = tao_det.chi2_contribution(**tao_kwargs)
 
 
@@ -709,10 +728,64 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         print("  nuis_best:", nuis_best)
         print("  nuis_cov diag:", np.diag(nuis_cov))
 
+    replay_dyb_tao_postfit(m_pre, nuis_best, dyb_det, tao_det, E_segments,
+                           unc_tao, args_juno, args_dyb, args_tao,
+                           ndays_dyb, ndays_tao, dyb_exp, tao_exp, ibd_prefit)
+
+    if args_juno.plot_correlation:
+        _plot_prefit_correlation(m_pre, args_juno)
+
+    return m_pre, nuis_best, nuis_cov
+
+
+class CachedPrefitResult:
+    """Minimal stand-in for the DYB+TAO prefit Minuit object, rebuilt from a
+    prefit cache (values/errors/fval saved by run_minuit_bundled). Supports the
+    attributes the export code uses: .values[name], .errors[name],
+    `name in .parameters`, .fval."""
+    def __init__(self, names, values, errors, fval):
+        self.parameters = list(names)
+        self.values = dict(zip(self.parameters, map(float, values)))
+        self.errors = dict(zip(self.parameters, map(float, errors)))
+        self.fval = float(fval)
+
+
+def write_tao_stages(tao_det, kwargs, args_juno, stage):
+    """Write the step-by-step TAO spectra + parameters to tao/<stage>/."""
+    out = (f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
+           f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root")
+    st, params = tao_det.build_stages(**kwargs)
+    d = f"tao/{stage}"
+    for name in ["unosc", "osc", "osc_wcorr", "snf", "noneq", "dep_noleak",
+                 "dep", "vis", "rec", "reactor", "bkg", "totalpred"]:
+        st[name].WritetoROOT(name, out, directory=d)
+    f = ROOT.TFile(out, "update")
+    dd = f.GetDirectory(d) or f.mkdir(d)
+    dd.cd()
+    for k, v in params.items():
+        if k == "fission_fractions":
+            vec = ROOT.TVectorD(len(v))
+            for i, x in enumerate(v):
+                vec[i] = float(x)
+            vec.Write(k, ROOT.TObject.kOverwrite)
+        else:
+            write_param_dbl(k, float(v))
+    f.Close()
+    if not args_juno.silent_print:
+        s = {k: float(np.sum(st[k].bin_cont)) for k in
+             ["unosc", "osc_wcorr", "dep", "vis", "rec", "reactor", "bkg", "totalpred"]}
+        print(f"[tao-stages] {stage}: " + ", ".join(f"{k}={v:.1f}" for k, v in s.items()))
+
+
+def replay_dyb_tao_postfit(m_pre, nuis_best, dyb_det, tao_det, E_segments,
+                           unc_tao, args_juno, args_dyb, args_tao,
+                           ndays_dyb, ndays_tao, dyb_exp, tao_exp, ibd_prefit):
+    """Re-evaluate DYB/TAO at the prefit best-fit point and write their postfit
+    spectra + residual plots. Works with a live Minuit or a CachedPrefitResult."""
     nbins  =0
     if dyb_det is not None:
         noneq=0.0
-        if len(dyb_start_values):
+        if 'snf_noneq_norm_dyb' in m_pre.parameters:
             noneq = m_pre.values['snf_noneq_norm_dyb']
         chi2_dyb, s_obs_dyb, s_tot_dyb, cm_dyb, ibd_postfit = dyb_det.chi2_contribution(
             nuisance_coarse=nuis_best,
@@ -734,9 +807,23 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
             unc=unc_tao, nuisance=nuis_best)
         if 'NL_tao0' in m_pre.parameters:
             tao_kwargs['NL_tao'] = [m_pre.values[f'NL_tao{i}'] for i in range(6)]
+        if 'escale_tao' in m_pre.parameters:
+            tao_kwargs['escale_tao'] = m_pre.values['escale_tao']
         (chi2_tao, _, s_obs_tao, s_tot_tao, bckg, cm_tao) = \
             tao_det.chi2_contribution(**tao_kwargs)
         nbins += len(s_obs_tao.bins)
+        if args_juno.write_output:
+            nominal = dict(Nrea_tao=0.0, snf_noneq_norm_tao=[0.0, 0.0],
+                           abc_tao=[args_tao.a, args_tao.b, args_tao.c],
+                           core_power_tao=0.0, eff_nuis_tao=0.0, bckg_rate=0.0,
+                           nuisance=[0.0] * len(nuis_best))
+            if 'NL_tao' in tao_kwargs:
+                nominal['NL_tao'] = [0.0] * 6
+            if 'escale_tao' in tao_kwargs:
+                nominal['escale_tao'] = 0.0
+            post = {k: v for k, v in tao_kwargs.items() if k != 'unc'}
+            write_tao_stages(tao_det, nominal, args_juno, "prefit")
+            write_tao_stages(tao_det, post, args_juno, "postfit")
 
     if dyb_det is not None:
         plot_fit_residuals_all(
@@ -751,7 +838,8 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 chi2_value=m_pre.fval,
                 cm=cm_dyb,
                 ndf=nbins -len(E_segments),
-                write_output=args_dyb.write_output
+                write_output=args_dyb.write_output,
+                eff=1.0
             )
 
         ibd_prefit.Plot(
@@ -777,11 +865,13 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
                 chi2_value=chi2_tao,
                 cm=cm_tao,
                 ndf=nbins  - len(E_segments),
-                write_output=args_tao.write_output
+                write_output=args_tao.write_output,
+                eff=args_tao.detector_efficiency * (1 + m_pre.values['eff_nuis_tao'])
             )
 
-    if args_juno.plot_correlation:
-        import re
+
+def _plot_prefit_correlation(m_pre, args_juno):
+    if True:
         corr = np.array(m_pre.covariance.correlation())
 
         labels = list(m_pre.parameters)
@@ -797,8 +887,6 @@ def run_dyb_tao_prefit(dyb_det, tao_det, E_segments, unc_dyb, unc_tao,
         plt.tight_layout()
 
         plt.savefig(f"Plots/corr_{args_juno.file_prefix}_corr_TAO.png", dpi=200)
-
-    return m_pre, nuis_best, nuis_cov
 
 def propagate_nuis_to_reco(juno_det, nuis_best, nuis_cov,
                             sin2_12, sin2_13, dm2_21, dm2_31, me_rho,
@@ -928,6 +1016,30 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 if not args_juno.silent_print:
                     print(f"[bundled] using cached prefit "
                           f"({'C_reco present' if C_reco is not None else 'no C_reco'})")
+                if prefit_cache.get('pre_names') is not None:
+                    m_pre = CachedPrefitResult(prefit_cache['pre_names'],
+                                               prefit_cache['pre_values'],
+                                               prefit_cache['pre_errors'],
+                                               prefit_cache['pre_fval'])
+                    if args_juno.write_output and not toy_quiet:
+                        replay_dyb_tao_postfit(
+                            m_pre, nuis_best,
+                            dyb_bundle.detector if dyb_bundle else None,
+                            tao_bundle.detector if tao_bundle else None,
+                            E_segments,
+                            (tao_bundle.unc_key if tao_bundle else 'all'),
+                            args_juno,
+                            (dyb_bundle.args if dyb_bundle else None),
+                            (tao_bundle.args if tao_bundle else None),
+                            dyb_bundle.detector.ndays if dyb_bundle else 0.0,
+                            tao_bundle.detector.ndays if tao_bundle else 0.0,
+                            dyb_bundle.detector.ensp_nom['rtot'] if dyb_bundle else None,
+                            tao_bundle.detector.ensp_nom['rtot'] if tao_bundle else None,
+                            (dyb_bundle.detector.ensp_nom['ribd'] if dyb_bundle else None))
+                elif not args_juno.silent_print:
+                    print("[bundled] cached prefit has no DYB/TAO best-fit values "
+                          "(old cache) — tao/dyb postfit + nuisances will not be "
+                          "written; regenerate with use_prefit False, save_prefit True")
             else:
                 if tao_bundle is None and dyb_bundle is None:
                     raise ValueError(
@@ -1009,11 +1121,21 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             out_dir  = os.path.dirname(out_path)
             if out_dir:
                 os.makedirs(out_dir, exist_ok=True)
+            extra = {}
+            if m_pre is not None:
+                # full DYB+TAO prefit best fit, so a cached-prefit run can still
+                # write the tao/ and dyb/ postfit spectra + nuisances
+                extra = dict(
+                    pre_names=np.array(list(m_pre.parameters)),
+                    pre_values=np.array([m_pre.values[n] for n in m_pre.parameters]),
+                    pre_errors=np.array([m_pre.errors[n] for n in m_pre.parameters]),
+                    pre_fval=np.array(m_pre.fval))
             np.savez_compressed(
                 out_path,
                 nuis_best=nuis_best,
                 nuis_cov=nuis_cov,
-                C_reco=C_reco if C_reco is not None else np.array([]))
+                C_reco=C_reco if C_reco is not None else np.array([]),
+                **extra)
             if not args_juno.silent_print:
                 print(f"[bundled] saved prefit cache → {out_path}")
 
@@ -1036,6 +1158,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         # A single cached/precomputed C_reco only matches one binning; with
         # several JUNO shells (different binning) recompute per bundle so the
         # external covariance matches each detector's reco-bin count.
+        _seg_reco_covs = {}
         if fit_mode == 'prefit_wosegs':
             multi = len(juno_bundles_all) > 1
             for b in bundles:
@@ -1043,26 +1166,49 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                     continue
                 cov_b = (_compute_C_reco_for(b)
                          if (multi or C_reco is None) else C_reco)
-                # [TEST] optionally replace each shell's reco covariance with an
-                # externally-supplied one (ORSA's DYB_TAO_JUNO_covariance_*.txt),
-                # matched to the shell by bin count. Env-gated, no yaml change.
-                import os as _os
-                _ext_map = {int(_os.environ.get('NODA_EXT_COV_INNER_NBINS', '168')):
-                                _os.environ.get('NODA_EXT_COV_INNER'),
-                            int(_os.environ.get('NODA_EXT_COV_OUTER_NBINS', '84')):
-                                _os.environ.get('NODA_EXT_COV_OUTER')}
-                _n = getattr(cov_b, 'shape', (0,))[0]
-                _ext = _ext_map.get(_n)
-                if _ext:
-                    _O = np.loadtxt(_ext)
-                    if _O.shape == cov_b.shape:
-                        print(f"[EXT-COV] shell nbins={_n}: NODA diag mean="
-                              f"{np.mean(np.diag(cov_b)):.4g} -> ORSA diag mean={np.mean(np.diag(_O)):.4g}; "
-                              f"using {_ext.split('/')[-1]}")
-                        cov_b = _O
-                    else:
-                        print(f"[EXT-COV] shape mismatch {_O.shape} vs {cov_b.shape}; keeping NODA")
                 b.detector.set_external_cov(cov_b)
+                from ..spectra import juno_output_dirname as _jod
+                _seg_reco_covs[_jod(b.args)] = cov_b
+
+        # ── 7b. Write the DYB+TAO segment prefit (best fit, covariance,
+        #    correlation, edges) and each shell's reco-space propagation to a
+        #    top-level segments/ folder. prefit/ stays segment-free (nominal).
+        if args_juno.write_output and nuis_best is not None:
+            from ..spectra import juno_output_dirname
+            _of = (f"Postfit_{args_juno.file_prefix}_NO_{args_juno.NMO_opt}"
+                   f"_dm2_31_pull_{args_juno.pull_dm2_31}_{args_juno.fit_mode}.root")
+            _nb = np.asarray(nuis_best, dtype=float)
+            _cv = np.asarray(nuis_cov, dtype=float)
+            _sd = np.sqrt(np.clip(np.diag(_cv), 0, None))
+            _cr = _cv / np.outer(np.where(_sd > 0, _sd, 1), np.where(_sd > 0, _sd, 1))
+
+            def _tm(a):
+                M = ROOT.TMatrixD(a.shape[0], a.shape[1])
+                for i in range(a.shape[0]):
+                    for j in range(a.shape[1]):
+                        M[i][j] = float(a[i, j])
+                return M
+
+            def _tv(a):
+                V = ROOT.TVectorD(len(a))
+                for i, x in enumerate(a):
+                    V[i] = float(x)
+                return V
+
+            _f = ROOT.TFile(_of, "update")
+            _d = _f.GetDirectory("segments") or _f.mkdir("segments")
+            _d.cd()
+            _tv(np.asarray(args_juno.seg_bins_nonuniform, float)).Write("edges", ROOT.TObject.kOverwrite)
+            _tv(_nb).Write("best", ROOT.TObject.kOverwrite)
+            _tv(_sd).Write("errors", ROOT.TObject.kOverwrite)
+            _tm(_cv).Write("covariance", ROOT.TObject.kOverwrite)
+            _tm(_cr).Write("correlation", ROOT.TObject.kOverwrite)
+            for _b, _C in _seg_reco_covs.items():
+                _tm(np.asarray(_C, float)).Write(f"cov_reco_{_b}", ROOT.TObject.kOverwrite)
+            _f.Close()
+            if not getattr(args_juno, 'silent_print', False):
+                print(f"[segments] wrote best/errors/covariance/correlation "
+                      f"({len(_nb)} segments) + reco covs {list(_seg_reco_covs)}")
 
     # ── 8. Build chi² closure ────────────────────────────────────────────
     chi2_func, names, starts, routing = build_chi2(bundles, policy, args_juno,
@@ -1083,14 +1229,14 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             _chi2_with_penalty.__signature__ = _orig_sig
             chi2_func = _chi2_with_penalty
 
-        # ── 9b. Efficiency inter-shell correlation (ORSA multivariate_gauss) ─
+        # ── 9b. Efficiency inter-shell correlation (covariance prior) ───────
         # Couple the per-shell eff_nuis with a joint Gaussian prior whose
         # covariance Σ has diagonal = eff_unc_shell² and off-diagonal =
         # eff_corr_unc² (the shared "target proton" variance). build_spectrum
         # already emits the per-shell diagonal (eff_nuis/eff_unc)², so here we
         # add only the extra coupling Σ⁻¹ − diag(1/eff_unc²); the net efficiency
         # penalty is then Δ·Σ⁻¹·Δ. Equivalent to a shared target-proton
-        # nuisance, but expressed as a covariance prior like ORSA does.
+        # nuisance, but expressed as a covariance prior.
         if getattr(args_juno, 'eff_corr_split', False):
             juno_bs = [b for b in bundles if b.kind == 'juno']
             eff_mangled, eff_unc = [], []
@@ -1117,7 +1263,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 if not args_juno.silent_print:
                     print(f"[bundled] efficiency inter-shell covariance prior on "
                           f"{eff_mangled}, eff_unc={eff_unc}, off-diag "
-                          f"eff_corr_unc={ecu} (ORSA multivariate_gauss form)")
+                          f"eff_corr_unc={ecu}")
 
         # ── 10. Seed shape-nuisance starts from prefit (both prefit modes) ───
         if is_prefit_mode and nuis_best is not None:
@@ -1235,10 +1381,12 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
         print("Hesse failed?           ", m.fmin.hesse_failed)
 
     # ── 19. ROOT output (postfit) ────────────────────────────────────────
+    # Output names and layout follow the ORSA export so the two fitters'
+    # files compare directly.
     output_file = None
     # Per-JUNO-bundle ROOT folders: id(bundle) -> (juno_dir, nuisances, postfit).
     # Each shell gets its OWN self-contained top-level juno_<shell> folder
-    # (ORSA layout) carrying the FULL nuisance set, so shared parameters are
+    # carrying the FULL nuisance set, so shared parameters are
     # duplicated with identical values across shells.
     juno_shell_dirs = {}
     from ..spectra import juno_output_dirname
@@ -1270,7 +1418,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
             # Each shell's full nuisance set is written into its OWN
             # juno_<shell>/nuisances folder with bare names; shared parameters
             # (same mangled Minuit name across bundles) are duplicated into
-            # every shell folder with identical values (ORSA convention).
+            # every shell folder with identical values.
             print("************Background rates************")
             multi = len(juno_bundles_all) > 1
 
@@ -1322,8 +1470,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                         print(f"{tag_pre}{key}: {rf:.4f} ± {rate_err:.4f} cpd "
                               f"(rel unc: {rate_err/rf:.3%}; deviation: {dev:.2f} σ)")
 
-            # ROOT nuisance write — per shell, unchanged (ORSA convention: shared
-            # params are duplicated identically into each shell folder).
+            # ROOT nuisance write — per shell (shared params are duplicated
+            # identically into each shell folder).
             if args_juno.write_output:
                 for b in juno_bundles_all:
                     _, dir_nuis, _ = juno_shell_dirs[id(b)]
@@ -1503,7 +1651,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                                         NL_pulls=tao_NL).Write("", ROOT.TObject.kOverwrite)
                     _build_resolution_graph(*tao_abc).Write("", ROOT.TObject.kOverwrite)
 
-        if args_juno.write_output and args_juno.fit_type == "PMOP_combined" and not args_juno.use_prefit:
+        if (args_juno.write_output and args_juno.fit_type == "PMOP_combined"
+                and (fit_mode == 'combined' or m_pre is not None)):
             dyb_dir = output_file.GetDirectory("dyb") or output_file.mkdir("dyb")
             dyb_dir.cd()
             dir_nuis_dyb = dyb_dir.GetDirectory("nuisances") or dyb_dir.mkdir("nuisances")
@@ -1514,8 +1663,8 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 else:
                     write_parameter(f"rea_shape_f{i}", m.values[f"nuis{i}"], m.errors[f"nuis{i}"])
 
-        # ── TAO nuisances (tao/nuisances) — ORSA convention: TVectorD(2) of
-        #    [pull, err] in prior-σ units, same names as the ORSA export ────────
+        # ── TAO nuisances (tao/nuisances): TVectorD(2) of [pull, err] in
+        #    prior-σ units ──────────────────────────────────────────────────
         if (args_juno.write_output and use_tao and tao_bundle is not None
                 and args_juno.fit_type == "PMOP_combined"):
             args_tao_w = tao_bundle.detector.args
@@ -1546,6 +1695,10 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 tao_export += ([(f"a{i}", f"NL_tao{i}", 0.0, args_tao_w.NL_sd)
                                 for i in range(5)]
                                + [("LY", "NL_tao5", 0.0, args_tao_w.ene_scale_unc)])
+            else:
+                # baked-in leakage: the energy scale is the escale_tao pull
+                # (σ = ene_scale_unc), exported as "LY"
+                tao_export += [("LY", "escale_tao", 0.0, args_tao_w.ene_scale_unc)]
             tao_export += [("a", "abc_tao0", args_tao_w.a, args_tao_w.a_err),
                            ("b", "abc_tao1", args_tao_w.b, args_tao_w.b_err),
                            ("c", "abc_tao2", args_tao_w.c, args_tao_w.c_err)]
@@ -1562,7 +1715,7 @@ def run_minuit_bundled(bundles, policy, args_juno, *,
                 for tag, pname, nominal, sigma in tao_export:
                     val, err = fetched[tag]
                     write_parameter(tag, (val - nominal) / sigma, err / sigma)
-                # segment (shape) nuisances, mirrored here like in the ORSA file
+                # segment (shape) nuisances, mirrored here
                 for i in range(n_nuis):
                     if fit_mode == 'prefit_wosegs' and m_pre is not None:
                         write_parameter(f"rea_shape_f{i}",

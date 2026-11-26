@@ -35,6 +35,15 @@ def parse():
                         "(columns: true_dm31, TS_obs)")
     p.add_argument("--t-obs-nmo", type=float, default=None,
                help="Observed T_nmo = chi2_IO - chi2_NO from your dataset")
+    p.add_argument("--coverage", action="store_true",
+               help="Print FC coverage report for the dm31 toys (split-sample "
+                    "+ Wilks), alongside the usual outputs.")
+    p.add_argument("--wilks", type=float, default=1.0,
+               help="Fixed asymptotic threshold for the Wilks-coverage column "
+                    "(1.0 = 1 sigma). Used by --coverage.")
+    p.add_argument("--cov-nrep", type=int, default=200,
+               help="Random 50/50 splits averaged per grid point in the "
+                    "split-sample coverage (--coverage).")
     return p.parse_args()
 
 
@@ -405,6 +414,90 @@ def plot_nmo_gaussian_comparison(df: pd.DataFrame, out_dir: str):
     print(f"[FC] saved {os.path.join(out_dir, 'fc_nmo_gaussian_comparison.png')}")
 
 
+def coverage_report(df: pd.DataFrame, out_dir: str, cl: float = 0.6827,
+                    wilks: float = 1.0, nrep: int = 200, seed: int = 0):
+    """
+    Coverage of the dm31 FC intervals from the toy ensemble itself.
+
+    A toy generated at true mu is covered iff TS_dm31 < crit(mu), so coverage at
+    a grid point is mean(TS_dm31 < crit(mu)) over toys thrown at mu. Three
+    flavours are reported:
+
+      self   : crit = CL-quantile of the SAME toys  -> equals CL by construction
+               (a pipeline sanity check, NOT a real coverage measurement)
+      split  : crit from a random HALF, coverage on the OTHER half, averaged over
+               `nrep` splits -> the genuine finite-statistics coverage check;
+               should land on CL within the binomial error
+      wilks  : crit = `wilks` (fixed asymptotic threshold) -> how much the naive
+               profile interval under/over-covers (<CL means under-coverage,
+               which is what FC corrects)
+
+    Only checks coverage AT the grid points thrown; between-node coverage depends
+    on the belt interpolation and is not tested here.
+    """
+    sub = df[df['mode'] == 'dm31'].copy()
+    valid = sub[(sub['free_valid'] == 1) & (sub['fix_valid'] == 1)
+                & (sub['TS_dm31'] >= 0) & np.isfinite(sub['TS_dm31'])]
+    if valid.empty:
+        print("[FC] no valid dm31 toys — skipping coverage report")
+        return
+
+    rng = np.random.default_rng(seed)
+    print("\n" + "=" * 78)
+    print(f"{'FC COVERAGE REPORT (dm31)':^78}")
+    print("=" * 78)
+    hdr = (f"{'grid':>8} {'NO':>3} {'n':>6} {'crit_CL':>7} "
+           f"{'self':>6} {'split':>15} {'wilks<%.1f' % wilks:>10}")
+    print(hdr); print("-" * len(hdr))
+
+    rows, pooled_hits = [], []
+    for (dm, no), g in valid.groupby(['true_dm31', 'true_NO']):
+        # IO grid points are stored with a positive true_dm31; sign it for display
+        dm_disp = dm if no else -abs(dm)
+        ts = g['TS_dm31'].values
+        n  = len(ts)
+        crit_self = float(np.quantile(ts, cl))
+        self_cov  = float(np.mean(ts < crit_self))     # == cl by construction
+
+        if n >= 4:
+            splits = np.empty(nrep)
+            for r in range(nrep):
+                idx = rng.permutation(n); h = n // 2
+                crit_tr   = np.quantile(ts[idx[:h]], cl)
+                test      = ts[idx[h:]]
+                splits[r] = np.mean(test < crit_tr)
+                if r == 0:
+                    pooled_hits.append(test < crit_tr)
+            split_mean, split_sd = float(splits.mean()), float(splits.std())
+        else:
+            split_mean = split_sd = float('nan')       # too few toys to split
+
+        wilks_cov = float(np.mean(ts < wilks))
+        print(f"{dm_disp:8.3f} {int(no):3d} {n:6d} {crit_self:7.3f} "
+              f"{self_cov:6.3f} {split_mean:6.3f}±{split_sd:5.3f} {wilks_cov:10.3f}")
+        rows.append({'true_dm31': dm_disp, 'true_NO': int(no), 'n_toys': n,
+                     'crit_CL': crit_self, 'cov_self': self_cov,
+                     'cov_split': split_mean, 'cov_split_err': split_sd,
+                     'cov_wilks': wilks_cov})
+
+    print("-" * len(hdr))
+    if pooled_hits:
+        allh = np.concatenate(pooled_hits)
+        p    = float(allh.mean())
+        err  = float(np.sqrt(p * (1 - p) / len(allh)))
+        verdict = ("consistent with nominal within 2 sigma"
+                   if abs(p - cl) <= 2 * err else "DEVIATES from nominal by >2 sigma")
+        print(f"[FC] pooled split-sample coverage @ CL={cl:.4f}: "
+              f"{p:.4f} +/- {err:.4f}  (target {cl:.4f}, N={len(allh)}) -> {verdict}")
+    else:
+        print("[FC] not enough toys per grid point for a split-sample estimate")
+    print("=" * 78)
+
+    out_csv = os.path.join(out_dir, "fc_coverage.csv")
+    pd.DataFrame(rows).to_csv(out_csv, index=False)
+    print(f"[FC] saved {out_csv}")
+
+
 def main():
     args = parse()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -417,6 +510,10 @@ def main():
         analyze_nmo_significance(df, args.output_dir, T_obs=args.t_obs_nmo)
     if args.observed_root:
         plot_fc_interval(df, args.observed_root, cls, args.output_dir)
+    if args.coverage:
+        # Use the first requested CL for the coverage target (default 68.27%).
+        coverage_report(df, args.output_dir, cl=cls[0],
+                        wilks=args.wilks, nrep=args.cov_nrep)
     print(f"[FC] done — outputs in {args.output_dir}")
 
 

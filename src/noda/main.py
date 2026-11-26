@@ -640,7 +640,7 @@ def main(argv=None):
 
     # ── locate the config file ───────────────────────────────────────────
     conf_parser = argparse.ArgumentParser(add_help=False)
-    conf_parser.add_argument('--config', default='config/groupA_paperconfig.yaml',
+    conf_parser.add_argument('--config', default='config/legacy/groupA_paperconfig.yaml',
                              help='Path to config file or manifest YAML')
     conf_parser.add_argument('--base_path', default=None,
                              help='Root of the NODA tree, substituted for '

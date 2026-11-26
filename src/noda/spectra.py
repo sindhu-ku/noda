@@ -204,6 +204,49 @@ def _apply_full_energy_response(spec, args, ensp, resp_matrix, s_ibd):
     return s.ApplyDetResp(resp_matrix, pecrop=args.ene_crop)
 
 
+def _build_per_core_steps(ensp, args, resp_matrix, s_ibd, core_names,
+                          core_baselines, core_powers, dm2_31):
+    """Per-core reactor spectra at every step of the JUNO chain, mirroring the
+    total-spectrum names written in <shell>/prefit:
+
+      unosc      IBD-weighted flux (true E), per-core rfis_core{i}
+      osc        oscillated at the core's own baseline
+      osc_wcorr  osc + oscillated SNF + non-eq (true E)
+      unosc_dep  unosc after positron energy shift (deposited)
+      dep        osc after positron energy shift
+      vis        dep after non-linearity
+      snf, noneq SNF / non-eq corrections after the full response (reco)
+      rec        vis ⊗ response + snf + noneq (+ OEC), fine reco binning
+      reactor    rec rebinned to the analysis binning
+    Sum over cores of `reactor` reproduces the total prefit `reactor`.
+    Returns {core_name: {step: Spectrum}}."""
+    out = {}
+    for i, name in enumerate(core_names):
+        unosc = ensp[f"rfis_core{i}"]
+        osc = unosc.GetOscillated(
+            L=[core_baselines[i]], core_powers=[core_powers[i]],
+            me_rho=args.me_rho, ene_mode="true", args=args, dm2_31=dm2_31)
+        snf_f, neq_f = ensp[f"snf_final_core{i}"], ensp[f"noneq_final_core{i}"]
+        dep = _apply_positron_energy(osc, args, s_ibd=s_ibd)
+        vis = _apply_nonlinearity(dep, args, ensp)
+        rec = vis.ApplyDetResp(resp_matrix, pecrop=args.ene_crop) + snf_f + neq_f
+        _apply_oec_correction(rec, args, label="reactor")
+        reactor = rec.Copy()
+        if args.rebin_nonuniform:
+            reactor.Rebin_nonuniform(args.bins_nonuniform)
+        out[name] = {
+            "unosc": unosc, "osc": osc,
+            "osc_wcorr": osc + ensp[f"snf_osc_core{i}"] + ensp[f"noneq_osc_core{i}"],
+            "unosc_dep": _apply_positron_energy(unosc, args, s_ibd=s_ibd),
+            "dep": dep, "vis": vis, "snf": snf_f, "noneq": neq_f,
+            "rec": rec, "reactor": reactor,
+        }
+    tot = sum(v["reactor"].GetIntegral() for v in out.values())
+    print(f"[per_core] {len(out)} cores; sum of per-core reactor = {tot:.3f} "
+          f"(total prefit reactor = {ensp['rdet'].GetIntegral():.3f})")
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Response matrix
 # ---------------------------------------------------------------------------
@@ -423,6 +466,12 @@ def _build_snf_noneq_corrections_per_core(ensp, args, ndays, ebins, core_fractio
         ensp["snf_final"]   += final_snf_i
         ensp["noneq_final"] += final_noneq_i
 
+        # keep per-core pieces for the per-core step-by-step prefit export
+        ensp[f"snf_osc_core{i}"]     = s_osc
+        ensp[f"noneq_osc_core{i}"]   = n_osc
+        ensp[f"snf_final_core{i}"]   = final_snf_i
+        ensp[f"noneq_final_core{i}"] = final_noneq_i
+
         group_label = _core_group(i)[0]   # "YJ", "TS", or "HM"
         ensp[f"snf_{group_label}"]   += final_snf_i
         ensp[f"noneq_{group_label}"] += final_noneq_i
@@ -534,6 +583,17 @@ def _build_snf_noneq_simple(ensp, args, ebins, detector, resp_matrix, s_ibd, ene
 
     if detector == "DYB":
         ensp["noneq"] = ensp["noneq"].GetScaledFit(0.0071 / 0.0065)
+
+    if detector == "TAO":
+        # Suppression of the TAO non-eq correction (fit_options tao_noneq_scale,
+        # code default 1.0). Standard: 0.15 = final recommendation, the
+        # livetime-weighted suppression (26d*(0.96*0.03+0.03*0.9)+5d*0.75)/31d;
+        # 0.75 applies only to the last 5 reactor-off days, when the fuel was
+        # moved 43 m -> ~80 m to the SNF pool. Same value as ORSA.
+        tao_noneq_scale = float(getattr(args, "tao_noneq_scale", 1.0))
+        if tao_noneq_scale != 1.0:
+            print(f"[TAO] scaling non-eq correction by {tao_noneq_scale}")
+            ensp["noneq"] = ensp["noneq"].GetScaledFit(tao_noneq_scale)
 
     del ensp["snf0"], ensp["noneq0"]
 
@@ -909,8 +969,8 @@ def _print_juno_event_summary(ev):
 
 def _build_nl_graph(ensp, args, kB=None, fC=None, kI=None, LY_shared=None,
                     NL_pulls=None):
-    """Positron NL curve (Evis/Edep vs Edep), same convention as the ORSA
-    export (<det>/response/<stage>/nl_positron): Geant4 model anchored to the
+    """Positron NL curve (Evis/Edep vs Edep), exported as
+    <det>/response/<stage>/nl_positron: Geant4 model anchored to the
     2.224589 MeV gamma.  Parameters default to the pre-fit nominals.
 
     In pull mode, *NL_pulls* = [p0, …, p_{k-1}, LY_pull] gives the post-fit
@@ -954,24 +1014,25 @@ def _build_resolution_graph(a, b, c):
     return graph
 
 
-# Map NODA shell labels to the ORSA-convention top-level JUNO directory name.
-# Extend this when new shells are added.
-_ORSA_JUNO_DIR = {'S-15': 'juno_inner', 'S-15-172': 'juno_outer'}
+# Map NODA shell labels to the top-level JUNO directory name in the output
+# ROOT file. Output names and layout follow the ORSA export so the two
+# fitters' files compare directly. Extend this when new shells are added.
+_SHELL_DIR = {'S-15': 'juno_inner', 'S-15-172': 'juno_outer'}
 
 
 def juno_output_dirname(args):
     """Top-level JUNO ROOT directory for this dataset.
 
     A single-shell run keeps the legacy bare ``juno``.  A multi-shell run maps
-    each shell to its own self-contained top-level folder following the ORSA
-    convention (``juno_inner`` / ``juno_outer``), falling back to
+    each shell to its own self-contained top-level folder
+    (``juno_inner`` / ``juno_outer``), falling back to
     ``juno_<shell>`` for shell labels not in the map.  The multi-shell signal
     is the per-dataset ``root_suffix`` carrying a shell component (``__s``)."""
     sfx = getattr(args, 'root_suffix', '')
     if '__s' not in sfx:
         return 'juno'
     shell = str(getattr(args, 'shell', ''))
-    return _ORSA_JUNO_DIR.get(shell, f"juno_{shell}")
+    return _SHELL_DIR.get(shell, f"juno_{shell}")
 
 
 def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
@@ -980,7 +1041,7 @@ def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     jdir = juno_output_dirname(args)            # 'juno' | 'juno_inner' | 'juno_outer'
     output_file = ROOT.TFile(tag, "update")
 
-    # Each shell writes its OWN top-level juno_<shell> directory (ORSA layout)
+    # Each shell writes its OWN top-level juno_<shell> directory
     # with bare object names. get-or-create: in "update" mode the dir may
     # already exist from a previous write, and TDirectory.mkdir() returns null
     # for an existing directory (which would crash on .cd()).
@@ -1019,11 +1080,26 @@ def _write_juno_output(ensp, ndays, args, backgrounds, s_ibd=None):
     ensp["rvis"].WritetoROOT("vis", tag, f"{jdir}/prefit")
     ensp["rdet_fine"].WritetoROOT("rec", tag, f"{jdir}/prefit")
     ensp["rdet"].WritetoROOT("reactor", tag, f"{jdir}/prefit")
+    for core, steps in ensp.get("per_core_steps", {}).items():
+        for step, spec in steps.items():
+            spec.WritetoROOT(step, tag, f"{jdir}/prefit/per_core/{core}")
     ensp["rtot"].WritetoROOT("totalpred", tag, f"{jdir}/prefit")
     for key in backgrounds["JUNO"]:
         ensp[key].WritetoROOT(f"{key}", tag, f"{jdir}/prefit")
     if args.is_data: ensp["data"].WritetoROOT("data", tag, jdir)
 
+
+
+def _write_params(tag, directory, params):
+    """Write TParameter<double>s into <directory> of the output ROOT file."""
+    from .fit.minuit import write_param_dbl
+    f = ROOT.TFile(tag, "update")
+    d = f.GetDirectory(directory) or f.mkdir(directory)
+    d.cd()
+    for k, v in params.items():
+        write_param_dbl(k, float(v))
+    force_vector_streamers(f)
+    f.Close()
 
 
 def _write_dyb_output(ensp, args, backgrounds):
@@ -1036,6 +1112,8 @@ def _write_dyb_output(ensp, args, backgrounds):
     output_file.Close()
 
     ensp["rdet"].WritetoROOT("totalpred", tag, "dyb/prefit")
+    ensp["rdet"].WritetoROOT("reactor", tag, "dyb/prefit")   # reactor only (no bkg)
+    _write_params(tag, "dyb/prefit", {"Efficiency": 1.0})
     if args.is_data: ensp["data"].WritetoROOT("data", tag, "dyb")
 
 
@@ -1056,8 +1134,10 @@ def _write_tao_output(ensp, args, backgrounds):
     output_file.Close()
 
     ensp["rtot"].WritetoROOT("totalpred", tag, "tao/prefit")
-    ensp["bckg"].WritetoROOT("bckg", tag, "tao/prefit")
+    ensp["bckg"].WritetoROOT("bkg", tag, "tao/prefit")       # (was "bckg")
     ensp["rdet"].WritetoROOT("reactor", tag, "tao/prefit")
+    _write_params(tag, "tao/prefit", {"Efficiency": args.detector_efficiency})
+    _write_params(tag, "tao", {"LivetimeDays": float(str(args.stat_opt).replace("days", ""))})
     if args.is_data: ensp["data"].WritetoROOT("data", tag, "tao")
 # ---------------------------------------------------------------------------
 # Main entry point
@@ -1218,6 +1298,16 @@ def CreateSpectra(ndays=10, ebins=None, detector="JUNO", s_ibd=None, s_bump_lin=
     ensp['rdet_fine'] = ensp['rdet']
     if args.rebin_nonuniform:
         ensp["rdet"].Rebin_nonuniform(args.bins_nonuniform)
+
+    # Per-core step-by-step reactor spectra (JUNO, per-core reactor path) for
+    # bin-by-bin comparisons. Written by _write_juno_output under
+    # <shell>/prefit/per_core/<core>/. Toggle with fit_options write_per_core.
+    if (detector == "JUNO" and "snf_final_core0" in ensp
+            and getattr(args, "write_output", False)
+            and bool(getattr(args, "write_per_core", True))):
+        ensp["per_core_steps"] = _build_per_core_steps(
+            ensp, args, resp_matrix, s_ibd, core_names, core_baselines,
+            core_powers, dm2_31)
 
 
     # ------------------------------------------------------------------

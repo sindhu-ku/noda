@@ -164,6 +164,9 @@ def call_detector_chi2(b: DetectorBundle, mapping: dict[str, str],
         # NL is a fit nuisance only when it is NOT baked into the leakage matrix.
         if not getattr(b.detector.args, 'nl_in_leak', False):
             tao_kwargs['NL_tao'] = [g(f'NL_tao{i}') for i in range(6)]
+        else:
+            # energy-scale nuisance (visible→reco) in the baked-in-leakage mode
+            tao_kwargs['escale_tao'] = g('escale_tao')
         return float(b.detector.chi2_contribution(**tao_kwargs)[0])
 
     if b.kind == 'dyb':

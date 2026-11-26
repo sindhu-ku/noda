@@ -4,3 +4,7 @@
 *checkpoint*
 *pyc
 *__pycache__/
+
+# config backups and notebook checkpoints (moved out of config/standard + legacy)
+config/.backups/
+config/**/*.bak*
